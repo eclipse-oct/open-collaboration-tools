@@ -1,0 +1,25 @@
+<!-- src/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Editor</title>
+</head>
+<body>
+    <div id="container" style="width:800px;height:600px;"></div>
+    <div>
+        <button id="create">Create Room</button>
+        <input type="text" id="token" readonly>
+        <input type="text" id="room" placeholder="Room Number">
+        <button id="join">Join Room</button>
+    </div>
+    <div>
+        <button id="login">Login</button>
+        <div id="user"></div>
+    </div>
+    <script type="module">
+        import "./src/example.ts"
+    </script>
+</body>
+</html>

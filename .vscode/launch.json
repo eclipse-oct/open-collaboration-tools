@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Launch Chrome",
+            "request": "launch",
+            "type": "chrome",
+            "url": "http://localhost:5173/",
+            "webRoot": "${workspaceFolder}/packages/open-collaboration-monaco",
+        },
+        {
             "type": "node",
             "request": "launch",
             "name": "Launch Server",
