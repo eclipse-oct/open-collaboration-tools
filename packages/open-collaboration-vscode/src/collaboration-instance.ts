@@ -271,7 +271,10 @@ export class CollaborationInstance implements vscode.Disposable {
                     name: vscode.workspace.name ?? 'Collaboration',
                     folders: roots.map(e => e.name)
                 }
-            } : undefined;
+            } : {
+                accessGranted: false,
+                reason: 'Access denied'
+            };
         });
         connection.peer.onInit(async (_, initData) => {
             await this.initialize(initData);
