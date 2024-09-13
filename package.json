@@ -27,18 +27,18 @@
     "@vitest/ui": "~3.0.8",
     "concurrently": "^8.2.1",
     "esbuild": "~0.25.1",
+    "editorconfig": "^2.0.0",
     "eslint": "^8.57.0",
     "eslint-plugin-header": "^3.1.1",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-unused-imports": "^3.2.0",
-    "editorconfig": "^2.0.0",
     "shx": "^0.3.4",
     "tsx": "~4.19.3",
     "typescript": "^5.5.2",
     "vitest": "~3.0.8"
   },
   "overrides": {
-   "@types/node": "^18.11.9"
+    "@types/node": "^18.11.9"
   },
   "volta": {
     "node": "22.14.0",
