@@ -1,4 +1,10 @@
-import { Deferred, DisposableCollection, ProtocolBroadcastConnection } from "open-collaboration-protocol";
+// ******************************************************************************
+// Copyright 2024 TypeFox GmbH
+// This program and the accompanying materials are made available under the
+// terms of the MIT License, which is available in the project root.
+// ******************************************************************************
+
+import { Deferred, DisposableCollection, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import * as Y from 'yjs';
 import * as monaco from 'monaco-editor';
 import * as awarenessProtocol from 'y-protocols/awareness';
@@ -6,7 +12,7 @@ import * as types from 'open-collaboration-protocol';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import { createMutex } from 'lib0/mutex';
 import debounce from 'lodash/debounce';
-import { MonacoCollabCallbacks } from "./monaco-api";
+import { MonacoCollabCallbacks } from './monaco-api';
 
 export interface Disposable {
     dispose(): void;
@@ -24,7 +30,7 @@ type PeerDecorationOptions = {
 export class DisposablePeer implements Disposable {
 
     readonly peer: types.Peer;
-    private disposables:  Disposable[] = [];
+    private disposables: Disposable[] = [];
     private yjsAwareness: awarenessProtocol.Awareness;
 
     readonly decoration: PeerDecorationOptions;
@@ -83,7 +89,7 @@ export class DisposablePeer implements Disposable {
             inlineClassName: cursorClassName,
             content: 'ᛙ'
         };
-        const beforeNameTag = this.createNameTag('default', colorCss, 'top: -1rem;')
+        const beforeNameTag = this.createNameTag('default', colorCss, 'top: -1rem;');
         const beforeInvertedNameTag = this.createNameTag('inverted', colorCss, 'bottom: -1rem;');
 
         return {
@@ -101,7 +107,7 @@ export class DisposablePeer implements Disposable {
                 default: beforeNameTag,
                 inverted: beforeInvertedNameTag
             }
-        }
+        };
     }
 
     private createNameTag(prefix: string, color: string, textPosition?: string): monaco.editor.IModelDecorationOptions {
@@ -124,7 +130,7 @@ export class DisposablePeer implements Disposable {
         const options: monaco.editor.InjectedTextOptions = {
             content: this.peer.name,
             inlineClassName
-        }
+        };
         const css = `.${className} {
             background-color: ${color};
         }`;
@@ -265,15 +271,11 @@ export class CollaborationInstance implements Disposable {
         connection.peer.onJoinRequest(async (_, user) => {
             const result = await this.options.callbacks.onUserRequestsAccess(user);
             return result ? {
-                accessGranted: true,
                 workspace: {
                     name: 'Collaboration ' + this.roomToken,
                     folders: []
                 }
-            } : {
-                accessGranted: false,
-                reason: 'Access denied'
-            };
+            } : undefined;
         });
         connection.room.onJoin(async (_, peer) => {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
@@ -345,7 +347,7 @@ export class CollaborationInstance implements Disposable {
 
     private registerEditorEvents() {
         const text = this.options.editor.getModel();
-        if(text) {
+        if (text) {
             this.registerTextDocument(text);
         }
 
@@ -354,7 +356,7 @@ export class CollaborationInstance implements Disposable {
         // }));
 
         this.toDispose.push(this.options.editor.onDidChangeModelContent(event => {
-            if(text) {
+            if (text) {
                 this.updateTextDocument(event, text);
             }
         }));
@@ -378,7 +380,7 @@ export class CollaborationInstance implements Disposable {
 
         let awarenessTimeout: NodeJS.Timeout | undefined;
 
-        let awarenessDebounce = debounce(() => {
+        const awarenessDebounce = debounce(() => {
             this.rerenderPresence();
         }, 2000);
 
@@ -394,7 +396,7 @@ export class CollaborationInstance implements Disposable {
 
     followUser(id?: string) {
         this._following = id;
-        if(id) {
+        if (id) {
             this.updateFollow();
         }
     }
@@ -429,7 +431,7 @@ export class CollaborationInstance implements Disposable {
     protected updateTextSelection(editor: monaco.editor.IStandaloneCodeEditor): void {
         const document = editor.getModel();
         const selections = editor.getSelections();
-        if(!document || !selections) {
+        if (!document || !selections) {
             return;
         }
         const uri = document.uri;
@@ -608,7 +610,7 @@ export class CollaborationInstance implements Disposable {
                 console.log('Selection direction', this.options.host, selection.direction);
                 const startIndex = Y.createAbsolutePositionFromRelativePosition(selection.start, this.yjs);
                 const endIndex = Y.createAbsolutePositionFromRelativePosition(selection.end, this.yjs);
-                console.log()
+                console.log();
                 if (model && startIndex && endIndex) {
                     const start = model.getPositionAt(startIndex.index);
                     const end = model.getPositionAt(endIndex.index);
@@ -625,7 +627,7 @@ export class CollaborationInstance implements Disposable {
                         afterRanges.push(range);
                         if (nameTagVisible) {
                             const endRange: monaco.IRange = {
-                                startLineNumber:end.lineNumber,
+                                startLineNumber: end.lineNumber,
                                 startColumn: end.column,
                                 endLineNumber: end.lineNumber,
                                 endColumn: end.column
@@ -639,7 +641,8 @@ export class CollaborationInstance implements Disposable {
                                 startLineNumber: start.lineNumber,
                                 startColumn: start.column,
                                 endLineNumber: start.lineNumber,
-                                endColumn: start.column};
+                                endColumn: start.column
+                            };
                             (inverted ? beforeInvertedNameTags : beforeNameTags).push(startRange);
                         }
                     }
@@ -675,7 +678,7 @@ export class CollaborationInstance implements Disposable {
     }
 
     private setDecorations(peer: DisposablePeer, decorations: monaco.editor.IModelDeltaDecoration[]): void {
-        if(this.decorations.has(peer)) {
+        if (this.decorations.has(peer)) {
             this.decorations.get(peer)?.set(decorations);
         } else {
             this.decorations.set(peer, this.options.editor.createDecorationsCollection(decorations));

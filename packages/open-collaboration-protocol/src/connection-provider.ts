@@ -84,12 +84,6 @@ export class ConnectionProvider {
         return this.userAuthToken;
     }
 
-    protected userData?: types.User;
-
-    get user(): types.User | undefined {
-        return this.userData;
-    }
-
     protected getUrl(path: string): string {
         // Remove trailing slashes from the base URL
         let url = this.options.url;

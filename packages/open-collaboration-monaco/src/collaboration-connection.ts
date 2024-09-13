@@ -1,12 +1,18 @@
-import { ConnectionProvider, CreateRoomResponse, JoinResponse, JoinRoomResponse } from "open-collaboration-protocol";
-import { CollaborationInstance } from "./collaboration-instance";
-import { MonacoCollabCallbacks } from "./monaco-api";
+// ******************************************************************************
+// Copyright 2024 TypeFox GmbH
+// This program and the accompanying materials are made available under the
+// terms of the MIT License, which is available in the project root.
+// ******************************************************************************
+
+import { ConnectionProvider, CreateRoomResponse, JoinRoomResponse, stringifyError } from 'open-collaboration-protocol';
+import { CollaborationInstance } from './collaboration-instance';
+import { MonacoCollabCallbacks } from './monaco-api';
 import * as monaco from 'monaco-editor';
 
-export async function login (connectionProvider: ConnectionProvider): Promise<void> {
+export async function login(connectionProvider: ConnectionProvider): Promise<void> {
     const valid = await connectionProvider.validate();
     if (!valid) {
-        await connectionProvider.login();
+        await connectionProvider.login({});
     }
 }
 
@@ -14,7 +20,7 @@ export async function createRoom(connectionProvider: ConnectionProvider, callbac
     if (!connectionProvider) {
         return undefined;
     }
-    const roomClaim = await connectionProvider.createRoom();
+    const roomClaim = await connectionProvider.createRoom({});
     if (roomClaim.loginToken) {
         const userToken = roomClaim.loginToken;
         console.log('User Token:', userToken);
@@ -26,35 +32,28 @@ export async function createRoom(connectionProvider: ConnectionProvider, callbac
     return await connectToRoom(connectionProvider, roomClaim, true, callbacks, editor);
 }
 
-export async function joinRoom(connectionProvider: ConnectionProvider, callbacks: MonacoCollabCallbacks, editor: monaco.editor.IStandaloneCodeEditor, roomId?: string): Promise<JoinResponse | undefined> {
+export async function joinRoom(connectionProvider: ConnectionProvider, callbacks: MonacoCollabCallbacks, editor: monaco.editor.IStandaloneCodeEditor, roomId?: string): Promise<undefined | {message: string}> {
     if (!roomId) {
         console.log('No room ID provided');
         // TODO show input box to enter the room ID
         // roomId = await vscode.window.showInputBox({ placeHolder: 'Enter the room ID' })
     }
     if (roomId && connectionProvider) {
-        const roomClaim = await connectionProvider.joinRoom(roomId);
-        if(roomClaim.accessGranted === false) {
-            console.log('Access denied:', roomClaim.reason);
-            // TODO show notification with the reason
-            return {
-                    accessGranted: false,
-                    reason: roomClaim.reason
-            };
-        }
-        const instance = await connectToRoom(connectionProvider, roomClaim, false, callbacks, editor);
-        if (!instance) {
-            console.log('No collaboration instance found');
+        try {
+            const roomClaim = await connectionProvider.joinRoom({roomId});
+            const instance = await connectToRoom(connectionProvider, roomClaim, false, callbacks, editor);
+            if (!instance) {
+                console.log('No collaboration instance found');
+                return;
+            }
+            const workspace = roomClaim.workspace;
+            console.log('Workspace:', workspace);
             return;
+        } catch (error) {
+            return {message: stringifyError(error)};
         }
-        const workspace = roomClaim.workspace;
-        console.log('Workspace:', workspace);
-        return {
-            accessGranted: true,
-            workspace: workspace
-        };
     }
-    return;
+    return {message: 'No room ID provided'};
 }
 
 async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: CreateRoomResponse | JoinRoomResponse, isHost: boolean, callbacks: MonacoCollabCallbacks, editor: monaco.editor.IStandaloneCodeEditor) {
