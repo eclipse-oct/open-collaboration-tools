@@ -1,3 +1,9 @@
+// ******************************************************************************
+// Copyright 2024 TypeFox GmbH
+// This program and the accompanying materials are made available under the
+// terms of the MIT License, which is available in the project root.
+// ******************************************************************************
+
 import * as monaco from 'monaco-editor';
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
 import { CollaborationInstance } from './collaboration-instance';
@@ -9,10 +15,10 @@ let userToken: string | undefined;
 let instance: CollaborationInstance | undefined;
 
 export type MonacoCollabCallbacks = {
-        onRoomCreated?: (roomToken: string) => void;
-        onRoomJoined?: (roomToken: string) => void;
-        onUserRequestsAccess: (user: types.User) => Promise<boolean>;
-        onUsersChanged: () => void;
+    onRoomCreated?: (roomToken: string) => void;
+    onRoomJoined?: (roomToken: string) => void;
+    onUserRequestsAccess: (user: types.User) => Promise<boolean>;
+    onUsersChanged: () => void;
 }
 
 export type MonacoCollabOptions = {
@@ -24,8 +30,8 @@ export type MonacoCollabOptions = {
 
 export type MonacoCollabApi = {
     createRoom: () => Promise<CollaborationInstance | undefined>
-    joinRoom: (roomToken: string) => Promise<types.JoinResponse | undefined>
-    login: () => Promise<types.User | undefined>
+    joinRoom: (roomToken: string) => Promise<undefined | {message: string}>
+    login: () => Promise<string | undefined>
 }
 
 export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, options: MonacoCollabOptions): MonacoCollabApi {
@@ -40,7 +46,7 @@ export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, option
         }
 
         return await createRoom(connectionProvider, options.callbacks, editor);
-    }
+    };
 
     const doJoinRoom = async (roomToken: string) => {
         console.log('Joining room', roomToken);
@@ -50,14 +56,8 @@ export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, option
             return;
         }
 
-        const res = await joinRoom(connectionProvider, options.callbacks, editor, roomToken);
-        if(!res || res.accessGranted === false) {
-            console.log('Access denied:', res?.reason ?? 'No reason provided');
-            return res;
-        }
-
-        return res;
-    }
+        return await joinRoom(connectionProvider, options.callbacks, editor, roomToken);
+    };
 
     const doLogin = async () => {
         if (!connectionProvider) {
@@ -65,17 +65,16 @@ export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, option
             return;
         }
         await login(connectionProvider);
-        return connectionProvider.user;
-    }
+        return connectionProvider.authToken;
+    };
 
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
         login: doLogin
-    }
+    };
 
 }
-
 
 export function deactivate() {
     instance?.dispose();
