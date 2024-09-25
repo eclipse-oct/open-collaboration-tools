@@ -5,17 +5,16 @@
 
   <!-- Public plugin name should be written in Title Case.
        Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
-  <name>Open-collaboration-intelliJ</name>
+  <name>Open Collaboration Tools</name>
 
   <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-  <vendor email="support@yourcompany.com" url="https://www.yourcompany.com">YourCompany</vendor>
+  <vendor email="support@typefox.io" url="https://www.yourcompany.com">Typefox</vendor>
 
   <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
        Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
        Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
   <description><![CDATA[
-    Enter short description for your plugin here.<br>
-    <em>most HTML tags may be used</em>
+    IntelliJ Extension for the <a href="https://www.open-collab.tools/">Open Collaboration Tools</a>
   ]]></description>
 
   <!-- Product and plugin compatibility requirements.
@@ -24,7 +23,22 @@
 
   <!-- Extension points defined by the plugin.
        Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+  <actions>
+    <action id="org.typefox.oct.JoinSession" class="org.typefox.oct.JoinSessionAction" text="Join OCT Session"
+            description="Join an OCT Session"/>
+    <action id="org.typefox.oct.HostSession" class="org.typefox.oct.HostSessionAction" text="Join OCT Session"
+            description="Join an OCT Session"/>
+  </actions>
   <extensions defaultExtensionNs="com.intellij">
 
-  </extensions>
+    <notificationGroup id="Oct-Notifications"
+                       displayType="BALLOON"
+                       key="notification.group.name"/>
+
+    <virtualFileSystem id="Oct-Virtual-File-System"
+                       key="com.intellij.virtualFileSystem"
+                       implementationClass="org.typefox.oct.virtualFileSystem.OCTSessionFileSystem"/>
+
+    </extensions>
+
 </idea-plugin>

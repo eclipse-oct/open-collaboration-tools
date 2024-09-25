@@ -4,7 +4,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileListener
 import com.intellij.openapi.vfs.VirtualFileSystem
 
-class SessionFileSystem : VirtualFileSystem() {
+class OCTSessionFileSystem : VirtualFileSystem() {
   override fun getProtocol(): String {
     return "oct"
   }
