@@ -4,9 +4,15 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-export type ToDaemonMessage = LoginRequest | JoinRoomRequest | CreateRoomRequest | LeaveSessionRequest
-
 // To service daeomon
+export type ToDaemonMessage = LoginRequest
+| JoinRoomRequest
+| CreateRoomRequest
+| LeaveSessionRequest
+| SendRequest
+| SendNotification
+| SendBroadcast
+
 export interface LoginRequest {
     kind: 'login'
 }
@@ -23,9 +29,35 @@ export interface CreateRoomRequest {
 export interface LeaveSessionRequest {
     kind: 'leave-session'
 }
+
+interface GenericMessage {
+    type: string
+    parameters: unknown[]
+}
+export interface SendRequest {
+    kind: 'send-request',
+    request: GenericMessage
+}
+
+export interface SendNotification {
+    kind: 'send-notification',
+    notification: GenericMessage
+}
+
+export interface SendBroadcast {
+    kind: 'send-broadcast',
+    broadcast: GenericMessage
+}
+
 // From service daemon
 
-export type FromDaeomonMessage = InternalError | OpenUrl | LoginResponse | SessionCreated
+export type FromDaeomonMessage = InternalError
+| OpenUrl
+| LoginResponse
+| SessionCreated
+| OnRequest
+| OnNotification
+| OnBroadcast
 
 /**
  * a request to the application to open the provided url somehow
@@ -47,7 +79,23 @@ export interface SessionCreated {
     kind: 'session',
     info: {
         roomToken: string
+        roomId: string
     }
+}
+
+export interface OnRequest {
+    kind: 'on-request',
+    request: unknown
+}
+
+export interface OnNotification {
+    kind: 'on-notification',
+    notification: unknown
+}
+
+export interface OnBroadcast {
+    kind: 'on-broadcast',
+    broadcast: unknown
 }
 
 export interface InternalError {
