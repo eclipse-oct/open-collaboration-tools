@@ -28,6 +28,7 @@ module.exports = {
     ignorePatterns: [
         '**/{node_modules,dist,lib,out,bin}',
         '**/scripts/*.ts',
+        '**/scripts/*.js',
         '.eslintrc.cjs'
     ],
     rules: {

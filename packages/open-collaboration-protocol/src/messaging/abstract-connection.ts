@@ -12,15 +12,19 @@ import { Encryption } from './encryption';
 import { Encoding } from './encoding';
 
 export type Handler<P extends unknown[], R = void> = (origin: string, ...parameters: P) => (R | Promise<R>);
+export type UnhandledMessageHandler = (origin: string, method: string, ...parameters: unknown[]) => any | Promise<any>;
 export type ErrorHandler = (message: string) => void;
 
 export interface BroadcastConnection {
     onRequest(type: string, handler: Handler<any[], any>): void;
     onRequest<P extends unknown[], R>(type: msg.RequestType<P, R>, handler: Handler<P, R>): void;
+    onRequest(handler: UnhandledMessageHandler): void;
     onNotification(type: string, handler: Handler<any[]>): void;
     onNotification<P extends unknown[]>(type: msg.NotificationType<P>, handler: Handler<P>): void;
+    onNotification(handler: UnhandledMessageHandler): void;
     onBroadcast(type: string, handler: Handler<any[]>): void;
     onBroadcast<P extends unknown[]>(type: msg.BroadcastType<P>, handler: Handler<P>): void;
+    onBroadcast(handler: UnhandledMessageHandler): void;
     onError(handler: ErrorHandler): void;
     sendRequest(type: string, ...parameters: any[]): Promise<any>;
     sendRequest<P extends unknown[], R>(type: msg.RequestType<P, R>, ...parameters: P): Promise<R>;
@@ -52,6 +56,10 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
     protected onDisconnectEmitter = new Emitter<void>();
     protected onConnectionErrorEmitter = new Emitter<string>();
     protected onReconnectEmitter = new Emitter<void>();
+
+    protected onUnhandledRequestHandler?: (method: string) => Handler<any[], any>;
+    protected onUnhandledBroadcastHandler?: (method: string) => Handler<any[], any>;
+    protected onUnhandledNotificationHandler?: (method: string) => Handler<any[], any>;
 
     get onError(): Event<string> {
         return this.onErrorEmitter.event;
@@ -182,7 +190,7 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
                     console.error('Received invalid request message');
                     return;
                 }
-                const handler = this.messageHandlers.get(decrypted.content.method);
+                const handler = this.messageHandlers.get(decrypted.content.method) ?? this.onUnhandledRequestHandler?.(decrypted.content.method);
                 if (!handler) {
                     console.error(`No handler registered for ${decrypted.kind} method ${decrypted.content.method}.`);
                     return;
@@ -227,7 +235,9 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
                     console.error(`Received invalid ${message.kind} message`);
                     return;
                 }
-                const handler = this.messageHandlers.get(decrypted.content.method);
+                const handler = this.messageHandlers.get(decrypted.content.method) ?? (msg.BroadcastMessage.is(decrypted) ?
+                    this.onUnhandledBroadcastHandler?.(decrypted.content.method) :
+                    this.onUnhandledNotificationHandler?.(decrypted.content.method));
                 if (!handler) {
                     console.error(`No handler registered for ${message.kind} method ${decrypted.content.method}.`);
                     return;
@@ -265,25 +275,49 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
         await this.options.transport.write(Encoding.encode(message));
     }
 
+    onRequest(handler: UnhandledMessageHandler): void;
     onRequest(type: string, handler: Handler<any[], any>): void;
     onRequest<P extends unknown[], R>(type: msg.RequestType<P, R> | string, handler: Handler<P, R>): void;
-    onRequest(type: msg.RequestType<any[], any> | string, handler: Handler<any[], any>): void {
-        const method = typeof type === 'string' ? type : type.method;
-        this.messageHandlers.set(method, handler);
+    onRequest(typeOrHandler: msg.RequestType<any[], any> | string | UnhandledMessageHandler, handler?: Handler<any[], any>): void {
+        if(typeof typeOrHandler === 'function') {
+            if(this.onUnhandledRequestHandler) {
+                console.warn('Unhandled request handler already set. previous handler will be overwritten.');
+            }
+            this.onUnhandledRequestHandler = (method) => (origin, ...params) => typeOrHandler(origin, method, ...params);
+        } else {
+            const method = typeof typeOrHandler === 'string' ? typeOrHandler : typeOrHandler.method;
+            this.messageHandlers.set(method, handler!);
+        }
     }
 
+    onNotification(handler: UnhandledMessageHandler): void;
     onNotification(type: string, handler: Handler<any[]>): void
     onNotification<P extends unknown[]>(type: msg.NotificationType<P> | string, handler: Handler<P>): void
-    onNotification(type: msg.NotificationType<any[]> | string, handler: Handler<any[]>): void {
-        const method = typeof type === 'string' ? type : type.method;
-        this.messageHandlers.set(method, handler);
+    onNotification(typeOrHandler: msg.NotificationType<any[]> | string | UnhandledMessageHandler, handler?: Handler<any[]>): void {
+        if(typeof typeOrHandler === 'function') {
+            if(this.onUnhandledNotificationHandler) {
+                console.warn('Unhandled notification handler already set. previous handler will be overwritten.');
+            }
+            this.onUnhandledNotificationHandler = (method) => (origin, ...params) => typeOrHandler(origin, method, ...params);
+        } else {
+            const method = typeof typeOrHandler === 'string' ? typeOrHandler : typeOrHandler.method;
+            this.messageHandlers.set(method, handler!);
+        }
     }
 
+    onBroadcast(handler: UnhandledMessageHandler): void;
     onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void;
     onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void;
-    onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void {
-        const method = typeof type === 'string' ? type : type.method;
-        this.messageHandlers.set(method, handler);
+    onBroadcast(typeOrHandler: msg.BroadcastType<any[]> | string | UnhandledMessageHandler, handler?: Handler<any[]>): void {
+        if(typeof typeOrHandler === 'function') {
+            if(this.onUnhandledNotificationHandler) {
+                console.warn('Unhandled broadcast handler already set. previous handler will be overwritten.');
+            }
+            this.onUnhandledBroadcastHandler = (method) => (origin, ...params) => typeOrHandler(origin, method, ...params);
+        } else {
+            const method = typeof typeOrHandler === 'string' ? typeOrHandler : typeOrHandler.method;
+            this.messageHandlers.set(method, handler!);
+        }
     }
 
     sendRequest(type: string, target: msg.MessageTarget, ...parameters: any[]): Promise<any>;

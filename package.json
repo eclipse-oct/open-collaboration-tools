@@ -35,7 +35,8 @@
     "shx": "^0.3.4",
     "tsx": "~4.19.3",
     "typescript": "~5.8.2",
-    "vitest": "~3.0.8"
+    "vitest": "~3.0.8",
+    "postject": "1.0.0-alpha.6"
   },
   "volta": {
     "node": "22.14.0",
