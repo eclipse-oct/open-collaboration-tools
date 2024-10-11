@@ -7,6 +7,9 @@
 import { ConnectionProvider, MaybePromise, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import { StdioCommunicationHandler } from './communication-handler';
 import { FromDaeomonMessage, JoinRoomRequest, LoginResponse, SendBroadcast, SendNotification, SendRequest, SessionCreated, ToDaemonMessage } from './messages';
+import * as Y from 'yjs';
+import * as awarenessProtocol from 'y-protocols/awareness';
+import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 
 export class MessageHandler {
 
@@ -22,6 +25,7 @@ export class MessageHandler {
     );
 
     protected currentConnection?: ProtocolBroadcastConnection;
+    protected yjsProvider?: OpenCollaborationYjsProvider;
 
     constructor(private connectionProvider: ConnectionProvider, private communcationHandler: StdioCommunicationHandler) {
         communcationHandler.onMessage(async message => {
@@ -42,7 +46,7 @@ export class MessageHandler {
 
     async joinRoom(message: JoinRoomRequest): Promise<SessionCreated> {
         const resp = await this.connectionProvider.joinRoom({ roomId: message.room});
-        this.currentConnection = await this.connectionProvider.connect(resp.roomToken, resp.host);
+        this.onConnection(await this.connectionProvider.connect(resp.roomToken, resp.host));
         return {
             kind: 'session',
             info: {
@@ -54,7 +58,7 @@ export class MessageHandler {
 
     async createRoom(): Promise<SessionCreated> {
         const resp = await this.connectionProvider.createRoom({});
-        this.currentConnection = await this.connectionProvider.connect(resp.roomToken);
+        this.onConnection(await this.connectionProvider.connect(resp.roomToken));
         return {
             kind: 'session',
             info: {
@@ -62,5 +66,18 @@ export class MessageHandler {
                 roomId: resp.roomId
             }
         };
+    }
+
+    onConnection(connection: ProtocolBroadcastConnection) {
+        this.currentConnection = connection;
+        const YjsDoc = new Y.Doc();
+        const awareness = new awarenessProtocol.Awareness(YjsDoc);
+        this.yjsProvider = new OpenCollaborationYjsProvider(connection, YjsDoc, awareness);
+        this.yjsProvider.connect();
+    }
+
+    dispose() {
+        this.currentConnection?.dispose();
+        this.yjsProvider?.dispose();
     }
 }
