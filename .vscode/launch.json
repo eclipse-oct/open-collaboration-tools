@@ -46,6 +46,20 @@
 			],
             // VS Code cannot debug the web extension directly, which is why we don't configure source maps here
             // Instead, use VS Code browser dev tools (Help -> Toggle Developer Tools) to debug the web extension
-		}
+		},
+        {
+            "name": "Launch Daemon Service",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "outFiles": [
+                "${workspaceFolder}/packages/open-collaboration-service-daemon/lib/**/*.js",
+            ],
+            "sourceMaps": true,
+            "program": "${workspaceFolder}/packages/open-collaboration-service-daemon/lib/process.js",
+            "args": [
+                "--server-address=http://localhost:8100"
+            ],
+        }
     ]
 }

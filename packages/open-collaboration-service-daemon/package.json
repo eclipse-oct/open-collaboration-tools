@@ -1,0 +1,41 @@
+{
+    "name": "open-collaboration-service-daemon",
+    "version": "0.2.0",
+    "description": "A service daemon process for integrating non Typescript projects with the Open Collaboration Tools project",
+    "files": [
+      "bin",
+      "lib",
+      "src"
+    ],
+    "bin": {
+      "oct-daemon-service": "./bin/service"
+    },
+    "scripts": {
+      "start": "node lib/process.js"
+    },
+    "dependencies": {
+        "open-collaboration-yjs": "0.2.0",
+        "open-collaboration-protocol": "0.2.0"    
+    },
+    "devDependencies": {
+    },
+    "keywords": [
+      "collaboration",
+      "live-share"
+    ],
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/TypeFox/open-collaboration-tools",
+      "directory": "packages/open-collaboration-server"
+    },
+    "bugs": {
+      "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+    },
+    "homepage": "https://www.open-collab.tools/",
+    "author": {
+      "name": "TypeFox",
+      "url": "https://www.typefox.io/"
+    }
+  }
+  
