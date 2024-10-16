@@ -19,12 +19,9 @@ export interface Disposable {
 }
 
 type PeerDecorationOptions = {
-    before: monaco.editor.IModelDecorationOptions,
-    after: monaco.editor.IModelDecorationOptions,
-    nameTags: {
-        default: monaco.editor.IModelDecorationOptions,
-        inverted: monaco.editor.IModelDecorationOptions
-    }
+    selectionClassName: string;
+    cursorClassName: string;
+    cursorInvertedClassName: string;
 };
 
 export class DisposablePeer implements Disposable {
@@ -67,78 +64,44 @@ export class DisposablePeer implements Disposable {
         const colorCss = typeof color === 'string' ? color : `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
         const className = `peer-${this.peer.id}`;
         const cursorClassName = `${className}-cursor`;
+        const cursorInvertedClassName = `${className}-cursor-inverted`;
         const selectionClassName = `${className}-selection`;
         const cursorCss = `.${cursorClassName} {
-            background-color: ${color} !important;
-            margin: 0px 0px 0px -0.25ch;
-            fontWeight: bold;
-            textDecoration: none;
+            background-color: ${colorCss} !important;
+            border-color: ${colorCss} !important;
             position: absolute;
-            display: inline-block;
-            top: 0;
-            font-size: 200%;
+            border-right: solid 2px;
+            border-top: solid 2px;
+            border-bottom: solid 2px;
+            height: 100%;
+            box-sizing: border-box;
+        }`;
+        generateCSS(cursorCss);
+        const cursorAfterCss = `.${cursorClassName}::after {
+            content: "${this.peer.name}";
+            position: absolute;
+            transform: translateY(-100%);
+            padding: 0 4px;
+            border-radius: 4px 4px 4px 0px;
+            background-color: ${colorCss};
+        }`;
+        generateCSS(cursorAfterCss);
+        const cursorAfterInvertedCss = `.${cursorClassName}.${cursorInvertedClassName}::after {
+            transform: translateY(100%);
+            margin-top: -2px;
+            border-radius: 0px 4px 4px 4px;
             z-index: 1;
         }`;
-        generateCSS(cursorClassName, cursorCss);
+        generateCSS(cursorAfterInvertedCss);
         const selectionCss = `.${selectionClassName} {
-            backgroundColor: color-mix(in srgb, ${color} 25%, transparent);
-            borderRadius: '0.1em';
+            background: ${colorCss} !important;
+            opacity: 0.25;
         }`;
-        generateCSS(selectionClassName, selectionCss);
-        const cursor: monaco.editor.InjectedTextOptions = {
-            inlineClassName: cursorClassName,
-            content: 'ᛙ'
-        };
-        const beforeNameTag = this.createNameTag('default', colorCss, 'top: -1rem;');
-        const beforeInvertedNameTag = this.createNameTag('inverted', colorCss, 'bottom: -1rem;');
-
+        generateCSS(selectionCss);
         return {
-            before: {
-                stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-                before: cursor,
-                className: selectionClassName
-            },
-            after: {
-                stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-                after: cursor,
-                className: selectionClassName
-            },
-            nameTags: {
-                default: beforeNameTag,
-                inverted: beforeInvertedNameTag
-            }
-        };
-    }
-
-    private createNameTag(prefix: string, color: string, textPosition?: string): monaco.editor.IModelDecorationOptions {
-        const className = `peer-${this.peer.id}-nametag-${prefix}`;
-        const inlineClassName = `${className}-inline`;
-        const inlineCss = `.${inlineClassName} {
-            text-decoration: none;
-            position: absolute;
-            border-radius: 0.15rem;
-            padding: 0px 0.5ch;
-            display: inline-block;
-            pointer-events: none;
-            color: #000;
-            font-size: 0.7rem;
-            z-index: 10;
-            font-weight: bold;
-            ${textPosition ?? ''}
-        }`;
-        generateCSS(inlineClassName, inlineCss);
-        const options: monaco.editor.InjectedTextOptions = {
-            content: this.peer.name,
-            inlineClassName
-        };
-        const css = `.${className} {
-            background-color: ${color};
-        }`;
-        generateCSS(className, css);
-        return {
-            className,
-            stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-            before: options
+            cursorClassName,
+            cursorInvertedClassName,
+            selectionClassName
         };
     }
 
@@ -178,38 +141,11 @@ function createColor(): [number, number, number] | string {
     return color;
 }
 
-function generateCSS(className: string, cssText: string) {
+function generateCSS(cssText: string) {
     const style: HTMLStyleElement = document.createElement('style');
     style.textContent = cssText;
     document.head.appendChild(style);
 }
-
-// export class ClientTextEditorDecorationType implements Disposable {
-//     protected readonly toDispose: Disposable;
-//     constructor(
-//         readonly before: vscode.TextEditorDecorationType,
-//         readonly after: vscode.TextEditorDecorationType,
-//         readonly nameTags: {
-//             default: vscode.TextEditorDecorationType,
-//             inverted: vscode.TextEditorDecorationType
-//         },
-//         readonly color: [number, number, number] | string
-//     ) {
-//         this.toDispose = vscode.Disposable.from(
-//             before, after,
-//             nameTags.default,
-//             nameTags.inverted,
-//         );
-//     }
-
-//     dispose(): void {
-//         this.toDispose.dispose();
-//     }
-
-//     // getThemeColor(): vscode.ThemeColor | undefined {
-//     //     return typeof this.color === 'string' ?  new vscode.ThemeColor(this.color) : undefined;
-//     // }
-// }
 
 export interface CollaborationInstanceOptions {
     connection: ProtocolBroadcastConnection;
@@ -351,32 +287,15 @@ export class CollaborationInstance implements Disposable {
             this.registerTextDocument(text);
         }
 
-        // this.toDispose.push(vscode.workspace.onDidOpenTextDocument(document => {
-        //     this.registerTextDocument(document);
-        // }));
-
         this.toDispose.push(this.options.editor.onDidChangeModelContent(event => {
             if (text) {
                 this.updateTextDocument(event, text);
             }
         }));
 
-        // this.toDispose.push(vscode.window.onDidChangeVisibleTextEditors(() => {
-        //     this.rerenderPresence();
-        // }));
-
-        // this.toDispose.push(vscode.workspace.onDidCloseTextDocument(document => {
-        //     const uri = document.uri.toString();
-        //     this.documentDisposables.get(uri)?.dispose();
-        //     this.documentDisposables.delete(uri);
-        // }));
-
         this.toDispose.push(this.options.editor.onDidChangeCursorSelection(_e => {
             this.updateTextSelection(this.options.editor);
         }));
-        // this.toDispose.push(this.options.editor.onDidChangeTextEditorVisibleRanges(_e => {
-        //     this.updateTextSelection(event.textEditor);
-        // }));
 
         let awarenessTimeout: NodeJS.Timeout | undefined;
 
@@ -587,100 +506,62 @@ export class CollaborationInstance implements Disposable {
             if (!state.selection || !peer) {
                 continue;
             }
-            if (types.ClientTextSelection.is(state.selection)) {
-                console.log('Selection', state.selection);
-                this.renderTextPresence(peer, state.selection);
+            if (!types.ClientTextSelection.is(state.selection)) {
+                continue;
             }
-        }
-    }
-
-    protected renderTextPresence(peer: DisposablePeer, selection: types.ClientTextSelection): void {
-        const nameTagVisible = peer.lastUpdated !== undefined && Date.now() - peer.lastUpdated < 1900;
-        const { path, textSelections } = selection;
-        const uri = this.getResourceUri(path);
-        if (uri) {
-            const model = this.options.editor.getModel();
-            const afterRanges: monaco.IRange[] = [];
-            const beforeRanges: monaco.IRange[] = [];
-            const beforeNameTags: monaco.IRange[] = [];
-            const beforeInvertedNameTags: monaco.IRange[] = [];
-            for (const selection of textSelections) {
+            const { path, textSelections } = state.selection;
+            const selection = textSelections[0];
+            if (!selection) {
+                continue;
+            }
+            const uri = this.getResourceUri(path);
+            if (uri) {
+                const model = this.options.editor.getModel();
                 const forward = selection.direction === 1;
                 console.log('Peer', peer.peer.name);
                 console.log('Selection direction', this.options.host, selection.direction);
-                const startIndex = Y.createAbsolutePositionFromRelativePosition(selection.start, this.yjs);
-                const endIndex = Y.createAbsolutePositionFromRelativePosition(selection.end, this.yjs);
+                let startIndex = Y.createAbsolutePositionFromRelativePosition(selection.start, this.yjs);
+                let endIndex = Y.createAbsolutePositionFromRelativePosition(selection.end, this.yjs);
                 console.log();
                 if (model && startIndex && endIndex) {
+                    if (startIndex.index > endIndex.index) {
+                        [startIndex, endIndex] = [endIndex, startIndex];
+                    }
                     const start = model.getPositionAt(startIndex.index);
                     const end = model.getPositionAt(endIndex.index);
                     console.log('Start', start);
                     console.log('End', end);
-                    const inverted = (forward && end.lineNumber === 0) || (!forward && start.lineNumber === 0);
+                    const inverted = (forward && end.lineNumber === 1) || (!forward && start.lineNumber === 1);
                     const range: monaco.IRange = {
                         startLineNumber: start.lineNumber,
                         startColumn: start.column,
                         endLineNumber: end.lineNumber,
                         endColumn: end.column
                     };
-                    if (forward) {
-                        afterRanges.push(range);
-                        if (nameTagVisible) {
-                            const endRange: monaco.IRange = {
-                                startLineNumber: end.lineNumber,
-                                startColumn: end.column,
-                                endLineNumber: end.lineNumber,
-                                endColumn: end.column
-                            };
-                            (inverted ? beforeInvertedNameTags : beforeNameTags).push(endRange);
-                        }
-                    } else {
-                        beforeRanges.push(range);
-                        if (nameTagVisible) {
-                            const startRange: monaco.IRange = {
-                                startLineNumber: start.lineNumber,
-                                startColumn: start.column,
-                                endLineNumber: start.lineNumber,
-                                endColumn: start.column
-                            };
-                            (inverted ? beforeInvertedNameTags : beforeNameTags).push(startRange);
-                        }
+                    const contentClassNames: string[] = [peer.decoration.cursorClassName];
+                    if (inverted) {
+                        contentClassNames.push(peer.decoration.cursorInvertedClassName);
                     }
+                    this.setDecorations(peer, [{
+                        range,
+                        options: {
+                            className: peer.decoration.selectionClassName,
+                            beforeContentClassName: !forward ? contentClassNames.join(' ') : undefined,
+                            afterContentClassName: forward ? contentClassNames.join(' ') : undefined,
+                            stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+                        }
+                    }]);
                 }
             }
-            const beforeDecorations = beforeRanges.map<monaco.editor.IModelDeltaDecoration>(range => ({
-                range,
-                options: peer.decoration.before
-            }));
-            const afterDecorations = afterRanges.map<monaco.editor.IModelDeltaDecoration>(range => ({
-                range,
-                options: peer.decoration.after
-            }));
-            const beforeNameTagDecorations = beforeNameTags.map<monaco.editor.IModelDeltaDecoration>(range => ({
-                range,
-                options: peer.decoration.nameTags.default
-            }));
-            const beforeInvertedNameTagDecorations = beforeInvertedNameTags.map<monaco.editor.IModelDeltaDecoration>(range => ({
-                range,
-                options: peer.decoration.nameTags.inverted
-            }));
-            const decorations = beforeDecorations.concat(afterDecorations, beforeNameTagDecorations, beforeInvertedNameTagDecorations);
-
-            console.log('before decorations', beforeDecorations);
-            console.log('after decorations', afterDecorations);
-            console.log('before name tag decorations', beforeNameTagDecorations);
-            console.log('before inverted name tag decorations', beforeInvertedNameTagDecorations);
-
-            this.setDecorations(peer, decorations);
-            const decs = model?.getAllDecorations();
-            console.log('All decorations', decs);
         }
     }
 
     private setDecorations(peer: DisposablePeer, decorations: monaco.editor.IModelDeltaDecoration[]): void {
         if (this.decorations.has(peer)) {
+            console.log('Setting decorations', decorations);
             this.decorations.get(peer)?.set(decorations);
         } else {
+            console.log('Creating decorations', decorations);
             this.decorations.set(peer, this.options.editor.createDecorationsCollection(decorations));
         }
     }
@@ -709,7 +590,7 @@ export class CollaborationInstance implements Disposable {
         return {
             start,
             end,
-            direction: types.SelectionDirection.LeftToRight // selection.isReversed ? types.SelectionDirection.RightToLeft : types.SelectionDirection.LeftToRight
+            direction: types.SelectionDirection.LeftToRight
         };
     }
 
@@ -717,7 +598,6 @@ export class CollaborationInstance implements Disposable {
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
-        // this.toDispose.push(vscode.workspace.registerFileSystemProvider('oct', new CollaborationFileSystemProvider(this.options.connection, this.yjs, data.host)));
     }
 
     getProtocolPath(uri?: monaco.Uri): string | undefined {
@@ -728,21 +608,6 @@ export class CollaborationInstance implements Disposable {
     }
 
     getResourceUri(path?: string): monaco.Uri | undefined {
-        // if (!path) {
-        //     return undefined;
-        // }
-        // const parts = path.split('/');
-        // const root = parts[0];
-        // const rest = parts.slice(1);
-        // const stat = (vscode.workspace.workspaceFolders ?? []).find(e => e.name === root);
-        // if (stat) {
-        //     const uriPath = paths.join(stat.uri.path, ...rest).replaceAll('\\', '/');
-        //     const uri = stat.uri.with({ path: uriPath });
-        //     return uri;
-        // } else {
-        //     return undefined;
-        // }
-        // TODO implement this
         return new monaco.Uri().with({ path });
     }
 }
