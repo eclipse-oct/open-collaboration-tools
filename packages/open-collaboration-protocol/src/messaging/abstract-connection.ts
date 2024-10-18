@@ -12,6 +12,7 @@ import { Encryption } from './encryption';
 import { Encoding } from './encoding';
 
 export type Handler<P extends unknown[], R = void> = (origin: string, ...parameters: P) => (R | Promise<R>);
+export type UnhandledMessageHandler = (origin: string, method: string, ...parameters: unknown[]) => any | Promise<any>;
 export type ErrorHandler = (message: string) => void;
 
 export interface BroadcastConnection {
@@ -21,6 +22,9 @@ export interface BroadcastConnection {
     onNotification<P extends unknown[]>(type: msg.NotificationType<P>, handler: Handler<P>): void;
     onBroadcast(type: string, handler: Handler<any[]>): void;
     onBroadcast<P extends unknown[]>(type: msg.BroadcastType<P>, handler: Handler<P>): void;
+    onUnhandledRequest(handler: UnhandledMessageHandler): void;
+    onUnhandledNotification(handler: UnhandledMessageHandler): void;
+    onUnhandledBroadcast(handler: UnhandledMessageHandler): void;
     onError(handler: ErrorHandler): void;
     sendRequest(type: string, ...parameters: any[]): Promise<any>;
     sendRequest<P extends unknown[], R>(type: msg.RequestType<P, R>, ...parameters: P): Promise<R>;
@@ -52,6 +56,10 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
     protected onDisconnectEmitter = new Emitter<void>();
     protected onConnectionErrorEmitter = new Emitter<string>();
     protected onReconnectEmitter = new Emitter<void>();
+
+    protected onUnhandledRequestHandler?: (method: string) => Handler<any[], any>;
+    protected onUnhandledBroadcastHandler?: (method: string) => Handler<any[], any>;
+    protected onUnhandledNotificationHandler?: (method: string) => Handler<any[], any>;
 
     get onError(): Event<string> {
         return this.onErrorEmitter.event;
@@ -182,7 +190,7 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
                     console.error('Received invalid request message');
                     return;
                 }
-                const handler = this.messageHandlers.get(decrypted.content.method);
+                const handler = this.messageHandlers.get(decrypted.content.method) ?? this.onUnhandledRequestHandler?.(decrypted.content.method);
                 if (!handler) {
                     console.error(`No handler registered for ${decrypted.kind} method ${decrypted.content.method}.`);
                     return;
@@ -227,7 +235,9 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
                     console.error(`Received invalid ${message.kind} message`);
                     return;
                 }
-                const handler = this.messageHandlers.get(decrypted.content.method);
+                const handler = this.messageHandlers.get(decrypted.content.method) ?? msg.BroadcastMessage.is(decrypted) ?
+                    this.onUnhandledBroadcastHandler?.(decrypted.content.method) :
+                    this.onUnhandledNotificationHandler?.(decrypted.content.method);
                 if (!handler) {
                     console.error(`No handler registered for ${message.kind} method ${decrypted.content.method}.`);
                     return;
@@ -284,6 +294,18 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
     onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void {
         const method = typeof type === 'string' ? type : type.method;
         this.messageHandlers.set(method, handler);
+    }
+
+    onUnhandledRequest(handler: UnhandledMessageHandler): void {
+        this.onUnhandledRequestHandler = (method) => (origin, ...params) => handler(origin, method, ...params);
+    }
+
+    onUnhandledNotification(handler: UnhandledMessageHandler): void {
+        this.onUnhandledNotificationHandler = (method) => (origin, ...params) => handler(origin, method, ...params);
+    }
+
+    onUnhandledBroadcast(handler: UnhandledMessageHandler): void {
+        this.onUnhandledBroadcastHandler = (method) => (origin, ...params) => handler(origin, method, ...params);
     }
 
     sendRequest(type: string, target: msg.MessageTarget, ...parameters: any[]): Promise<any>;

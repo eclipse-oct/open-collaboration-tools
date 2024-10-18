@@ -4,12 +4,13 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-// To service daeomon
+// ***************************** To service daeomon *****************************
 export type ToDaemonMessage = LoginRequest
 | JoinRoomRequest
 | CreateRoomRequest
 | LeaveSessionRequest
 | SendRequest
+| SendResponse
 | SendNotification
 | SendBroadcast
 
@@ -37,6 +38,13 @@ interface GenericMessage {
 export interface SendRequest {
     kind: 'send-request',
     request: GenericMessage
+    id?: number
+}
+
+export interface SendResponse {
+    kind: 'send-response',
+    response: GenericMessage
+    id: number
 }
 
 export interface SendNotification {
@@ -49,7 +57,32 @@ export interface SendBroadcast {
     broadcast: GenericMessage
 }
 
-// From service daemon
+// awarenss update
+
+export interface Position {
+    line: number
+    character: number
+}
+export interface Selection {
+    start: Position
+    end: Position
+}
+
+// YJS Awareness
+
+export interface UpdateTextSelection {
+    kind: 'update-text-selection',
+    documentUri: string
+    selections: Selection[];
+}
+
+export interface UpdateDocument {
+    kind: 'update-document',
+    documentUri: string
+    changes: any // TODO add change type
+}
+
+// ***************************** From service daemon ********************************
 
 export type FromDaeomonMessage = InternalError
 | OpenUrl
@@ -85,6 +118,7 @@ export interface SessionCreated {
 
 export interface OnRequest {
     kind: 'on-request',
+    id?: number,
     request: unknown
 }
 
@@ -102,3 +136,9 @@ export interface InternalError {
     kind: 'error',
     message: string
 }
+
+// fs
+// editor
+// peer
+// sync
+// room
