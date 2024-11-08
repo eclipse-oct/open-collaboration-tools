@@ -3,10 +3,12 @@
 // This program and the accompanying materials are made available under the
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
+import * as types from 'open-collaboration-protocol';
 
 // ***************************** To service daeomon *****************************
 export type ToDaemonMessage = LoginRequest
 | JoinRoomRequest
+| JoinRequestResponse
 | CreateRoomRequest
 | LeaveSessionRequest
 | SendRequest
@@ -23,8 +25,14 @@ export interface JoinRoomRequest {
     room: string
 }
 
+export interface JoinRequestResponse {
+    kind: 'join-request-response',
+    accepted: boolean
+}
+
 export interface CreateRoomRequest {
     kind: 'create-room',
+    workspace: types.Workspace
 }
 
 export interface LeaveSessionRequest {
@@ -91,6 +99,7 @@ export type FromDaeomonMessage = InternalError
 | OnRequest
 | OnNotification
 | OnBroadcast
+| JoinRequest
 
 /**
  * a request to the application to open the provided url somehow
@@ -116,6 +125,12 @@ export interface SessionCreated {
     }
 }
 
+export interface JoinRequest {
+    kind: 'join-request',
+    id: number,
+    user: types.User
+}
+
 export interface OnRequest {
     kind: 'on-request',
     id?: number,
@@ -136,9 +151,3 @@ export interface InternalError {
     kind: 'error',
     message: string
 }
-
-// fs
-// editor
-// peer
-// sync
-// room
