@@ -5,10 +5,6 @@
 // ******************************************************************************
 
 import { StdioCommunicationHandler } from './communication-handler';
-// import { ProtocolBroadcastConnection, Deferred, DisposableCollection } from 'open-collaboration-protocol';
-// import * as vscode from 'vscode';
-// import * as Y from 'yjs';
-// import * as awarenessProtocol from 'y-protocols/awareness';
 import { ConnectionProvider, SocketIoTransportProvider }from 'open-collaboration-protocol';
 import { parseArgs } from 'util';
 import { MessageHandler } from './message-handler';
