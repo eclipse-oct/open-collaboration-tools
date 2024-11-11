@@ -235,9 +235,9 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
                     console.error(`Received invalid ${message.kind} message`);
                     return;
                 }
-                const handler = this.messageHandlers.get(decrypted.content.method) ?? msg.BroadcastMessage.is(decrypted) ?
+                const handler = this.messageHandlers.get(decrypted.content.method) ?? (msg.BroadcastMessage.is(decrypted) ?
                     this.onUnhandledBroadcastHandler?.(decrypted.content.method) :
-                    this.onUnhandledNotificationHandler?.(decrypted.content.method);
+                    this.onUnhandledNotificationHandler?.(decrypted.content.method));
                 if (!handler) {
                     console.error(`No handler registered for ${message.kind} method ${decrypted.content.method}.`);
                     return;

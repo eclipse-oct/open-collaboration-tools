@@ -10,7 +10,7 @@ export type ToDaemonMessage = LoginRequest
 | JoinRoomRequest
 | JoinRequestResponse
 | CreateRoomRequest
-| LeaveSessionRequest
+| CloseSessionRequest
 | SendRequest
 | SendResponse
 | SendNotification
@@ -27,6 +27,7 @@ export interface JoinRoomRequest {
 
 export interface JoinRequestResponse {
     kind: 'join-request-response',
+    id: number,
     accepted: boolean
 }
 
@@ -35,8 +36,8 @@ export interface CreateRoomRequest {
     workspace: types.Workspace
 }
 
-export interface LeaveSessionRequest {
-    kind: 'leave-session'
+export interface CloseSessionRequest {
+    kind: 'close-session'
 }
 
 interface GenericMessage {

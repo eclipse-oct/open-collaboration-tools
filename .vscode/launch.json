@@ -58,7 +58,8 @@
             "sourceMaps": true,
             "program": "${workspaceFolder}/packages/open-collaboration-service-daemon/lib/process.js",
             "args": [
-                "--server-address=http://localhost:8100"
+                "--server-address=http://localhost:8100",
+                "--auth-token=eyJhbGciOiJIUzI1NiJ9.eyJpZCI6ImZlYTBySW5BU1phWkVDUE9IcXRsZ0lmNSIsIm5hbWUiOiJUZXN0IiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzMxMzI3MjQzfQ.glt-hv5QtHYzRp2K2uILsNJjPLWJSrWlRVPMOuG8cQI"
             ],
         }
     ]

@@ -7,7 +7,7 @@
 import type * as types from 'open-collaboration-protocol';
 import { Deferred, MaybePromise } from 'open-collaboration-protocol';
 import { StdioCommunicationHandler } from './communication-handler';
-import { CreateRoomRequest, FromDaeomonMessage, JoinRoomRequest, LoginResponse, SendBroadcast, SendNotification, SendRequest, SendResponse, SessionCreated, ToDaemonMessage } from './messages';
+import { CreateRoomRequest, FromDaeomonMessage, JoinRequestResponse, JoinRoomRequest, LoginResponse, SendBroadcast, SendNotification, SendRequest, SendResponse, SessionCreated, ToDaemonMessage } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 
 export class MessageHandler {
@@ -24,7 +24,8 @@ export class MessageHandler {
             ['send-response', message => { this.openRequests.get((message as SendResponse).id)?.resolve((message as SendResponse).response); }],
             ['send-broadcast', message => this.currentCollaborationInstance?.currentConnection.sendBroadcast((message as SendBroadcast).broadcast.type, (message as SendBroadcast).broadcast.parameters)],
             ['send-notification', message => this.currentCollaborationInstance?.currentConnection.sendNotification((message as SendNotification).notification.type, (message as SendNotification).notification.parameters)],
-            ['leave-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()]
+            ['join-request-response', message => { this.openRequests.get((message as JoinRequestResponse).id)?.resolve(message); }],
+            ['close-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()]
         ]
     );
 
