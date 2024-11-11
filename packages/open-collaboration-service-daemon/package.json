@@ -11,13 +11,18 @@
       "oct-daemon-service": "./bin/service"
     },
     "scripts": {
-      "start": "node lib/process.js"
+      "start": "node lib/process.js",
+      "build": "tsc",
+      "bundle": "esbuild ./lib/process.js --bundle --platform=node --outfile=lib/bundle.cjs",
+      "create:executable": "npm run build && npm run bundle && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.js"
     },
     "dependencies": {
         "open-collaboration-yjs": "0.2.0",
         "open-collaboration-protocol": "0.2.0"    
     },
     "devDependencies": {
+      "esbuild": "^0.23.0",
+      "postject": "1.0.0-alpha.6"
     },
     "keywords": [
       "collaboration",
