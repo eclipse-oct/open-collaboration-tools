@@ -25,7 +25,7 @@ export class CollaborationInstance implements types.Disposable{
     onSendMessage = this.sendMessageEmitter.event;
 
     protected sendRequestEmitter = new Emitter<FromDaeomonMessage>();
-    onSendRequest = this.sendMessageEmitter.event;
+    onSendRequest = this.sendRequestEmitter.event;
 
     constructor(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
         if(host && !workspace) {
@@ -58,7 +58,7 @@ export class CollaborationInstance implements types.Disposable{
                     method,
                     parameters
                 }
-            });
+            })[0];
         });
 
         connection.onUnhandledNotification((origin, method, ...parameters) => {
@@ -86,9 +86,9 @@ export class CollaborationInstance implements types.Disposable{
         connection.peer.onJoinRequest(async (_, user) => {
             const res = await this.sendRequestEmitter.fire({
                 kind: 'join-request',
-                id: 0, // set by mesaage handler
+                id: 0, // set by message handler
                 user
-            }) as JoinRequestResponse;
+            })[0] as JoinRequestResponse;
             return res.accepted ? { workspace: workspace! } : undefined;
         });
 
@@ -114,11 +114,9 @@ export class CollaborationInstance implements types.Disposable{
                 connection.peer.init(peer.id, initData);
             }
         });
-
     }
 
     dispose(): void {
-        this.currentConnection?.dispose();
         this.yjsProvider?.dispose();
         this.connectionDisposables.dispose();
     }
