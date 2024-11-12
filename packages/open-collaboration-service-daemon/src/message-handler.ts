@@ -7,24 +7,18 @@
 import type * as types from 'open-collaboration-protocol';
 import { Deferred, MaybePromise } from 'open-collaboration-protocol';
 import { StdioCommunicationHandler } from './communication-handler';
-import { CreateRoomRequest, FromDaeomonMessage, JoinRequestResponse, JoinRoomRequest, LoginResponse, SendBroadcast, SendNotification, SendRequest, SendResponse, SessionCreated, ToDaemonMessage } from './messages';
+import { CreateRoomRequest, JoinRoomRequest, LoginResponse, Response, SessionCreatedResponse, isOCPMessage } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 
 export class MessageHandler {
 
     protected openRequests = new Map<number, Deferred<unknown>>();
 
-    protected handlers = new Map<string, (message: ToDaemonMessage) => MaybePromise<void | FromDaeomonMessage>>(
+    protected handlers = new Map<string, (message: unknown) => MaybePromise<void | unknown>>(
         [
             ['login', () => this.login()],
             ['join-room', message => this.joinRoom(message as JoinRoomRequest)],
             ['create-room', message => this.createRoom(message as CreateRoomRequest)],
-            // when connection is established
-            ['send-request', async message => (await this.sendRequest(message as SendRequest)).request],
-            ['send-response', message => { this.openRequests.get((message as SendResponse).id)?.resolve((message as SendResponse).response); }],
-            ['send-broadcast', message => this.currentCollaborationInstance?.currentConnection.sendBroadcast((message as SendBroadcast).broadcast.type, (message as SendBroadcast).broadcast.parameters)],
-            ['send-notification', message => this.currentCollaborationInstance?.currentConnection.sendNotification((message as SendNotification).notification.type, (message as SendNotification).notification.parameters)],
-            ['join-request-response', message => { this.openRequests.get((message as JoinRequestResponse).id)?.resolve(message); }],
             ['close-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()]
         ]
     );
@@ -36,15 +30,45 @@ export class MessageHandler {
     constructor(private connectionProvider: types.ConnectionProvider, private communcationHandler: StdioCommunicationHandler) {
         communcationHandler.onMessage(async message => {
             try {
-                const resp = await this.handlers.get(message.kind)?.(message);
-                if (resp) {
-                    this.communcationHandler.sendMessage(resp);
+                if(message.kind === 'response') {
+                    this.openRequests.get((message as Response).id)?.resolve((message as Response).content);
+                    return;
+                }
+                const handler = this.handlers.get(message.content.method);
+                if(handler) {
+                    const resp = await handler(message.content);
+                    if(message.kind === 'request') {
+                        this.communcationHandler.sendMessage({
+                            kind: 'response',
+                            content: resp as any,
+                            id: message.id
+                        });
+                    }
+                } else if(!handler && isOCPMessage(message.content)) {
+                    switch(message.kind) {
+                        case 'request':
+                            return this.communcationHandler.sendMessage({
+                                kind: 'response',
+                                content: await this.currentCollaborationInstance?.currentConnection.sendRequest(message.content.method, message.content.parameters),
+                                id: message.id
+                            });
+                        case 'notification':
+                            return this.currentCollaborationInstance?.currentConnection.sendNotification(message.content.method, message.content.parameters);
+                        case 'broadcast':
+                            return this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.content.method, message.content.parameters);
+                        default:
+                            throw new Error('Unknown message kind');
+                    }
+                } else {
+                    throw new Error(`Could not handle message with method ${message.content.method}`);
                 }
             } catch (error: any) {
                 communcationHandler.sendMessage({
-                    kind: 'error',
-                    message: error?.message
-                });
+                    kind: 'notification',
+                    content: {
+                        method: 'error',
+                        message: error?.message
+                    }});
             }
         });
     }
@@ -52,32 +76,25 @@ export class MessageHandler {
     async login(): Promise<LoginResponse> {
         const authToken = await this.connectionProvider.login({ });
         return {
-            kind: 'login',
             authToken
         };
     }
 
-    async joinRoom(message: JoinRoomRequest): Promise<SessionCreated> {
+    async joinRoom(message: JoinRoomRequest): Promise<SessionCreatedResponse> {
         const resp = await this.connectionProvider.joinRoom({ roomId: message.room});
         this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
         return {
-            kind: 'session',
-            info: {
-                roomToken: resp.roomToken,
-                roomId: resp.roomId
-            }
+            roomToken: resp.roomToken,
+            roomId: resp.roomId
         };
     }
 
-    async createRoom(message: CreateRoomRequest): Promise<SessionCreated> {
+    async createRoom(message: CreateRoomRequest): Promise<SessionCreatedResponse> {
         const resp = await this.connectionProvider.createRoom({});
         this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, message.workspace);
         return {
-            kind: 'session',
-            info: {
-                roomToken: resp.roomToken,
-                roomId: resp.roomId
-            }
+            roomToken: resp.roomToken,
+            roomId: resp.roomId
         };
     }
 
@@ -88,19 +105,13 @@ export class MessageHandler {
         this.currentCollaborationInstance.onSendRequest(async message => this.sendAndWaitForClient(message));
     }
 
-    async sendRequest(message: SendRequest) {
-        const resp = await this.currentCollaborationInstance?.currentConnection?.sendRequest(message.request.type, message.request.parameters);
-        return {
-            kind: 'response',
-            request: resp,
-            id: message.id
-        };
-    }
-
     async sendAndWaitForClient(messsage: any): Promise<unknown> {
         const id = this.lastRequestId++;
-        messsage.id = id;
-        this.communcationHandler.sendMessage(messsage);
+        this.communcationHandler.sendMessage({
+            kind: 'request',
+            content: messsage,
+            id
+        });
         const deferred = new Deferred<unknown>();
         this.openRequests.set(id, deferred);
         return await deferred.promise;

@@ -8,7 +8,7 @@ import { DisposableCollection, Emitter, Deferred } from 'open-collaboration-prot
 import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { FromDaeomonMessage, JoinRequestResponse } from './messages';
+import { ClientRequests, DaemonMessage, JoinRequestResponse, OCPMessage } from './messages';
 
 export class CollaborationInstance implements types.Disposable{
 
@@ -21,10 +21,10 @@ export class CollaborationInstance implements types.Disposable{
 
     protected identity = new Deferred<types.Peer>();
 
-    protected sendMessageEmitter = new Emitter<FromDaeomonMessage>();
+    protected sendMessageEmitter = new Emitter<DaemonMessage>();
     onSendMessage = this.sendMessageEmitter.event;
 
-    protected sendRequestEmitter = new Emitter<FromDaeomonMessage>();
+    protected sendRequestEmitter = new Emitter<ClientRequests | OCPMessage>();
     onSendRequest = this.sendRequestEmitter.event;
 
     constructor(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
@@ -52,20 +52,15 @@ export class CollaborationInstance implements types.Disposable{
 
         connection.onUnhandledRequest(async (origin, method, ...parameters) => {
             return await this.sendRequestEmitter.fire({
-                kind: 'on-request',
-                request: {
-                    origin,
-                    method,
-                    parameters
-                }
+                method,
+                parameters
             })[0];
         });
 
         connection.onUnhandledNotification((origin, method, ...parameters) => {
             this.sendMessageEmitter.fire({
-                kind: 'on-notification',
-                notification: {
-                    origin,
+                kind: 'notification',
+                content: {
                     method,
                     parameters
                 }
@@ -74,9 +69,8 @@ export class CollaborationInstance implements types.Disposable{
 
         connection.onUnhandledBroadcast((origin, method, ...parameters) => {
             this.sendMessageEmitter.fire({
-                kind: 'on-broadcast',
-                broadcast: {
-                    origin,
+                kind: 'broadcast',
+                content: {
                     method,
                     parameters
                 }
@@ -85,8 +79,7 @@ export class CollaborationInstance implements types.Disposable{
 
         connection.peer.onJoinRequest(async (_, user) => {
             const res = await this.sendRequestEmitter.fire({
-                kind: 'join-request',
-                id: 0, // set by message handler
+                method: 'join-request',
                 user
             })[0] as JoinRequestResponse;
             return res.accepted ? { workspace: workspace! } : undefined;

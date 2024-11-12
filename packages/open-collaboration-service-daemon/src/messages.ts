@@ -5,65 +5,70 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 
+export type DaemonMessage = Request | Response | Notification | Broadcast
+
+export function isOCPMessage(message: unknown): message is OCPMessage {
+    return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.parameters);
+}
+
+export interface OCPMessage {
+    method: string
+    parameters: unknown[]
+}
+
+export type ServiceRequests = LoginRequest | JoinRoomRequest | CreateRoomRequest | CloseSessionRequest
+export type ClientRequests = JoinRequest
+
+export interface Request {
+    kind: 'request',
+    content: OCPMessage | ServiceRequests | JoinRequest
+    id: number // set by message handler
+}
+
+export type ServiceResponse = LoginResponse | SessionCreatedResponse
+export type ClientResponse = JoinRequestResponse
+
+export interface Response {
+    kind: 'response',
+    content: OCPMessage | ServiceResponse | ClientResponse
+    id: number
+}
+
+export type ClientNotifications = OpenUrl | InternalError
+
+export interface Notification {
+    kind: 'notification',
+    content: OCPMessage | ClientNotifications
+}
+
+export interface Broadcast {
+    kind: 'broadcast',
+    content: OCPMessage
+}
+
 // ***************************** To service daeomon *****************************
-export type ToDaemonMessage = LoginRequest
-| JoinRoomRequest
-| JoinRequestResponse
-| CreateRoomRequest
-| CloseSessionRequest
-| SendRequest
-| SendResponse
-| SendNotification
-| SendBroadcast
 
 export interface LoginRequest {
-    kind: 'login'
+    method: 'login'
 }
 
 export interface JoinRoomRequest {
-    kind: 'join-room',
+    method: 'join-room',
     room: string
 }
 
 export interface JoinRequestResponse {
-    kind: 'join-request-response',
-    id: number,
+    method: 'join-request-response',
     accepted: boolean
 }
 
 export interface CreateRoomRequest {
-    kind: 'create-room',
+    method: 'create-room',
     workspace: types.Workspace
 }
 
 export interface CloseSessionRequest {
-    kind: 'close-session'
-}
-
-interface GenericMessage {
-    type: string
-    parameters: unknown[]
-}
-export interface SendRequest {
-    kind: 'send-request',
-    request: GenericMessage
-    id?: number
-}
-
-export interface SendResponse {
-    kind: 'send-response',
-    response: GenericMessage
-    id: number
-}
-
-export interface SendNotification {
-    kind: 'send-notification',
-    notification: GenericMessage
-}
-
-export interface SendBroadcast {
-    kind: 'send-broadcast',
-    broadcast: GenericMessage
+    method: 'close-session'
 }
 
 // awarenss update
@@ -80,75 +85,49 @@ export interface Selection {
 // YJS Awareness
 
 export interface UpdateTextSelection {
-    kind: 'update-text-selection',
+    method: 'update-text-selection',
     documentUri: string
     selections: Selection[];
 }
 
 export interface UpdateDocument {
-    kind: 'update-document',
+    method: 'update-document',
     documentUri: string
     changes: any // TODO add change type
 }
 
 // ***************************** From service daemon ********************************
 
-export type FromDaeomonMessage = InternalError
-| OpenUrl
-| LoginResponse
-| SessionCreated
-| OnRequest
-| OnNotification
-| OnBroadcast
-| JoinRequest
-
 /**
- * a request to the application to open the provided url somehow
+ * A request to the application to open the provided URL
  */
 export interface OpenUrl {
-    kind: 'open-url',
+    method: 'open-url',
     url: string
 }
 
 export interface LoginResponse {
-    kind: 'login',
     authToken: string
 }
 
 /**
- * sent when joining or creating a room
+ * A notification when joining or creating a room was successful
  */
-export interface SessionCreated {
-    kind: 'session',
-    info: {
-        roomToken: string
-        roomId: string
-    }
+export interface SessionCreatedResponse {
+    roomToken: string
+    roomId: string
 }
 
+/**
+ * A request to the application to allow a user to join the current session
+ * expected return: {accepted: boolean, id: id of request}
+ */
 export interface JoinRequest {
-    kind: 'join-request',
-    id: number,
+    method: 'join-request',
     user: types.User
 }
 
-export interface OnRequest {
-    kind: 'on-request',
-    id?: number,
-    request: unknown
-}
-
-export interface OnNotification {
-    kind: 'on-notification',
-    notification: unknown
-}
-
-export interface OnBroadcast {
-    kind: 'on-broadcast',
-    broadcast: unknown
-}
-
 export interface InternalError {
-    kind: 'error',
+    method: 'error',
     message: string
 }
