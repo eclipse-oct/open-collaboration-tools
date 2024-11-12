@@ -5,10 +5,10 @@
 // ******************************************************************************
 
 import { Emitter } from 'open-collaboration-protocol';
-import { FromDaeomonMessage, ToDaemonMessage } from './messages';
+import { DaemonMessage } from './messages';
 
 export class StdioCommunicationHandler {
-    protected readonly onMessageEmitter: Emitter<ToDaemonMessage> = new Emitter<ToDaemonMessage>();
+    protected readonly onMessageEmitter: Emitter<DaemonMessage> = new Emitter();
     onMessage = this.onMessageEmitter.event;
 
     constructor() {
@@ -17,12 +17,12 @@ export class StdioCommunicationHandler {
                 const message = JSON.parse(data.toString('utf-8'));
                 this.onMessageEmitter.fire(message);
             } catch (error: any) {
-                this.sendMessage({ kind: 'error', message: error?.message });
+                this.sendMessage({ kind: 'notification', content: { method: 'error', message: error?.message } });
             }
         });
     }
 
-    sendMessage(message: FromDaeomonMessage): void {
+    sendMessage(message: DaemonMessage): void {
         const messageJson = JSON.stringify(message);
         process.stdout.write(messageJson, 'utf8');
     }
