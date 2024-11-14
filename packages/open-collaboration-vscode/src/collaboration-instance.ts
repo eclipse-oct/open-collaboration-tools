@@ -17,6 +17,11 @@ import { inject, injectable, postConstruct } from 'inversify';
 import { removeWorkspaceFolders } from './utils/workspace';
 import { Mutex } from 'async-mutex';
 import { CollaborationUri } from './utils/uri';
+import { userColors } from './utils/package';
+
+export interface PeerWithColor extends types.Peer {
+    color?: string;
+}
 
 export class DisposablePeer implements vscode.Disposable {
 
@@ -55,8 +60,8 @@ export class DisposablePeer implements vscode.Disposable {
     }
 
     private createDecorationType(): ClientTextEditorDecorationType {
-        const color = createColor();
-        const colorCss = typeof color === 'string' ? `var(--vscode-${color.replaceAll('.', '-')})` : `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        const color = nextColor();
+        const colorCss = `var(--vscode-${color.replaceAll('.', '-')})`;
         const selection: vscode.DecorationRenderOptions = {
             backgroundColor: `color-mix(in srgb, ${colorCss} 25%, transparent)`,
             borderRadius: '0.1em'
@@ -110,31 +115,10 @@ export class DisposablePeer implements vscode.Disposable {
 }
 
 let colorIndex = 0;
-const defaultColors: ([number, number, number] | string)[] = [
-    'oct.user.yellow', // Yellow
-    'oct.user.green', // Green
-    'oct.user.magenta', // Magenta
-    'oct.user.lightGreen', // Light green
-    'oct.user.lightOrange', // Light orange
-    'oct.user.lightMagenta', // Light magenta
-    [92, 45, 145], // Purple
-    [0, 178, 148], // Light teal
-    [255, 241, 0], // Light yellow
-    [180, 160, 255] // Light purple
-];
 
-const knownColors = new Set<string>();
-function createColor(): [number, number, number] | string {
-    if (colorIndex < defaultColors.length) {
-        return defaultColors[colorIndex++];
-    }
-    const o = Math.round, r = Math.random, s = 255;
-    let color: [number, number, number];
-    do {
-        color = [o(r() * s), o(r() * s), o(r() * s)];
-    } while (knownColors.has(JSON.stringify(color)));
-    knownColors.add(JSON.stringify(color));
-    return color;
+function nextColor(): string {
+    colorIndex %= userColors.length;
+    return userColors[colorIndex++];
 }
 
 export class ClientTextEditorDecorationType implements vscode.Disposable {
@@ -146,7 +130,7 @@ export class ClientTextEditorDecorationType implements vscode.Disposable {
             default: vscode.TextEditorDecorationType,
             inverted: vscode.TextEditorDecorationType
         },
-        readonly color: [number, number, number] | string
+        readonly color: string
     ) {
         this.toDispose = vscode.Disposable.from(
             before, after,
@@ -160,7 +144,7 @@ export class ClientTextEditorDecorationType implements vscode.Disposable {
     }
 
     getThemeColor(): vscode.ThemeColor | undefined {
-        return typeof this.color === 'string' ? new vscode.ThemeColor(this.color) : undefined;
+        return new vscode.ThemeColor(this.color);
     }
 }
 
@@ -205,8 +189,15 @@ export class CollaborationInstance implements vscode.Disposable {
     private readonly onDidDisposeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidDispose: vscode.Event<void> = this.onDidDisposeEmitter.event;
 
-    get connectedUsers(): DisposablePeer[] {
-        return Array.from(this.peers.values());
+    get connectedUsers(): Promise<PeerWithColor[]> {
+        return this.ownUserData.then(own => {
+            const all = Array.from(this.peers.values()).map(e => ({
+                ...e.peer,
+                color: e.decoration.color
+            }) as PeerWithColor);
+            all.push(own);
+            return Array.from(all);
+        });
     }
 
     get ownUserData(): Promise<types.Peer> {
@@ -277,7 +268,6 @@ export class CollaborationInstance implements vscode.Disposable {
             await this.initialize(initData);
         });
         connection.room.onJoin(async (_, peer) => {
-            this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
             if (this.host) {
                 // Only initialize the user if we are the host
                 const roots = vscode.workspace.workspaceFolders ?? [];
@@ -294,6 +284,7 @@ export class CollaborationInstance implements vscode.Disposable {
                 };
                 connection.peer.init(peer.id, initData);
             }
+            this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
             this.onDidUsersChangeEmitter.fire();
         });
         connection.room.onLeave(async (_, peer) => {
@@ -315,6 +306,7 @@ export class CollaborationInstance implements vscode.Disposable {
         connection.peer.onInfo((_, peer) => {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
+            this.onDidUsersChangeEmitter.fire();
         });
 
         this.registerFileEvents();
@@ -863,5 +855,6 @@ export class CollaborationInstance implements vscode.Disposable {
         }
         this.fileSystem = new CollaborationFileSystemProvider(this.options.connection, this.yjs, data.host);
         this.toDispose.push(vscode.workspace.registerFileSystemProvider('oct', this.fileSystem));
+        this.onDidUsersChangeEmitter.fire();
     }
 }

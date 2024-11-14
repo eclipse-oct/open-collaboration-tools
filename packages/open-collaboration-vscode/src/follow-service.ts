@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import { inject, injectable } from 'inversify';
-import { CollaborationInstance, DisposablePeer } from './collaboration-instance';
+import { CollaborationInstance } from './collaboration-instance';
 import { showQuickPick } from './utils/quick-pick';
 import { CollaborationStatusViewDataProvider } from './collaboration-status-view';
 import { ContextKeyService } from './context-key-service';
@@ -19,14 +19,14 @@ export class FollowService {
     @inject(ContextKeyService)
     private contextKeyService: ContextKeyService;
 
-    async followPeer(peer?: DisposablePeer): Promise<void> {
+    async followPeer(peer?: string): Promise<void> {
         if (!CollaborationInstance.Current) {
             return;
         }
 
         if (!peer) {
-            const users = CollaborationInstance.Current.connectedUsers;
-            const items = users.map(user => ({ key: user, label: user.peer.name, detail: user.peer.id }));
+            const users = await CollaborationInstance.Current.connectedUsers;
+            const items = users.map(user => ({ label: user.name, detail: user.id, key: user.id }));
             peer = await showQuickPick(items);
         }
 
@@ -34,7 +34,7 @@ export class FollowService {
             return;
         }
 
-        CollaborationInstance.Current.followUser(peer.peer.id);
+        CollaborationInstance.Current.followUser(peer);
         this.viewDataProvider.update();
         this.contextKeyService.setFollowing(true);
     }

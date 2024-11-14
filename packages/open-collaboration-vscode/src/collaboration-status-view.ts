@@ -5,13 +5,13 @@
 // ******************************************************************************
 
 import * as vscode from 'vscode';
-import { CollaborationInstance, DisposablePeer } from './collaboration-instance';
+import { CollaborationInstance, PeerWithColor } from './collaboration-instance';
 import { injectable } from 'inversify';
 
 @injectable()
-export class CollaborationStatusViewDataProvider implements vscode.TreeDataProvider<DisposablePeer> {
+export class CollaborationStatusViewDataProvider implements vscode.TreeDataProvider<PeerWithColor> {
 
-    private onDidChangeTreeDataEmitter = new vscode.EventEmitter<DisposablePeer[] | undefined>();
+    private onDidChangeTreeDataEmitter = new vscode.EventEmitter<void>();
     onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
     private instance: CollaborationInstance | undefined;
@@ -19,29 +19,36 @@ export class CollaborationStatusViewDataProvider implements vscode.TreeDataProvi
     onConnection(instance: CollaborationInstance) {
         this.instance = instance;
         instance.onDidUsersChange(() => {
-            this.onDidChangeTreeDataEmitter.fire(undefined);
+            this.onDidChangeTreeDataEmitter.fire();
         });
         instance.onDidDispose(() => {
             this.instance = undefined;
-            this.onDidChangeTreeDataEmitter.fire(undefined);
+            this.onDidChangeTreeDataEmitter.fire();
         });
-        this.onDidChangeTreeDataEmitter.fire(undefined);
+        this.onDidChangeTreeDataEmitter.fire();
     }
 
-    async getTreeItem(element: DisposablePeer): Promise<vscode.TreeItem> {
+    async getTreeItem(peer: PeerWithColor): Promise<vscode.TreeItem> {
         const self = await this.instance?.ownUserData;
-        const you = vscode.l10n.t('You');
-        const treeItem = new vscode.TreeItem(element.peer.id === self?.id ? `${element.peer.name} (${you})` : element.peer.name);
-        treeItem.id = element.peer.id;
+        const treeItem = new vscode.TreeItem(peer.name);
+        const tags: string[] = [];
+        if (peer.id === self?.id) {
+            tags.push(vscode.l10n.t('You'));
+        }
+        if (peer.host) {
+            tags.push(vscode.l10n.t('Host'));
+        }
+        treeItem.description = tags.length ? ('(' + tags.join(' • ') + ')') : undefined;
         treeItem.contextValue = 'self';
-        if (self?.id !== element.peer.id) {
-            treeItem.iconPath = new vscode.ThemeIcon('circle-filled', element.decoration.getThemeColor());
-            treeItem.contextValue = this.instance?.following === treeItem.id ? 'followedPeer' : 'peer';
+        if (self?.id !== peer.id) {
+            const themeColor = peer.color ? new vscode.ThemeColor(peer.color) : undefined;
+            treeItem.iconPath = new vscode.ThemeIcon('circle-filled', themeColor);
+            treeItem.contextValue = this.instance?.following === peer.id ? 'followedPeer' : 'peer';
         }
         return treeItem;
     }
 
-    getChildren(element?: DisposablePeer): vscode.ProviderResult<DisposablePeer[]> {
+    getChildren(element?: PeerWithColor): vscode.ProviderResult<PeerWithColor[]> {
         if (!element && this.instance) {
             return this.instance.connectedUsers;
         }
@@ -49,7 +56,7 @@ export class CollaborationStatusViewDataProvider implements vscode.TreeDataProvi
     }
 
     update() {
-        this.onDidChangeTreeDataEmitter.fire(undefined);
+        this.onDidChangeTreeDataEmitter.fire();
     }
 
 }

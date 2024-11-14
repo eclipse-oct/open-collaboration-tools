@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
 import { FollowService } from './follow-service';
-import { CollaborationInstance, DisposablePeer } from './collaboration-instance';
+import { CollaborationInstance, PeerWithColor } from './collaboration-instance';
 import { ExtensionContext } from './inversify';
 import { CollaborationConnectionProvider, OCT_USER_TOKEN } from './collaboration-connection-provider';
 import { QuickPickItem, showQuickPick } from './utils/quick-pick';
@@ -40,7 +40,7 @@ export class Commands {
 
     initialize(): void {
         this.context.subscriptions.push(
-            vscode.commands.registerCommand('oct.followPeer', (peer?: DisposablePeer) => this.followService.followPeer(peer)),
+            vscode.commands.registerCommand('oct.followPeer', (peer?: PeerWithColor) => this.followService.followPeer(peer?.id)),
             vscode.commands.registerCommand('oct.stopFollowPeer', () => this.followService.unfollowPeer()),
             vscode.commands.registerCommand('oct.enter', async () => {
                 this.withConnectionProvider(async connectionProvider => {
