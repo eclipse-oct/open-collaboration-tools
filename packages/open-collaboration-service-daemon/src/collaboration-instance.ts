@@ -7,15 +7,18 @@ import * as types from 'open-collaboration-protocol';
 import { DisposableCollection, Emitter, Deferred } from 'open-collaboration-protocol';
 import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
+import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { ClientRequests, DaemonMessage, JoinRequestResponse, OCPMessage } from './messages';
+import { ClientRequests, DaemonMessage, JoinRequestResponse, OCPMessage, RegisterYjsDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
 
 export class CollaborationInstance implements types.Disposable{
 
     protected peers = new Map<string, types.Peer>();
+    protected peerInfo: types.Peer;
 
-    currentConnection: types.ProtocolBroadcastConnection;
     protected yjsProvider?: OpenCollaborationYjsProvider;
+    protected YjsDoc: Y.Doc;
+    private yjsMutex = new Mutex();
 
     protected connectionDisposables: DisposableCollection = new DisposableCollection();
 
@@ -27,37 +30,36 @@ export class CollaborationInstance implements types.Disposable{
     protected sendRequestEmitter = new Emitter<ClientRequests | OCPMessage>();
     onSendRequest = this.sendRequestEmitter.event;
 
-    constructor(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
+    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected host: boolean, workspace?: types.Workspace) {
         if(host && !workspace) {
             throw new Error('Host must provide workspace');
         }
-        this.currentConnection = connection;
-        const YjsDoc = new Y.Doc();
-        const awareness = new awarenessProtocol.Awareness(YjsDoc);
+        this.YjsDoc = new Y.Doc();
+        const awareness = new awarenessProtocol.Awareness(this.YjsDoc);
         this.connectionDisposables.push({
             dispose: () => {
-                YjsDoc.destroy();
+                this.YjsDoc.destroy();
                 awareness.destroy();
             }});
 
-        this.yjsProvider = new OpenCollaborationYjsProvider(connection, YjsDoc, awareness);
+        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, awareness);
         this.yjsProvider.connect();
-        this.connectionDisposables.push(connection.onReconnect(() => {
+        this.connectionDisposables.push(currentConnection.onReconnect(() => {
             this.yjsProvider?.connect();
         }));
 
-        connection.onDisconnect(() => {
+        currentConnection.onDisconnect(() => {
             this.dispose();
         });
 
-        connection.onUnhandledRequest(async (origin, method, ...parameters) => {
+        currentConnection.onUnhandledRequest(async (origin, method, ...parameters) => {
             return await this.sendRequestEmitter.fire({
                 method,
                 parameters
             })[0];
         });
 
-        connection.onUnhandledNotification((origin, method, ...parameters) => {
+        currentConnection.onUnhandledNotification((origin, method, ...parameters) => {
             this.sendMessageEmitter.fire({
                 kind: 'notification',
                 content: {
@@ -67,7 +69,7 @@ export class CollaborationInstance implements types.Disposable{
             });
         });
 
-        connection.onUnhandledBroadcast((origin, method, ...parameters) => {
+        currentConnection.onUnhandledBroadcast((origin, method, ...parameters) => {
             this.sendMessageEmitter.fire({
                 kind: 'broadcast',
                 content: {
@@ -77,7 +79,7 @@ export class CollaborationInstance implements types.Disposable{
             });
         });
 
-        connection.peer.onJoinRequest(async (_, user) => {
+        currentConnection.peer.onJoinRequest(async (_, user) => {
             const res = await this.sendRequestEmitter.fire({
                 method: 'join-request',
                 user
@@ -85,12 +87,12 @@ export class CollaborationInstance implements types.Disposable{
             return res.accepted ? { workspace: workspace! } : undefined;
         });
 
-        connection.peer.onInfo((_, peer) => {
+        currentConnection.peer.onInfo((_, peer) => {
             awareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
         });
 
-        connection.room.onJoin(async (_, peer) => {
+        currentConnection.room.onJoin(async (_, peer) => {
             if (host && workspace) {
                 // Only initialize the user if we are the host
                 const initData: types.InitData = {
@@ -104,9 +106,78 @@ export class CollaborationInstance implements types.Disposable{
                         folders: workspace.folders ?? []
                     }
                 };
-                connection.peer.init(peer.id, initData);
+                currentConnection.peer.init(peer.id, initData);
             }
         });
+    }
+
+    async registerYjsObject(message: RegisterYjsDocument) {
+        if(message.type === 'text') {
+            const yjsText = this.YjsDoc.getText(message.documentUri);
+            if (this.host) {
+                this.YjsDoc.transact(() => {
+                    yjsText.delete(0, yjsText.length);
+                    yjsText.insert(0, message.text);
+                });
+            } else {
+                this.currentConnection.editor.open((await this.identity.promise).id, message.documentUri);
+            }
+            const observer = (textEvent: Y.YTextEvent) => {
+                if (textEvent.transaction.local) {
+                    // Ignore own events or if the document is already in sync
+                    return;
+                }
+                const edits: TextDocumentInsert[] = [];
+                let index = 0;
+                textEvent.delta.forEach(delta => {
+                    if (typeof delta.retain === 'number') {
+                        index += delta.retain;
+                    } else if (typeof delta.insert === 'string') {
+                        edits.push({
+                            startOffset: index,
+                            text: delta.insert,
+                        });
+                        index += delta.insert.length;
+                    } else if (typeof delta.delete === 'number') {
+                        edits.push({
+                            startOffset: index,
+                            endOffset: index + delta.delete,
+                            text: '',
+                        });
+                    }
+                });
+                this.sendMessageEmitter.fire({
+                    kind: 'notification',
+                    content: {
+                        method: 'update-document',
+                        documentUri: message.documentUri,
+                        changes: edits
+                    }
+                });
+            };
+            yjsText.observe(observer);
+        }
+    }
+
+    updateYjsObjectContent(update: UpdateDocumentContent) {
+        if (update.changes.length === 0) {
+            return;
+        }
+        this.yjsMutex.runExclusive(async () => {
+            const yjsText = this.YjsDoc.getText(update.documentUri);
+            this.YjsDoc.transact(() => {
+                for(const change of update.changes) {
+                    if(change.endOffset) {
+                        yjsText.delete(change.startOffset, change.endOffset - change.startOffset);
+                    }
+                    yjsText.insert(change.startOffset, change.text);
+                }
+            });
+        });
+    }
+
+    updateYjsObjectSelection(update: UpdateTextSelection) {
+        update.method;
     }
 
     dispose(): void {
