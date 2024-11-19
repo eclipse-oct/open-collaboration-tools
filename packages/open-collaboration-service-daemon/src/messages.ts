@@ -34,7 +34,7 @@ export interface Response {
     id: number
 }
 
-export type ClientNotifications = OpenUrl | InternalError
+export type ClientNotifications = OpenUrl | UpdateDocumentContent | InternalError
 
 export interface Notification {
     kind: 'notification',
@@ -71,29 +71,31 @@ export interface CloseSessionRequest {
     method: 'close-session'
 }
 
-// awarenss update
-
-export interface Position {
-    line: number
-    character: number
-}
-export interface Selection {
-    start: Position
-    end: Position
-}
-
 // YJS Awareness
+
+export interface TextDocumentInsert {
+    startOffset: number,
+    endOffset?: number,
+    text: string
+}
+
+export interface RegisterYjsDocument {
+    method: 'register-yjs-document',
+    type: 'text' // todo add more possiblilities like arrays and maps
+    documentUri: string
+    text: string
+}
 
 export interface UpdateTextSelection {
     method: 'update-text-selection',
     documentUri: string
-    selections: Selection[];
+    selections: types.Range[];
 }
 
-export interface UpdateDocument {
+export interface UpdateDocumentContent {
     method: 'update-document',
     documentUri: string
-    changes: any // TODO add change type
+    changes: TextDocumentInsert[] // todo add more types for other object types
 }
 
 // ***************************** From service daemon ********************************

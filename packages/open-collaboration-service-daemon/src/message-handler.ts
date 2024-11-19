@@ -7,7 +7,7 @@
 import type * as types from 'open-collaboration-protocol';
 import { Deferred, MaybePromise } from 'open-collaboration-protocol';
 import { StdioCommunicationHandler } from './communication-handler';
-import { CreateRoomRequest, JoinRoomRequest, LoginResponse, Response, SessionCreatedResponse, isOCPMessage } from './messages';
+import { CreateRoomRequest, JoinRoomRequest, LoginResponse, RegisterYjsDocument, Response, SessionCreatedResponse, UpdateDocumentContent, UpdateTextSelection, isOCPMessage } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 
 export class MessageHandler {
@@ -19,7 +19,10 @@ export class MessageHandler {
             ['login', () => this.login()],
             ['join-room', message => this.joinRoom(message as JoinRoomRequest)],
             ['create-room', message => this.createRoom(message as CreateRoomRequest)],
-            ['close-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()]
+            ['close-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()],
+            ['register-yjs-document', message => this.currentCollaborationInstance?.registerYjsObject(message as RegisterYjsDocument) ],
+            ['update-selection', message => this.currentCollaborationInstance?.updateYjsObjectSelection(message as UpdateTextSelection)],
+            ['update-document', message => this.currentCollaborationInstance?.updateYjsObjectContent(message as UpdateDocumentContent)],
         ]
     );
 
