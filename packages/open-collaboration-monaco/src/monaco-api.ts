@@ -4,14 +4,13 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import * as monaco from 'monaco-editor';
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
 import { CollaborationInstance } from './collaboration-instance';
 import * as types from 'open-collaboration-protocol';
 import { createRoom, joinRoom, login } from './collaboration-connection';
 
 let connectionProvider: ConnectionProvider | undefined;
-let userToken: string | undefined;
+// let userToken: string | undefined;
 let instance: CollaborationInstance | undefined;
 
 export type MonacoCollabCallbacks = {
@@ -23,19 +22,35 @@ export type MonacoCollabCallbacks = {
 
 export type MonacoCollabOptions = {
     serverUrl: string;
+    callbacks: MonacoCollabCallbacks;
     userToken?: string;
     roomToken?: string;
-    callbacks: MonacoCollabCallbacks;
+    loginPageOpener?: () => void
 };
 
 export type MonacoCollabApi = {
     createRoom: () => Promise<CollaborationInstance | undefined>
-    joinRoom: (roomToken: string) => Promise<undefined | {message: string}>
+    joinRoom: (roomToken: string) => Promise<CollaborationInstance | {message: string} | undefined>
     login: () => Promise<string | undefined>
+    isLoggedIn: () => boolean
 }
 
-export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, options: MonacoCollabOptions): MonacoCollabApi {
-    initializeConnection(options);
+export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
+    connectionProvider = new ConnectionProvider({
+        url: options.serverUrl,
+        opener: options.loginPageOpener ?? ((url) => window.open(url, '_blank')),
+        transports: [SocketIoTransportProvider],
+        userToken: options.userToken,
+        fetch: async (url, options) => {
+            const response = await fetch(url, options);
+            return {
+                ok: response.ok,
+                status: response.status,
+                json: async () => response.json(),
+                text: async () => response.text()
+            };
+        }
+    });
 
     const doCreateRoom = async () => {
         console.log('Creating room');
@@ -45,7 +60,7 @@ export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, option
             return;
         }
 
-        return await createRoom(connectionProvider, options.callbacks, editor);
+        return await createRoom(connectionProvider, options.callbacks);
     };
 
     const doJoinRoom = async (roomToken: string) => {
@@ -56,7 +71,7 @@ export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, option
             return;
         }
 
-        return await joinRoom(connectionProvider, options.callbacks, editor, roomToken);
+        return await joinRoom(connectionProvider, options.callbacks, roomToken);
     };
 
     const doLogin = async () => {
@@ -71,39 +86,14 @@ export function monacoCollab(editor: monaco.editor.IStandaloneCodeEditor, option
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
-        login: doLogin
+        login: doLogin,
+        isLoggedIn: () => !!connectionProvider?.authToken
     };
 
 }
 
 export function deactivate() {
     instance?.dispose();
-}
-
-async function initializeConnection(options: MonacoCollabOptions) {
-    const serverUrl = options.serverUrl;
-    userToken = options.userToken;
-    if (serverUrl) {
-        connectionProvider = createConnectionProvider(serverUrl);
-    }
-}
-
-function createConnectionProvider(url: string): ConnectionProvider {
-    return new ConnectionProvider({
-        url,
-        opener: (url) => window.open(url, '_blank'), // vscode.env.openExternal(vscode.Uri.parse(url)),
-        transports: [SocketIoTransportProvider],
-        userToken,
-        fetch: async (url, options) => {
-            const response = await fetch(url, options);
-            return {
-                ok: response.ok,
-                status: response.status,
-                json: async () => response.json(),
-                text: async () => response.text()
-            };
-        }
-    });
 }
 
 // function removeWorkspaceFolders() {

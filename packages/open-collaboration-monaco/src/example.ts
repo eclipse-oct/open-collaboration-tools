@@ -21,7 +21,7 @@ if (container) {
         language: 'javascript'
     });
 
-    const monacoCollabApi = monacoCollab(myEditor, {
+    const monacoCollabApi = monacoCollab({
         serverUrl: 'http://0.0.0.0:8100',
         callbacks: {
             onUserRequestsAccess: (user: User) => {
@@ -40,6 +40,7 @@ if (container) {
         monacoCollabApi.createRoom().then(instance => {
             console.log(instance);
             if (instance) {
+                instance.setEditor(myEditor);
                 (document.getElementById('token') as HTMLInputElement).value = instance.roomToken ?? '';
             }
         });
@@ -51,8 +52,12 @@ if (container) {
         const roomToken = (document.getElementById('room') as HTMLInputElement).value;
         monacoCollabApi.joinRoom(roomToken).then(state => {
             if (state) {
-                console.log('Access denied', state.message);
-                return;
+                if ('message' in state) {
+                    console.log('Access denied', state.message);
+                    return;
+                } else {
+                    state.setEditor(myEditor);
+                }
             }
             console.log('Joined room');
         });
