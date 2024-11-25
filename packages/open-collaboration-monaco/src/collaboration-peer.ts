@@ -16,6 +16,8 @@ type PeerDecorationOptions = {
 export class DisposablePeer {
 
     readonly peer: types.Peer;
+    color: string | undefined;
+
     private yjsAwareness: awarenessProtocol.Awareness;
 
     readonly decoration: PeerDecorationOptions;
@@ -50,6 +52,7 @@ export class DisposablePeer {
     private createDecorations(): PeerDecorationOptions {
         const color = createColor();
         const colorCss = typeof color === 'string' ? color : `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        this.color = colorCss;
         const className = `peer-${this.peer.id}`;
         const cursorClassName = `${className}-cursor`;
         const cursorInvertedClassName = `${className}-cursor-inverted`;

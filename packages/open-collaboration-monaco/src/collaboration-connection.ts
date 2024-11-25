@@ -5,8 +5,8 @@
 // ******************************************************************************
 
 import { ConnectionProvider, CreateRoomResponse, JoinRoomResponse, stringifyError } from 'open-collaboration-protocol';
-import { CollaborationInstance } from './collaboration-instance';
-import { MonacoCollabCallbacks } from './monaco-api';
+import { CollaborationInstance } from './collaboration-instance.js';
+import { MonacoCollabCallbacks } from './monaco-api.js';
 
 export async function login(connectionProvider: ConnectionProvider): Promise<void> {
     const valid = await connectionProvider.validate();
@@ -23,8 +23,6 @@ export async function createRoom(connectionProvider: ConnectionProvider, callbac
     if (roomClaim.loginToken) {
         const userToken = roomClaim.loginToken;
         console.log('User Token:', userToken);
-        // TODO store user token somewhere
-        // await context.secrets.store('oct.userToken', userToken);
     }
 
     console.log('Room ID:', roomClaim.roomId);

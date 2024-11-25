@@ -5,19 +5,17 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { CollaborationInstance } from './collaboration-instance';
+import { CollaborationInstance, UsersChangeEvent } from './collaboration-instance.js';
 import * as types from 'open-collaboration-protocol';
-import { createRoom, joinRoom, login } from './collaboration-connection';
+import { createRoom, joinRoom, login } from './collaboration-connection.js';
+import * as monaco from 'monaco-editor';
 
 let connectionProvider: ConnectionProvider | undefined;
 // let userToken: string | undefined;
 let instance: CollaborationInstance | undefined;
 
 export type MonacoCollabCallbacks = {
-    onRoomCreated?: (roomToken: string) => void;
-    onRoomJoined?: (roomToken: string) => void;
     onUserRequestsAccess: (user: types.User) => Promise<boolean>;
-    onUsersChanged: () => void;
 }
 
 export type MonacoCollabOptions = {
@@ -25,14 +23,20 @@ export type MonacoCollabOptions = {
     callbacks: MonacoCollabCallbacks;
     userToken?: string;
     roomToken?: string;
-    loginPageOpener?: () => void
+    loginPageOpener?: (url: string, token: string) => void;
 };
 
+export type OtherUserData = {peer: types.Peer, color: string};
+export type UserData = {me: types.Peer, others: OtherUserData[]};
+
 export type MonacoCollabApi = {
-    createRoom: () => Promise<CollaborationInstance | undefined>
-    joinRoom: (roomToken: string) => Promise<CollaborationInstance | {message: string} | undefined>
+    createRoom: () => Promise<string | undefined>
+    joinRoom: (roomToken: string) => Promise<string | undefined>
     login: () => Promise<string | undefined>
     isLoggedIn: () => boolean
+    setEditor: (editor: monaco.editor.IStandaloneCodeEditor) => void
+    getUserData: () => Promise<UserData | undefined>
+    onUsersChanged: (evt: UsersChangeEvent) => void;
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -60,7 +64,11 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
             return;
         }
 
-        return await createRoom(connectionProvider, options.callbacks);
+        instance = await createRoom(connectionProvider, options.callbacks);
+        if (instance) {
+            return instance.roomToken;
+        }
+        return;
     };
 
     const doJoinRoom = async (roomToken: string) => {
@@ -71,7 +79,14 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
             return;
         }
 
-        return await joinRoom(connectionProvider, options.callbacks, roomToken);
+        const res = await joinRoom(connectionProvider, options.callbacks, roomToken);
+        if (res && 'message' in res) {
+            console.log('Failed to join room:', res.message);
+            return;
+        } else {
+            instance = res;
+            return instance.roomToken;
+        }
     };
 
     const doLogin = async () => {
@@ -83,11 +98,40 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         return connectionProvider.authToken;
     };
 
+    const doSetEditor = (editor: monaco.editor.IStandaloneCodeEditor) => {
+        if (instance) {
+            instance.setEditor(editor);
+        }
+    };
+
+    const doGetUserData = async () => {
+        let data: UserData | undefined;
+        if (instance) {
+            const me: types.Peer = await instance.ownUserData;
+            const others = instance.connectedUsers.map(
+                user => ({
+                    peer: user.peer,
+                    color: user.color ?? 'rgba(0, 0, 0, 0.5)'
+                }));
+            data = {me, others};
+        }
+        return data;
+    };
+
+    const registerUserChangeHandler = (evt: UsersChangeEvent) => {
+        if (instance) {
+            instance.onUsersChanged(evt);
+        }
+    };
+
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
         login: doLogin,
-        isLoggedIn: () => !!connectionProvider?.authToken
+        isLoggedIn: () => !!connectionProvider?.authToken,
+        setEditor: doSetEditor,
+        getUserData: doGetUserData,
+        onUsersChanged: registerUserChangeHandler
     };
 
 }
