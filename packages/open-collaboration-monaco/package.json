@@ -1,5 +1,5 @@
 {
-  "name": "oct-collaboration-monaco",
+  "name": "open-collaboration-monaco",
   "displayName": "OCT Live Collaboration Monaco Editor",
   "description": "Connect with others and share your code in real-time collaboration sessions",
   "version": "0.0.1",
@@ -7,7 +7,14 @@
   "categories": [
     "Other"
   ],
-  "main": "./lib/monaco-api.js",
+  "main": "./lib/index.js",
+  "module": "./lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "dev:debug": "vite --debug --force",
@@ -15,7 +22,7 @@
   },
   "dependencies": {
     "lodash": "^4.17.21",
-    "monaco-editor": "^0.49.0",
+    "monaco-editor": "~0.52.0",
     "node-fetch": "^2.0.0",
     "vite": "^5.3.1",
     "ws": "^8.17.0",

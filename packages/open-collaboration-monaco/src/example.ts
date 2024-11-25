@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import * as monaco from 'monaco-editor';
-import { monacoCollab } from './monaco-api';
+import { monacoCollab } from './monaco-api.js';
 import { User } from 'open-collaboration-protocol';
 
 const value = '';
@@ -27,9 +27,6 @@ if (container) {
             onUserRequestsAccess: (user: User) => {
                 console.log('User requests access', user);
                 return Promise.resolve(true);
-            },
-            onUsersChanged: () => {
-                console.log('Users changed');
             }
         }
     });
@@ -37,11 +34,10 @@ if (container) {
     // on click of button with id create create room, call createRoom, take the value from response and set it in textfield with id token
     const createRoomButton = document.getElementById('create');
     createRoomButton?.addEventListener('click', () => {
-        monacoCollabApi.createRoom().then(instance => {
-            console.log(instance);
-            if (instance) {
-                instance.setEditor(myEditor);
-                (document.getElementById('token') as HTMLInputElement).value = instance.roomToken ?? '';
+        monacoCollabApi.createRoom().then(token => {
+            if (token) {
+                monacoCollabApi.setEditor(myEditor);
+                (document.getElementById('token') as HTMLInputElement).value = token ?? '';
             }
         });
     });
@@ -52,12 +48,7 @@ if (container) {
         const roomToken = (document.getElementById('room') as HTMLInputElement).value;
         monacoCollabApi.joinRoom(roomToken).then(state => {
             if (state) {
-                if ('message' in state) {
-                    console.log('Access denied', state.message);
-                    return;
-                } else {
-                    state.setEditor(myEditor);
-                }
+                monacoCollabApi.setEditor(myEditor);
             }
             console.log('Joined room');
         });
