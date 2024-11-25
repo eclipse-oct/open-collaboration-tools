@@ -21,7 +21,7 @@ export interface ConnectionProviderOptions {
     client?: string;
     protocolVersion?: string;
     fetch: Fetch;
-    opener: (url: string) => void;
+    opener: (url: string, token: string) => void;
     transports: MessageTransportProvider[];
 }
 
@@ -116,7 +116,7 @@ export class ConnectionProvider {
         const confirmToken = loginBody.pollToken;
         const url = loginBody.url;
         const fullUrl = url.startsWith('/') ? this.getUrl(url) : url;
-        this.options.opener(fullUrl);
+        this.options.opener(fullUrl, confirmToken);
         const authToken = await this.pollLogin(confirmToken, options);
         this.userAuthToken = authToken;
         return authToken;

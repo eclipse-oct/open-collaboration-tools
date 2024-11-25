@@ -11,9 +11,11 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import { createMutex } from 'lib0/mutex';
-import debounce from 'lodash/debounce';
-import { MonacoCollabCallbacks } from './monaco-api';
-import { DisposablePeer } from './collaboration-peer';
+import { debounce }from 'lodash/';
+import { MonacoCollabCallbacks } from './monaco-api.js';
+import { DisposablePeer } from './collaboration-peer.js';
+
+export type UsersChangeEvent = () => void;
 
 export interface Disposable {
     dispose(): void;
@@ -35,12 +37,13 @@ export class CollaborationInstance implements Disposable {
     private yjsMutex = createMutex();
 
     private identity = new Deferred<types.Peer>();
-    private toDispose = new DisposableCollection();
+    // private toDispose = new DisposableCollection();
     private updates = new Set<string>();
     private documentDisposables = new Map<string, DisposableCollection>();
     private peers = new Map<string, DisposablePeer>();
     private throttles = new Map<string, () => void>();
     private decorations = new Map<DisposablePeer, monaco.editor.IEditorDecorationsCollection>();
+    private usersChangedCallbacks: UsersChangeEvent[] = [];
 
     private _following?: string;
     get following(): string | undefined {
@@ -63,19 +66,23 @@ export class CollaborationInstance implements Disposable {
         return this.options.roomToken;
     }
 
+    onUsersChanged(callback: UsersChangeEvent) {
+        this.usersChangedCallbacks.push(callback);
+    }
+
     constructor(protected options: CollaborationInstanceOptions) {
         const connection = options.connection;
         this.yjsProvider = new OpenCollaborationYjsProvider(this.options.connection, this.yjs, this.yjsAwareness);
         this.yjsProvider.connect();
 
-        this.toDispose.push(this.options.connection);
-        this.toDispose.push(this.yjsProvider);
-        this.toDispose.push({
-            dispose: () => {
-                this.yjs.destroy();
-                this.yjsAwareness.destroy();
-            }
-        });
+        // this.toDispose.push(this.options.connection);
+        // this.toDispose.push(this.yjsProvider);
+        // this.toDispose.push({
+        //     dispose: () => {
+        //         this.yjs.destroy();
+        //         this.yjsAwareness.destroy();
+        //     }
+        // });
 
         connection.peer.onJoinRequest(async (_, user) => {
             const result = await this.options.callbacks.onUserRequestsAccess(user);
@@ -100,13 +107,13 @@ export class CollaborationInstance implements Disposable {
                 }
             };
             connection.peer.init(peer.id, initData);
-            this.options.callbacks.onUsersChanged();
+            this.usersChangedCallbacks.forEach(callback => callback());
         });
         connection.room.onLeave(async (_, peer) => {
             const disposable = this.peers.get(peer.id);
             if (disposable) {
                 this.peers.delete(peer.id);
-                this.options.callbacks.onUsersChanged();
+                this.usersChangedCallbacks.forEach(callback => callback());
             }
             this.rerenderPresence();
         });
@@ -145,7 +152,7 @@ export class CollaborationInstance implements Disposable {
         this.peers.clear();
         this.documentDisposables.forEach(e => e.dispose());
         this.documentDisposables.clear();
-        this.toDispose.dispose();
+        // this.toDispose.dispose();
     }
 
     private pushDocumentDisposable(path: string, disposable: Disposable) {
@@ -166,15 +173,17 @@ export class CollaborationInstance implements Disposable {
             this.registerTextDocument(text);
         }
 
-        this.toDispose.push(this.options.editor.onDidChangeModelContent(event => {
+        // this.toDispose.push();
+        this.options.editor.onDidChangeModelContent(event => {
             if (text) {
                 this.updateTextDocument(event, text);
             }
-        }));
+        });
 
-        this.toDispose.push(this.options.editor.onDidChangeCursorSelection(_e => {
+        // this.toDispose.push();
+        this.options.editor.onDidChangeCursorSelection(_e => {
             this.options.editor && this.updateTextSelection(this.options.editor);
-        }));
+        });
 
         let awarenessTimeout: NodeJS.Timeout | undefined;
 
@@ -294,6 +303,7 @@ export class CollaborationInstance implements Disposable {
                         let index = 0;
                         const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
                         textEvent.delta.forEach(delta => {
+                            // console.log('Setting DELTA', delta);
                             if (delta.retain !== undefined) {
                                 index += delta.retain;
                             } else if (delta.insert !== undefined) {
@@ -476,9 +486,12 @@ export class CollaborationInstance implements Disposable {
     }
 
     async initialize(data: types.InitData): Promise<void> {
+        const own = await this.ownUserData;
+        console.log('in initialize - Own user data', own);
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
+        this.usersChangedCallbacks.forEach(callback => callback());
     }
 
     getProtocolPath(uri?: monaco.Uri): string | undefined {
