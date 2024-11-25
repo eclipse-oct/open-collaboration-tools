@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import * as monaco from 'monaco-editor';
-import { monacoCollab } from './monaco-api';
+import { monacoCollab } from './monaco-api.js';
 import { User } from 'open-collaboration-protocol';
 
 const value = '';

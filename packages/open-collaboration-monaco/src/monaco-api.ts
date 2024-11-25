@@ -5,9 +5,9 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { CollaborationInstance } from './collaboration-instance';
+import { CollaborationInstance } from './collaboration-instance.js';
 import * as types from 'open-collaboration-protocol';
-import { createRoom, joinRoom, login } from './collaboration-connection';
+import { createRoom, joinRoom, login } from './collaboration-connection.js';
 
 let connectionProvider: ConnectionProvider | undefined;
 // let userToken: string | undefined;

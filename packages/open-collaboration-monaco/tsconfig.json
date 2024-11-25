@@ -1,9 +1,9 @@
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
-        // "target": "ES2020",
-        // "module": "ES2022",
-        // "moduleResolution": "Bundler",
+        "target": "ESNext",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
         "rootDir": "src",
         "outDir": "lib",
         "sourceMap": true,

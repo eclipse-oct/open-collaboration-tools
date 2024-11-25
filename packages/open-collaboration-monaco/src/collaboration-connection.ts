@@ -5,8 +5,8 @@
 // ******************************************************************************
 
 import { ConnectionProvider, CreateRoomResponse, JoinRoomResponse, stringifyError } from 'open-collaboration-protocol';
-import { CollaborationInstance } from './collaboration-instance';
-import { MonacoCollabCallbacks } from './monaco-api';
+import { CollaborationInstance } from './collaboration-instance.js';
+import { MonacoCollabCallbacks } from './monaco-api.js';
 
 export async function login(connectionProvider: ConnectionProvider): Promise<void> {
     const valid = await connectionProvider.validate();

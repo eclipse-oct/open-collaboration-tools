@@ -11,9 +11,9 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import { createMutex } from 'lib0/mutex';
-import debounce from 'lodash/debounce';
-import { MonacoCollabCallbacks } from './monaco-api';
-import { DisposablePeer } from './collaboration-peer';
+import { debounce }from 'lodash/';
+import { MonacoCollabCallbacks } from './monaco-api.js';
+import { DisposablePeer } from './collaboration-peer.js';
 
 export interface Disposable {
     dispose(): void;
