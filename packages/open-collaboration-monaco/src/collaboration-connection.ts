@@ -7,7 +7,6 @@
 import { ConnectionProvider, CreateRoomResponse, JoinRoomResponse, stringifyError } from 'open-collaboration-protocol';
 import { CollaborationInstance } from './collaboration-instance';
 import { MonacoCollabCallbacks } from './monaco-api';
-import * as monaco from 'monaco-editor';
 
 export async function login(connectionProvider: ConnectionProvider): Promise<void> {
     const valid = await connectionProvider.validate();
@@ -16,7 +15,7 @@ export async function login(connectionProvider: ConnectionProvider): Promise<voi
     }
 }
 
-export async function createRoom(connectionProvider: ConnectionProvider, callbacks: MonacoCollabCallbacks, editor: monaco.editor.IStandaloneCodeEditor): Promise<CollaborationInstance | undefined> {
+export async function createRoom(connectionProvider: ConnectionProvider, callbacks: MonacoCollabCallbacks): Promise<CollaborationInstance | undefined> {
     if (!connectionProvider) {
         return undefined;
     }
@@ -29,10 +28,10 @@ export async function createRoom(connectionProvider: ConnectionProvider, callbac
     }
 
     console.log('Room ID:', roomClaim.roomId);
-    return await connectToRoom(connectionProvider, roomClaim, true, callbacks, editor);
+    return await connectToRoom(connectionProvider, roomClaim, true, callbacks);
 }
 
-export async function joinRoom(connectionProvider: ConnectionProvider, callbacks: MonacoCollabCallbacks, editor: monaco.editor.IStandaloneCodeEditor, roomId?: string): Promise<undefined | {message: string}> {
+export async function joinRoom(connectionProvider: ConnectionProvider, callbacks: MonacoCollabCallbacks, roomId?: string): Promise<CollaborationInstance | {message: string}> {
     if (!roomId) {
         console.log('No room ID provided');
         // TODO show input box to enter the room ID
@@ -41,14 +40,14 @@ export async function joinRoom(connectionProvider: ConnectionProvider, callbacks
     if (roomId && connectionProvider) {
         try {
             const roomClaim = await connectionProvider.joinRoom({roomId});
-            const instance = await connectToRoom(connectionProvider, roomClaim, false, callbacks, editor);
+            const instance = await connectToRoom(connectionProvider, roomClaim, false, callbacks);
             if (!instance) {
                 console.log('No collaboration instance found');
-                return;
+                return {message: 'Joining room failed'};
             }
             const workspace = roomClaim.workspace;
             console.log('Workspace:', workspace);
-            return;
+            return instance;
         } catch (error) {
             return {message: stringifyError(error)};
         }
@@ -56,7 +55,7 @@ export async function joinRoom(connectionProvider: ConnectionProvider, callbacks
     return {message: 'No room ID provided'};
 }
 
-async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: CreateRoomResponse | JoinRoomResponse, isHost: boolean, callbacks: MonacoCollabCallbacks, editor: monaco.editor.IStandaloneCodeEditor) {
+async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: CreateRoomResponse | JoinRoomResponse, isHost: boolean, callbacks: MonacoCollabCallbacks) {
     const host = 'host' in roomClaim ? roomClaim.host : undefined;
     const connection = await connectionProvider.connect(roomClaim.roomToken, host);
     const instance = new CollaborationInstance({
@@ -64,8 +63,7 @@ async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: 
         host: isHost,
         roomToken: roomClaim.roomId,
         hostId: host?.id,
-        callbacks,
-        editor
+        callbacks
     });
     connection.onDisconnect(() => {
         instance?.dispose();

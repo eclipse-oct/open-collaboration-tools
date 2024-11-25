@@ -13,145 +13,17 @@ import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-y
 import { createMutex } from 'lib0/mutex';
 import debounce from 'lodash/debounce';
 import { MonacoCollabCallbacks } from './monaco-api';
+import { DisposablePeer } from './collaboration-peer';
 
 export interface Disposable {
     dispose(): void;
-}
-
-type PeerDecorationOptions = {
-    selectionClassName: string;
-    cursorClassName: string;
-    cursorInvertedClassName: string;
-};
-
-export class DisposablePeer implements Disposable {
-
-    readonly peer: types.Peer;
-    private disposables: Disposable[] = [];
-    private yjsAwareness: awarenessProtocol.Awareness;
-
-    readonly decoration: PeerDecorationOptions;
-
-    get clientId(): number | undefined {
-        const states = this.yjsAwareness.getStates() as Map<number, types.ClientAwareness>;
-        for (const [clientID, state] of states.entries()) {
-            if (state.peer === this.peer.id) {
-                return clientID;
-            }
-        }
-        return undefined;
-    }
-
-    get lastUpdated(): number | undefined {
-        const clientId = this.clientId;
-        if (clientId !== undefined) {
-            const meta = this.yjsAwareness.meta.get(clientId);
-            if (meta) {
-                return meta.lastUpdated;
-            }
-        }
-        return undefined;
-    }
-
-    constructor(yAwareness: awarenessProtocol.Awareness, peer: types.Peer) {
-        this.peer = peer;
-        this.yjsAwareness = yAwareness;
-        this.decoration = this.createDecorations();
-    }
-
-    private createDecorations(): PeerDecorationOptions {
-        const color = createColor();
-        const colorCss = typeof color === 'string' ? color : `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-        const className = `peer-${this.peer.id}`;
-        const cursorClassName = `${className}-cursor`;
-        const cursorInvertedClassName = `${className}-cursor-inverted`;
-        const selectionClassName = `${className}-selection`;
-        const cursorCss = `.${cursorClassName} {
-            background-color: ${colorCss} !important;
-            border-color: ${colorCss} !important;
-            position: absolute;
-            border-right: solid 2px;
-            border-top: solid 2px;
-            border-bottom: solid 2px;
-            height: 100%;
-            box-sizing: border-box;
-        }`;
-        generateCSS(cursorCss);
-        const cursorAfterCss = `.${cursorClassName}::after {
-            content: "${this.peer.name}";
-            position: absolute;
-            transform: translateY(-100%);
-            padding: 0 4px;
-            border-radius: 4px 4px 4px 0px;
-            background-color: ${colorCss};
-        }`;
-        generateCSS(cursorAfterCss);
-        const cursorAfterInvertedCss = `.${cursorClassName}.${cursorInvertedClassName}::after {
-            transform: translateY(100%);
-            margin-top: -2px;
-            border-radius: 0px 4px 4px 4px;
-            z-index: 1;
-        }`;
-        generateCSS(cursorAfterInvertedCss);
-        const selectionCss = `.${selectionClassName} {
-            background: ${colorCss} !important;
-            opacity: 0.25;
-        }`;
-        generateCSS(selectionCss);
-        return {
-            cursorClassName,
-            cursorInvertedClassName,
-            selectionClassName
-        };
-    }
-
-    dispose() {
-        for (const disposable of this.disposables) {
-            disposable.dispose();
-        }
-    }
-
-}
-
-let colorIndex = 0;
-const defaultColors: ([number, number, number] | string)[] = [
-    'yellow', // Yellow
-    'green', // Green
-    'magenta', // Magenta
-    'lightGreen', // Light green
-    [255, 178, 123], // Light orange
-    [255, 157, 242], // Light magenta
-    [92, 45, 145], // Purple
-    [0, 178, 148], // Light teal
-    [255, 241, 0], // Light yellow
-    [180, 160, 255] // Light purple
-];
-
-const knownColors = new Set<string>();
-function createColor(): [number, number, number] | string {
-    if (colorIndex < defaultColors.length) {
-        return defaultColors[colorIndex++];
-    }
-    const o = Math.round, r = Math.random, s = 255;
-    let color: [number, number, number];
-    do {
-        color = [o(r() * s), o(r() * s), o(r() * s)];
-    } while (knownColors.has(JSON.stringify(color)));
-    knownColors.add(JSON.stringify(color));
-    return color;
-}
-
-function generateCSS(cssText: string) {
-    const style: HTMLStyleElement = document.createElement('style');
-    style.textContent = cssText;
-    document.head.appendChild(style);
 }
 
 export interface CollaborationInstanceOptions {
     connection: ProtocolBroadcastConnection;
     host: boolean;
     callbacks: MonacoCollabCallbacks;
-    editor: monaco.editor.IStandaloneCodeEditor;
+    editor?: monaco.editor.IStandaloneCodeEditor;
     hostId?: string;
     roomToken: string;
 }
@@ -159,10 +31,11 @@ export interface CollaborationInstanceOptions {
 export class CollaborationInstance implements Disposable {
     private yjs: Y.Doc = new Y.Doc();
     private yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
-    private identity = new Deferred<types.Peer>();
-    private toDispose = new DisposableCollection();
     protected yjsProvider: OpenCollaborationYjsProvider;
     private yjsMutex = createMutex();
+
+    private identity = new Deferred<types.Peer>();
+    private toDispose = new DisposableCollection();
     private updates = new Set<string>();
     private documentDisposables = new Map<string, DisposableCollection>();
     private peers = new Map<string, DisposablePeer>();
@@ -232,7 +105,6 @@ export class CollaborationInstance implements Disposable {
         connection.room.onLeave(async (_, peer) => {
             const disposable = this.peers.get(peer.id);
             if (disposable) {
-                disposable.dispose();
                 this.peers.delete(peer.id);
                 this.options.callbacks.onUsersChanged();
             }
@@ -250,7 +122,7 @@ export class CollaborationInstance implements Disposable {
         });
         connection.fs.onReadFile(async (_, path) => {
             const uri = this.getResourceUri(path);
-            if (uri) {
+            if (uri && this.options.editor) {
                 const text = this.options.editor.getModel()?.getValue();
                 const encoder = new TextEncoder();
                 const content = encoder.encode(text);
@@ -261,11 +133,15 @@ export class CollaborationInstance implements Disposable {
                 throw new Error('Could not read file');
             }
         });
+        options.editor && this.registerEditorEvents();
+    }
+
+    setEditor(editor: monaco.editor.IStandaloneCodeEditor): void {
+        this.options.editor = editor;
         this.registerEditorEvents();
     }
 
     dispose() {
-        this.peers.forEach(e => e.dispose());
         this.peers.clear();
         this.documentDisposables.forEach(e => e.dispose());
         this.documentDisposables.clear();
@@ -282,6 +158,9 @@ export class CollaborationInstance implements Disposable {
     }
 
     private registerEditorEvents() {
+        if (!this.options.editor) {
+            return;
+        }
         const text = this.options.editor.getModel();
         if (text) {
             this.registerTextDocument(text);
@@ -294,7 +173,7 @@ export class CollaborationInstance implements Disposable {
         }));
 
         this.toDispose.push(this.options.editor.onDidChangeCursorSelection(_e => {
-            this.updateTextSelection(this.options.editor);
+            this.options.editor && this.updateTextSelection(this.options.editor);
         }));
 
         let awarenessTimeout: NodeJS.Timeout | undefined;
@@ -343,7 +222,7 @@ export class CollaborationInstance implements Disposable {
         if (uri && selection.visibleRanges && selection.visibleRanges.length > 0) {
             const visibleRange = selection.visibleRanges[0];
             const range = new monaco.Range(visibleRange.start.line, visibleRange.start.character, visibleRange.end.line, visibleRange.end.character);
-            this.options.editor.revealRange(range);
+            this.options.editor && this.options.editor.revealRange(range);
         }
     }
 
@@ -410,36 +289,38 @@ export class CollaborationInstance implements Disposable {
             const resyncThrottle = this.getOrCreateThrottle(path, document);
             const observer = (textEvent: Y.YTextEvent) => {
                 this.yjsMutex(async () => {
-                    this.updates.add(path);
-                    let index = 0;
-                    const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-                    textEvent.delta.forEach(delta => {
-                        if (delta.retain !== undefined) {
-                            index += delta.retain;
-                        } else if (delta.insert !== undefined) {
-                            const pos = document.getPositionAt(index);
-                            const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
-                            const insert = delta.insert as string;
-                            edits.push({
-                                range,
-                                text: insert,
-                                forceMoveMarkers: true
-                            });
-                            index += insert.length;
-                        } else if (delta.delete !== undefined) {
-                            const pos = document.getPositionAt(index);
-                            const endPos = document.getPositionAt(index + delta.delete);
-                            const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
-                            edits.push({
-                                range,
-                                text: '',
-                                forceMoveMarkers: true
-                            });
-                        }
-                    });
-                    this.options.editor.executeEdits(document.id, edits);
-                    this.updates.delete(path);
-                    resyncThrottle();
+                    if(this.options.editor) {
+                        this.updates.add(path);
+                        let index = 0;
+                        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
+                        textEvent.delta.forEach(delta => {
+                            if (delta.retain !== undefined) {
+                                index += delta.retain;
+                            } else if (delta.insert !== undefined) {
+                                const pos = document.getPositionAt(index);
+                                const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
+                                const insert = delta.insert as string;
+                                edits.push({
+                                    range,
+                                    text: insert,
+                                    forceMoveMarkers: true
+                                });
+                                index += insert.length;
+                            } else if (delta.delete !== undefined) {
+                                const pos = document.getPositionAt(index);
+                                const endPos = document.getPositionAt(index + delta.delete);
+                                const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
+                                edits.push({
+                                    range,
+                                    text: '',
+                                    forceMoveMarkers: true
+                                });
+                            }
+                        });
+                        this.options.editor.executeEdits(document.id, edits);
+                        this.updates.delete(path);
+                        resyncThrottle();
+                    }
                 });
             };
             yjsText.observe(observer);
@@ -481,7 +362,7 @@ export class CollaborationInstance implements Disposable {
                             text: newContent
                         });
                         this.updates.add(path);
-                        this.options.editor.executeEdits(document.id, edits);
+                        this.options.editor && this.options.editor.executeEdits(document.id, edits);
                         this.updates.delete(path);
                     }
                 });
@@ -515,7 +396,7 @@ export class CollaborationInstance implements Disposable {
                 continue;
             }
             const uri = this.getResourceUri(path);
-            if (uri) {
+            if (uri && this.options.editor) {
                 const model = this.options.editor.getModel();
                 const forward = selection.direction === 1;
                 console.log('Peer', peer.peer.name);
@@ -562,7 +443,7 @@ export class CollaborationInstance implements Disposable {
             this.decorations.get(peer)?.set(decorations);
         } else {
             console.log('Creating decorations', decorations);
-            this.decorations.set(peer, this.options.editor.createDecorationsCollection(decorations));
+            this.decorations.set(peer, this.options.editor!.createDecorationsCollection(decorations));
         }
     }
 
