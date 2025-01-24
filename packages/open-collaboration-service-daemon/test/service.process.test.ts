@@ -7,7 +7,7 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import * as messages from 'open-collaboration-service-daemon/src/messages';
-import { CreateRoomResponse, Emitter } from 'open-collaboration-protocol';
+import { Deferred, Emitter } from 'open-collaboration-protocol';
 
 const authTokenHost: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjlGS1lQMzloc1VZRkdKaDhfV2JMa3UxZyIsIm5hbWUiOiJIb3N0IiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzMxNDIyMDc5fQ.cCyHYDCb_XZmVaqMAk9wyGdCK31MovNr4Gbzcn0Rg-0';
 const authTokenGuest: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6ImNWcDlWSGZsQmNMTFFCQldHZ2dLeTFmTiIsIm5hbWUiOiJQZWVyIiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzMxNDIyMTEwfQ.wnEpn79rp6hdnMO1eLcD2PCsSTpsr47FRk-BhgCb9mk';
@@ -35,12 +35,13 @@ class Client {
         });
     }
 
-    async sendRequest(content: object): Promise<messages.Response> {
+    async sendRequest(content: object, target?: string): Promise<messages.Response> {
         const id = this.lastRequestId++;
         this.process.stdin.write(JSON.stringify({
             kind: 'request',
             content,
-            id
+            id,
+            target
         } as messages.Request));
 
         return new Promise<messages.Response>((resolve) => {
@@ -53,10 +54,19 @@ class Client {
         });
     }
 
-    sendNotification(content: object) {
+    async sendResponse(content: object, id: number) {
+        this.process.stdin.write(JSON.stringify({
+            kind: 'response',
+            content,
+            id
+        } as messages.Response));
+    }
+
+    sendNotification(content: object, target?: string) {
         this.process.stdin.write(JSON.stringify({
             kind: 'notification',
-            content
+            content,
+            target
         } as messages.Notification));
     }
 
@@ -73,7 +83,7 @@ describe('Service Process', () => {
     let host: Client;
     let guest: Client;
     beforeAll(async () => {
-        // Start the service
+        //Start the collaboration server
         server = spawn('node', ['../open-collaboration-server/bin/server', 'start']);
         await new Promise<void>((resolve) => {
             server.stdout.on('data', (data) => {
@@ -100,17 +110,43 @@ describe('Service Process', () => {
         const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).roomId;
         expect(roomId).toBeDefined();
 
+        host.onMessage(message => {
+            if(message.kind === 'request' && message.content.method === 'join-request') {
+                host.sendResponse({method: 'join-request-response', accepted: true} as messages.JoinRequestResponse, message.id);
+                console.log('host accepted join request');
+            } else if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
+                console.log('filesystem request');
+                host.sendResponse({method: 'fileSystem/stat', parameters: {
+                    type: 2,
+                    mtime: 2132123,
+                    ctime: 124112,
+                    size: 1231,
+                }}, message.id);
+            }
+        });
+
+        const initDeferred = new Deferred();
+
+        let hostId: string = '';
+
+        guest.onMessage(message => {
+            if(message.kind === 'notification' && message.content.method === 'init') {
+                hostId = (message.content as messages.OnInitNotification).initData.host.id;
+                initDeferred.resolve();
+            }
+        });
+
         const joinResp = await guest.sendRequest({method: 'join-room', room: roomId} as messages.JoinRoomRequest);
         const guestRoomId = (joinResp.content as messages.SessionCreatedResponse).roomId;
         expect(guestRoomId).toEqual(roomId);
 
-        host.onMessage(message => {
-            if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
-                host.sendNotification({method: 'fileSystem/stat', parameters: ['test-folder']});
-            }
-        })
-        guest.sendRequest({ method: 'fileSystem/stat',parameters:['test-folder']})
+        // await until guest is initialized
+        await initDeferred.promise;
 
+        expect(hostId).toBeTruthy();
 
-    }, {timeout: 10000});
+        const folderStat = await guest.sendRequest({ method: 'fileSystem/stat', parameters: ['testFolder'] }, hostId);
+        expect(folderStat).toBeDefined();
+
+    }, 10000);
 });

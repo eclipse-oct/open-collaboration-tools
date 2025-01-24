@@ -50,13 +50,19 @@ export class MessageHandler {
                 } else if(!handler && isOCPMessage(message.content)) {
                     switch(message.kind) {
                         case 'request':
+                            if(!message.target) {
+                                throw new Error(`Request target missing for request ${message.content.method}`);
+                            }
                             return this.communcationHandler.sendMessage({
                                 kind: 'response',
-                                content: await this.currentCollaborationInstance?.currentConnection.sendRequest(message.content.method, message.content.parameters),
+                                content: await this.currentCollaborationInstance?.currentConnection.sendRequest(message.content.method, message.target, message.content.parameters),
                                 id: message.id
                             });
                         case 'notification':
-                            return this.currentCollaborationInstance?.currentConnection.sendNotification(message.content.method, message.content.parameters);
+                            if(!message.target) {
+                                throw new Error(`Request target missing for notification ${message.content.method}`);
+                            }
+                            return this.currentCollaborationInstance?.currentConnection.sendNotification(message.content.method, message.target, message.content.parameters);
                         case 'broadcast':
                             return this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.content.method, message.content.parameters);
                         default:

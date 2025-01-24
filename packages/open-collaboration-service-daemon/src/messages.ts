@@ -22,6 +22,7 @@ export type ClientRequests = JoinRequest
 export interface Request {
     kind: 'request',
     content: OCPMessage | ServiceRequests | JoinRequest
+    target?: string,
     id: number // set by message handler
 }
 
@@ -34,10 +35,11 @@ export interface Response {
     id: number
 }
 
-export type ClientNotifications = OpenUrl | UpdateDocumentContent | InternalError
+export type ClientNotifications = OpenUrl | UpdateDocumentContent | InternalError | OnInitNotification
 
 export interface Notification {
     kind: 'notification',
+    target?: string,
     content: OCPMessage | ClientNotifications
 }
 
@@ -118,6 +120,11 @@ export interface LoginResponse {
 export interface SessionCreatedResponse {
     roomToken: string
     roomId: string
+}
+
+export interface OnInitNotification {
+    method: 'init',
+    initData: types.InitData
 }
 
 /**

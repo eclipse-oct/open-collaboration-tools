@@ -109,6 +109,20 @@ export class CollaborationInstance implements types.Disposable{
                 currentConnection.peer.init(peer.id, initData);
             }
         });
+
+        currentConnection.peer.onInit((_, initData) => {
+            this.peers.set(initData.host.id, initData.host);
+            for (const guest of initData.guests) {
+                this.peers.set(guest.id, guest);
+            }
+            this.sendMessageEmitter.fire({
+                kind: 'notification',
+                content: {
+                    method: 'init',
+                    initData
+                },
+            });
+        });
     }
 
     async registerYjsObject(message: RegisterYjsDocument) {
