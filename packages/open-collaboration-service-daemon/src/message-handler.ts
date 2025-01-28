@@ -7,7 +7,7 @@
 import type * as types from 'open-collaboration-protocol';
 import { Deferred, MaybePromise } from 'open-collaboration-protocol';
 import { StdioCommunicationHandler } from './communication-handler';
-import { CreateRoomRequest, JoinRoomRequest, LoginResponse, RegisterYjsDocument, Response, SessionCreatedResponse, UpdateDocumentContent, UpdateTextSelection, isOCPMessage } from './messages';
+import { CreateRoomRequest, JoinRoomRequest, LoginResponse, OpenDocument, Response, SessionCreatedResponse, UpdateDocumentContent, UpdateTextSelection, isOCPMessage } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 
 export class MessageHandler {
@@ -20,7 +20,7 @@ export class MessageHandler {
             ['join-room', message => this.joinRoom(message as JoinRoomRequest)],
             ['create-room', message => this.createRoom(message as CreateRoomRequest)],
             ['close-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()],
-            ['register-yjs-document', message => this.currentCollaborationInstance?.registerYjsObject(message as RegisterYjsDocument) ],
+            ['open-document', message => this.currentCollaborationInstance?.registerYjsObject(message as OpenDocument) ],
             ['update-selection', message => this.currentCollaborationInstance?.updateYjsObjectSelection(message as UpdateTextSelection)],
             ['update-document', message => this.currentCollaborationInstance?.updateYjsObjectContent(message as UpdateDocumentContent)],
         ]
@@ -72,11 +72,13 @@ export class MessageHandler {
                     throw new Error(`Could not handle message with method ${message.content.method}`);
                 }
             } catch (error: any) {
+                console.error(error.stackTrace);
                 communcationHandler.sendMessage({
                     kind: 'notification',
                     content: {
                         method: 'error',
-                        message: error?.message
+                        message: error?.toString(),
+                        stack: error?.stack
                     }});
             }
         });

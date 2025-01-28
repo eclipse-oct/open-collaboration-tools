@@ -81,8 +81,8 @@ export interface TextDocumentInsert {
     text: string
 }
 
-export interface RegisterYjsDocument {
-    method: 'register-yjs-document',
+export interface OpenDocument {
+    method: 'open-document',
     type: 'text' // todo add more possiblilities like arrays and maps
     documentUri: string
     text: string
@@ -139,4 +139,5 @@ export interface JoinRequest {
 export interface InternalError {
     method: 'error',
     message: string
+    stack?: string
 }

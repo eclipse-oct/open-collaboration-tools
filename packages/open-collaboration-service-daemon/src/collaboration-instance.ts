@@ -9,11 +9,12 @@ import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { ClientRequests, DaemonMessage, JoinRequestResponse, OCPMessage, RegisterYjsDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { ClientRequests, DaemonMessage, JoinRequestResponse, OCPMessage, OpenDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
 
 export class CollaborationInstance implements types.Disposable{
 
     protected peers = new Map<string, types.Peer>();
+    protected hostInfo = new Deferred<types.Peer>();
     protected peerInfo: types.Peer;
 
     protected yjsProvider?: OpenCollaborationYjsProvider;
@@ -112,6 +113,7 @@ export class CollaborationInstance implements types.Disposable{
 
         currentConnection.peer.onInit((_, initData) => {
             this.peers.set(initData.host.id, initData.host);
+            this.hostInfo.resolve(initData.host);
             for (const guest of initData.guests) {
                 this.peers.set(guest.id, guest);
             }
@@ -125,7 +127,7 @@ export class CollaborationInstance implements types.Disposable{
         });
     }
 
-    async registerYjsObject(message: RegisterYjsDocument) {
+    async registerYjsObject(message: OpenDocument) {
         if(message.type === 'text') {
             const yjsText = this.YjsDoc.getText(message.documentUri);
             if (this.host) {
@@ -134,7 +136,7 @@ export class CollaborationInstance implements types.Disposable{
                     yjsText.insert(0, message.text);
                 });
             } else {
-                this.currentConnection.editor.open((await this.identity.promise).id, message.documentUri);
+                this.currentConnection.editor.open((await this.hostInfo.promise).id, message.documentUri);
             }
             const observer = (textEvent: Y.YTextEvent) => {
                 if (textEvent.transaction.local) {

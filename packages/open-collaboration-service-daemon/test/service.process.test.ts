@@ -110,6 +110,7 @@ describe('Service Process', () => {
         const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).roomId;
         expect(roomId).toBeDefined();
 
+        const updateArived = new Deferred();
         host.onMessage(message => {
             if(message.kind === 'request' && message.content.method === 'join-request') {
                 host.sendResponse({method: 'join-request-response', accepted: true} as messages.JoinRequestResponse, message.id);
@@ -122,6 +123,9 @@ describe('Service Process', () => {
                     ctime: 124112,
                     size: 1231,
                 }}, message.id);
+            } else if (message.kind === 'notification' && message.content.method === 'update-document') {
+                expect((message.content as messages.UpdateDocumentContent).changes.length).toBe(1);
+                updateArived.resolve();
             }
         });
 
@@ -148,5 +152,12 @@ describe('Service Process', () => {
         const folderStat = await guest.sendRequest({ method: 'fileSystem/stat', parameters: ['testFolder'] }, hostId);
         expect(folderStat).toBeDefined();
 
-    }, 10000);
+        host.sendNotification({ method: 'open-document', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
+        guest.sendNotification({ method: 'open-document', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
+
+        guest.sendNotification({ method: 'update-document', documentUri: 'ocp://testFolder/test.txt', changes: [{ startOffset: 5, text: ' NEW' }]} as messages.UpdateDocumentContent);
+
+        await updateArived.promise;
+
+    }, 20000);
 });
