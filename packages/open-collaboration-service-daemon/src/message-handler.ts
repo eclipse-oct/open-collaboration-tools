@@ -17,12 +17,12 @@ export class MessageHandler {
     protected handlers = new Map<string, (message: unknown) => MaybePromise<void | unknown>>(
         [
             ['login', () => this.login()],
-            ['join-room', message => this.joinRoom(message as JoinRoomRequest)],
-            ['create-room', message => this.createRoom(message as CreateRoomRequest)],
-            ['close-session',  () => this.currentCollaborationInstance?.currentConnection.dispose()],
-            ['open-document', message => this.currentCollaborationInstance?.registerYjsObject(message as OpenDocument) ],
-            ['update-selection', message => this.currentCollaborationInstance?.updateYjsObjectSelection(message as UpdateTextSelection)],
-            ['update-document', message => this.currentCollaborationInstance?.updateYjsObjectContent(message as UpdateDocumentContent)],
+            ['room/joinRoom', message => this.joinRoom(message as JoinRoomRequest)],
+            ['room/createRoom', message => this.createRoom(message as CreateRoomRequest)],
+            ['room/closeSession',  () => this.currentCollaborationInstance?.currentConnection.dispose()],
+            ['awareness/openDocument', message => this.currentCollaborationInstance?.registerYjsObject(message as OpenDocument) ],
+            ['awareness/updateSelection', message => this.currentCollaborationInstance?.updateYjsObjectSelection(message as UpdateTextSelection)],
+            ['awareness/updateDocument', message => this.currentCollaborationInstance?.updateYjsObjectContent(message as UpdateDocumentContent)],
         ]
     );
 
@@ -55,16 +55,16 @@ export class MessageHandler {
                             }
                             return this.communcationHandler.sendMessage({
                                 kind: 'response',
-                                content: await this.currentCollaborationInstance?.currentConnection.sendRequest(message.content.method, message.target, message.content.parameters),
+                                content: await this.currentCollaborationInstance?.currentConnection.sendRequest(message.content.method, message.target, message.content.params),
                                 id: message.id
                             });
                         case 'notification':
                             if(!message.target) {
                                 throw new Error(`Request target missing for notification ${message.content.method}`);
                             }
-                            return this.currentCollaborationInstance?.currentConnection.sendNotification(message.content.method, message.target, message.content.parameters);
+                            return this.currentCollaborationInstance?.currentConnection.sendNotification(message.content.method, message.target, message.content.params);
                         case 'broadcast':
-                            return this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.content.method, message.content.parameters);
+                            return this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.content.method, message.content.params);
                         default:
                             throw new Error('Unknown message kind');
                     }

@@ -8,12 +8,12 @@ import * as types from 'open-collaboration-protocol';
 export type DaemonMessage = Request | Response | Notification | Broadcast
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
-    return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.parameters);
+    return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.params);
 }
 
 export interface OCPMessage {
     method: string
-    parameters: unknown[]
+    params: unknown[]
 }
 
 export type ServiceRequests = LoginRequest | JoinRoomRequest | CreateRoomRequest | CloseSessionRequest
@@ -55,22 +55,22 @@ export interface LoginRequest {
 }
 
 export interface JoinRoomRequest {
-    method: 'join-room',
+    method: 'room/joinRoom',
     room: string
 }
 
 export interface JoinRequestResponse {
-    method: 'join-request-response',
+    method: 'room/joinRoom',
     accepted: boolean
 }
 
 export interface CreateRoomRequest {
-    method: 'create-room',
+    method: 'room/createRoom',
     workspace: types.Workspace
 }
 
 export interface CloseSessionRequest {
-    method: 'close-session'
+    method: 'room/closeSession'
 }
 
 // YJS Awareness
@@ -82,20 +82,20 @@ export interface TextDocumentInsert {
 }
 
 export interface OpenDocument {
-    method: 'open-document',
+    method: 'awareness/openDocument',
     type: 'text' // todo add more possiblilities like arrays and maps
     documentUri: string
     text: string
 }
 
 export interface UpdateTextSelection {
-    method: 'update-text-selection',
+    method: 'awareness/updateTextSelection',
     documentUri: string
     selections: types.Range[];
 }
 
 export interface UpdateDocumentContent {
-    method: 'update-document',
+    method: 'awareness/updateDocument',
     documentUri: string
     changes: TextDocumentInsert[] // todo add more types for other object types
 }
@@ -106,7 +106,7 @@ export interface UpdateDocumentContent {
  * A request to the application to open the provided URL
  */
 export interface OpenUrl {
-    method: 'open-url',
+    method: 'onOpenUrl',
     url: string
 }
 
@@ -132,7 +132,7 @@ export interface OnInitNotification {
  * expected return: {accepted: boolean, id: id of request}
  */
 export interface JoinRequest {
-    method: 'join-request',
+    method: 'onJoinRequest',
     user: types.User
 }
 

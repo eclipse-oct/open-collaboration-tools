@@ -106,24 +106,24 @@ describe('Service Process', () => {
         guest.process?.kill();
     });
     test('test service processes without login', async () => {
-        const roomInfoResp = await host.sendRequest({method: 'create-room', workspace: {name: 'test', folders: ['testFolder']}} as messages.CreateRoomRequest);
+        const roomInfoResp = await host.sendRequest({method: 'room/createRoom', workspace: {name: 'test', folders: ['testFolder']}} as messages.CreateRoomRequest);
         const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).roomId;
         expect(roomId).toBeDefined();
 
         const updateArived = new Deferred();
         host.onMessage(message => {
             if(message.kind === 'request' && message.content.method === 'join-request') {
-                host.sendResponse({method: 'join-request-response', accepted: true} as messages.JoinRequestResponse, message.id);
+                host.sendResponse({method: 'room/joinRoom', accepted: true} as messages.JoinRequestResponse, message.id);
                 console.log('host accepted join request');
             } else if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
                 console.log('filesystem request');
-                host.sendResponse({method: 'fileSystem/stat', parameters: {
+                host.sendResponse({method: 'fileSystem/stat', params: {
                     type: 2,
                     mtime: 2132123,
                     ctime: 124112,
                     size: 1231,
                 }}, message.id);
-            } else if (message.kind === 'notification' && message.content.method === 'update-document') {
+            } else if (message.kind === 'notification' && message.content.method === 'awareness/updateDocument') {
                 expect((message.content as messages.UpdateDocumentContent).changes.length).toBe(1);
                 updateArived.resolve();
             }
@@ -140,7 +140,7 @@ describe('Service Process', () => {
             }
         });
 
-        const joinResp = await guest.sendRequest({method: 'join-room', room: roomId} as messages.JoinRoomRequest);
+        const joinResp = await guest.sendRequest({method: 'room/joinRoom', room: roomId} as messages.JoinRoomRequest);
         const guestRoomId = (joinResp.content as messages.SessionCreatedResponse).roomId;
         expect(guestRoomId).toEqual(roomId);
 
@@ -149,13 +149,13 @@ describe('Service Process', () => {
 
         expect(hostId).toBeTruthy();
 
-        const folderStat = await guest.sendRequest({ method: 'fileSystem/stat', parameters: ['testFolder'] }, hostId);
+        const folderStat = await guest.sendRequest({ method: 'fileSystem/stat', params: ['testFolder'] }, hostId);
         expect(folderStat).toBeDefined();
 
-        host.sendNotification({ method: 'open-document', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
-        guest.sendNotification({ method: 'open-document', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
+        host.sendNotification({ method: 'awareness/openDocument', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
+        guest.sendNotification({ method: 'awareness/openDocument', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
 
-        guest.sendNotification({ method: 'update-document', documentUri: 'ocp://testFolder/test.txt', changes: [{ startOffset: 5, text: ' NEW' }]} as messages.UpdateDocumentContent);
+        guest.sendNotification({ method: 'awareness/updateDocument', documentUri: 'ocp://testFolder/test.txt', changes: [{ startOffset: 5, text: ' NEW' }]} as messages.UpdateDocumentContent);
 
         await updateArived.promise;
 

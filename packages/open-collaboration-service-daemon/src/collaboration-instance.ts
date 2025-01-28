@@ -53,36 +53,36 @@ export class CollaborationInstance implements types.Disposable{
             this.dispose();
         });
 
-        currentConnection.onUnhandledRequest(async (origin, method, ...parameters) => {
+        currentConnection.onUnhandledRequest(async (origin, method, ...params) => {
             return await this.sendRequestEmitter.fire({
                 method,
-                parameters
+                params
             })[0];
         });
 
-        currentConnection.onUnhandledNotification((origin, method, ...parameters) => {
+        currentConnection.onUnhandledNotification((origin, method, ...params) => {
             this.sendMessageEmitter.fire({
                 kind: 'notification',
                 content: {
                     method,
-                    parameters
+                    params
                 }
             });
         });
 
-        currentConnection.onUnhandledBroadcast((origin, method, ...parameters) => {
+        currentConnection.onUnhandledBroadcast((origin, method, ...params) => {
             this.sendMessageEmitter.fire({
                 kind: 'broadcast',
                 content: {
                     method,
-                    parameters
+                    params
                 }
             });
         });
 
         currentConnection.peer.onJoinRequest(async (_, user) => {
             const res = await this.sendRequestEmitter.fire({
-                method: 'join-request',
+                method: 'onJoinRequest',
                 user
             })[0] as JoinRequestResponse;
             return res.accepted ? { workspace: workspace! } : undefined;
@@ -165,7 +165,7 @@ export class CollaborationInstance implements types.Disposable{
                 this.sendMessageEmitter.fire({
                     kind: 'notification',
                     content: {
-                        method: 'update-document',
+                        method: 'awareness/updateDocument',
                         documentUri: message.documentUri,
                         changes: edits
                     }
