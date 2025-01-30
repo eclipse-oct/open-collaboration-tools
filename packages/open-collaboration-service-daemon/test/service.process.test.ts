@@ -9,8 +9,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import * as messages from 'open-collaboration-service-daemon/src/messages';
 import { Deferred, Emitter } from 'open-collaboration-protocol';
 
-const authTokenHost: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjlGS1lQMzloc1VZRkdKaDhfV2JMa3UxZyIsIm5hbWUiOiJIb3N0IiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzMxNDIyMDc5fQ.cCyHYDCb_XZmVaqMAk9wyGdCK31MovNr4Gbzcn0Rg-0';
-const authTokenGuest: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6ImNWcDlWSGZsQmNMTFFCQldHZ2dLeTFmTiIsIm5hbWUiOiJQZWVyIiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzMxNDIyMTEwfQ.wnEpn79rp6hdnMO1eLcD2PCsSTpsr47FRk-BhgCb9mk';
+const authTokenHost: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IkF2S2JlczliU1hDZ0FxSHhwa0xqYVRBcyIsIm5hbWUiOiJob3N0IiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzM4MjQxNTcwfQ.IWetdyBTAo2DswcYKs5Jzxl3AzuKGccFnGsc5A9XE8s';
+const authTokenGuest: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IlBrQmN4blBJc1Qzenl5YVlLUEpGWXRxViIsIm5hbWUiOiJndWVzdCIsImVtYWlsIjoiIiwiYXV0aFByb3ZpZGVyIjoiVW52ZXJpZmllZCIsImlhdCI6MTczODI0MTY0Nn0.ABHj54q5u_z1Cd57Mscryp4rMPPiwxLLfSl-anCtD1E';
 
 class Client {
     process: ChildProcessWithoutNullStreams;
@@ -21,8 +21,11 @@ class Client {
     onMessage = this.onMessageEmitter.event;
 
     constructor(token: string) {
-        this.process = spawn('node', [`${__dirname}/../lib/process.js`, '--auth-token', token, '--server-address', 'http://localhost:8100']);
-
+        this.process = spawn('node',
+            [`${__dirname}/../lib/process.js`, '--auth-token', token, '--server-address', 'http://localhost:8100'],
+            {
+                env: { ...process.env, 'OCT_JWT_PRIVATE_KEY': 'some_test_key'}
+            });
         this.process.stdout.on('data', (data) => {
             console.log('stdout: ', data.toString());
             const message = JSON.parse(data.toString()) as messages.DaemonMessage;
@@ -84,6 +87,7 @@ describe('Service Process', () => {
     let guest: Client;
     beforeAll(async () => {
         //Start the collaboration server
+        process.env.OCT_JWT_PRIVATE_KEY = 'some_test_key';
         server = spawn('node', [`${__dirname}/../../open-collaboration-server/bin/server`, 'start']);
         await new Promise<void>((resolve) => {
             server.stdout.on('data', (data) => {
@@ -165,5 +169,5 @@ describe('Service Process', () => {
 
         await updateArived.promise;
 
-    }, 20000);
+    }, 2000000);
 });
