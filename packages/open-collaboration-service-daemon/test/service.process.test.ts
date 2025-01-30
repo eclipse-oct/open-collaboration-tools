@@ -90,7 +90,12 @@ describe('Service Process', () => {
                 if (data.toString().includes('listening on localhost:8100')) {
                     resolve();
                     console.log('server started');
+                } else {
+                    console.log('Server: ', data.toString());
                 }
+            });
+            server.stderr.on('data', (data) => {
+                console.error('Server Error: ', data.toString());
             });
         });
     });
