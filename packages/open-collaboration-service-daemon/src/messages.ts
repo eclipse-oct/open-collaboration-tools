@@ -132,7 +132,7 @@ export interface OnInitNotification {
  * expected return: {accepted: boolean, id: id of request}
  */
 export interface JoinRequest {
-    method: 'onJoinRequest',
+    method: 'peer/onJoinRequest',
     user: types.User
 }
 

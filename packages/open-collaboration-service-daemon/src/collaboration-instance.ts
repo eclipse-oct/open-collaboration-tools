@@ -82,7 +82,7 @@ export class CollaborationInstance implements types.Disposable{
 
         currentConnection.peer.onJoinRequest(async (_, user) => {
             const res = await this.sendRequestEmitter.fire({
-                method: 'onJoinRequest',
+                method: 'peer/onJoinRequest',
                 user
             })[0] as JoinRequestResponse;
             return res.accepted ? { workspace: workspace! } : undefined;

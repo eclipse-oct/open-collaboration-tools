@@ -112,7 +112,7 @@ describe('Service Process', () => {
 
         const updateArived = new Deferred();
         host.onMessage(message => {
-            if(message.kind === 'request' && message.content.method === 'join-request') {
+            if(message.kind === 'request' && message.content.method === 'peer/onJoinRequest') {
                 host.sendResponse({method: 'room/joinRoom', accepted: true} as messages.JoinRequestResponse, message.id);
                 console.log('host accepted join request');
             } else if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
