@@ -21,7 +21,7 @@ class Client {
     onMessage = this.onMessageEmitter.event;
 
     constructor(token: string) {
-        this.process = spawn('node', ['./lib/process.js', '--auth-token', token, '--server-address', 'http://localhost:8100']);
+        this.process = spawn('node', [`${__dirname}/../lib/process.js`, '--auth-token', token, '--server-address', 'http://localhost:8100']);
 
         this.process.stdout.on('data', (data) => {
             console.log('stdout: ', data.toString());
@@ -84,11 +84,12 @@ describe('Service Process', () => {
     let guest: Client;
     beforeAll(async () => {
         //Start the collaboration server
-        server = spawn('node', ['../open-collaboration-server/bin/server', 'start']);
+        server = spawn('node', [`${__dirname}/../../open-collaboration-server/bin/server`, 'start']);
         await new Promise<void>((resolve) => {
             server.stdout.on('data', (data) => {
                 if (data.toString().includes('listening on localhost:8100')) {
                     resolve();
+                    console.log('server started');
                 }
             });
         });
