@@ -15,7 +15,7 @@ import { UserManager } from './user-manager';
 import { ConsoleLogger, LogLevel, LogLevelSymbol, LoggerSymbol } from './utils/logging';
 import { SimpleLoginEndpoint } from './auth-endpoints/simple-login-endpoint';
 import { AuthEndpoint } from './auth-endpoints/auth-endpoint';
-import { GitHubOAuthEndpoint, GoogleOAuthEndpoint  } from './auth-endpoints/oauth-endpoint';
+import { GitHubOAuthEndpoint, GoogleOAuthEndpoint, GitlabOAuthEndpoint } from './auth-endpoints/oauth-endpoint';
 import { Configuration, DefaultConfiguration } from './utils/configuration';
 import { PeerManager } from './peer-manager';
 
@@ -44,4 +44,6 @@ export default new ContainerModule(bind => {
     bind(AuthEndpoint).toService(GitHubOAuthEndpoint);
     bind(GoogleOAuthEndpoint).toSelf().inSingletonScope();
     bind(AuthEndpoint).toService(GoogleOAuthEndpoint);
+    bind(GitlabOAuthEndpoint).toSelf().inSingletonScope();
+    bind(AuthEndpoint).toService(GitlabOAuthEndpoint);
 });

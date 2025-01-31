@@ -11,6 +11,7 @@ import { AuthEndpoint, AuthSuccessEvent, UserInfo } from './auth-endpoint';
 import passport from 'passport';
 import { Strategy as GithubStrategy } from 'passport-github';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { Strategy as GitlabStrategy } from 'passport-gitlab2';
 import { Logger, LoggerSymbol } from '../utils/logging';
 import { Configuration } from '../utils/configuration';
 
@@ -160,6 +161,34 @@ export class GoogleOAuthEndpoint extends OAuthEndpoint {
                 name: profile.displayName,
                 email: profile.emails?.find(mail => mail.verified)?.value,
                 authProvider: 'Google'
+            };
+            done(undefined, userInfo);
+        });
+    }
+}
+
+@injectable()
+export class GitlabOAuthEndpoint extends OAuthEndpoint {
+    protected id = 'gitlab';
+    protected path = '/api/login/gitlab';
+    protected redirectPath = '/api/login/gitlab-callback';
+    protected override scope = 'read_user api read_api';
+
+    shouldActivate(): boolean {
+        return Boolean(this.configuration.getValue('oct-oauth-gitlab-clientid') && this.configuration.getValue('oct-oauth-gitlab-clientsecret'));
+    }
+
+    override getStrategy(hostname: string, port: number): passport.Strategy {
+        return new GitlabStrategy({
+            clientID: this.configuration.getValue('oct-oauth-gitlab-clientid')!,
+            clientSecret: this.configuration.getValue('oct-oauth-gitlab-clientsecret')!,
+            callbackURL: this.createRedirectUrl(hostname, port, this.redirectPath),
+            baseURL: this.configuration.getValue('oct-oauth-gitlab-base')
+        }, (accessToken, refreshToken, profile, done) => {
+            const userInfo: UserInfo = {
+                name: profile.displayName,
+                email: profile.emails[0]?.value,
+                authProvider: 'Gitlab'
             };
             done(undefined, userInfo);
         });
