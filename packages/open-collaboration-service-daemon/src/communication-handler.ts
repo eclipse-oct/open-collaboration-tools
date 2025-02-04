@@ -17,7 +17,7 @@ export class StdioCommunicationHandler {
                 const message = JSON.parse(data.toString('utf-8'));
                 this.onMessageEmitter.fire(message);
             } catch (error: any) {
-                this.sendMessage({ kind: 'notification', content: { method: 'error', message: error?.message } });
+                this.sendMessage({ kind: 'notification', content: { method: 'error', params: [error?.message, error?.stack] } });
             }
         });
     }

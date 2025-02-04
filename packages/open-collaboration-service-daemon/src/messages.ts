@@ -16,31 +16,23 @@ export interface OCPMessage {
     params: unknown[]
 }
 
-export type ServiceRequests = LoginRequest | JoinRoomRequest | CreateRoomRequest | CloseSessionRequest
-export type ClientRequests = JoinRequest
-
 export interface Request {
     kind: 'request',
-    content: OCPMessage | ServiceRequests | JoinRequest
+    content: OCPMessage
     target?: string,
     id: number // set by message handler
 }
 
-export type ServiceResponse = LoginResponse | SessionCreatedResponse
-export type ClientResponse = JoinRequestResponse
-
 export interface Response {
     kind: 'response',
-    content: OCPMessage | ServiceResponse | ClientResponse
+    content: OCPMessage
     id: number
 }
-
-export type ClientNotifications = OpenUrl | UpdateDocumentContent | InternalError | OnInitNotification
 
 export interface Notification {
     kind: 'notification',
     target?: string,
-    content: OCPMessage | ClientNotifications
+    content: OCPMessage
 }
 
 export interface Broadcast {
@@ -50,26 +42,35 @@ export interface Broadcast {
 
 // ***************************** To service daeomon *****************************
 
-export interface LoginRequest {
-    method: 'login'
+export interface LoginRequest extends OCPMessage {
+    method: 'login',
 }
 
-export interface JoinRoomRequest {
+/**
+ * params: [roomId]
+ */
+export interface JoinRoomRequest extends OCPMessage {
     method: 'room/joinRoom',
-    room: string
+    params: [string]
 }
 
-export interface JoinRequestResponse {
+/**
+ * params: [accepted]
+ */
+export interface JoinRequestResponse extends OCPMessage {
     method: 'room/joinRoom',
-    accepted: boolean
+    params: [boolean]
 }
 
-export interface CreateRoomRequest {
+/**
+ * params: [workspace]
+ */
+export interface CreateRoomRequest extends OCPMessage {
     method: 'room/createRoom',
-    workspace: types.Workspace
+    params: [types.Workspace]
 }
 
-export interface CloseSessionRequest {
+export interface CloseSessionRequest extends OCPMessage {
     method: 'room/closeSession'
 }
 
@@ -81,63 +82,80 @@ export interface TextDocumentInsert {
     text: string
 }
 
-export interface OpenDocument {
+/**
+ * params: [type, documentUri, text]
+ * Todo: add more types for other awarness object types
+ */
+export interface OpenDocument extends OCPMessage {
     method: 'awareness/openDocument',
-    type: 'text' // todo add more possiblilities like arrays and maps
-    documentUri: string
-    text: string
+    params: [string, string, string]
 }
 
-export interface UpdateTextSelection {
+/**
+ * params: [documentUri, selections]
+ */
+export interface UpdateTextSelection extends OCPMessage {
     method: 'awareness/updateTextSelection',
-    documentUri: string
-    selections: types.Range[];
+    params: [string, types.Range[]];
 }
 
-export interface UpdateDocumentContent {
+/**
+ * params: [documentUri, changes]
+ * Todo: add more types for other awarness object types
+ */
+export interface UpdateDocumentContent extends OCPMessage {
     method: 'awareness/updateDocument',
-    documentUri: string
-    changes: TextDocumentInsert[] // todo add more types for other object types
+    params: [string, TextDocumentInsert[]]
 }
 
 // ***************************** From service daemon ********************************
 
 /**
  * A request to the application to open the provided URL
+ * params: [url]
  */
-export interface OpenUrl {
+export interface OpenUrl extends OCPMessage {
     method: 'onOpenUrl',
-    url: string
+    params: [string]
 }
 
-export interface LoginResponse {
-    authToken: string
+/**
+ * params: [authToken]
+ */
+export interface LoginResponse extends OCPMessage {
+    method: 'login',
+    params: [string]
 }
 
 /**
  * A notification when joining or creating a room was successful
+ * params: [roomToken, roomId]
  */
 export interface SessionCreatedResponse {
-    roomToken: string
-    roomId: string
+    method: 'room/joinRoom' | 'room/createRoom',
+    params: [string, string]
 }
 
-export interface OnInitNotification {
+/**
+ * params: [initData]
+ */
+export interface OnInitNotification extends OCPMessage {
     method: 'init',
-    initData: types.InitData
+    params: [types.InitData]
 }
 
 /**
  * A request to the application to allow a user to join the current session
- * expected return: {accepted: boolean, id: id of request}
+ * params: [user]
  */
-export interface JoinRequest {
+export interface JoinRequest extends OCPMessage {
     method: 'peer/onJoinRequest',
-    user: types.User
+    params: [types.User]
 }
-
-export interface InternalError {
+/**
+ * params: [message, (stack)]
+ */
+export interface InternalError extends OCPMessage {
     method: 'error',
-    message: string
-    stack?: string
+    params: [string, string?]
 }

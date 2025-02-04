@@ -9,7 +9,7 @@ import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { ClientRequests, DaemonMessage, JoinRequestResponse, OCPMessage, OpenDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { DaemonMessage, JoinRequestResponse, OCPMessage, OpenDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
 
 export class CollaborationInstance implements types.Disposable{
 
@@ -28,7 +28,7 @@ export class CollaborationInstance implements types.Disposable{
     protected sendMessageEmitter = new Emitter<DaemonMessage>();
     onSendMessage = this.sendMessageEmitter.event;
 
-    protected sendRequestEmitter = new Emitter<ClientRequests | OCPMessage>();
+    protected sendRequestEmitter = new Emitter<OCPMessage>();
     onSendRequest = this.sendRequestEmitter.event;
 
     constructor(public currentConnection: types.ProtocolBroadcastConnection, protected host: boolean, workspace?: types.Workspace) {
@@ -83,9 +83,9 @@ export class CollaborationInstance implements types.Disposable{
         currentConnection.peer.onJoinRequest(async (_, user) => {
             const res = await this.sendRequestEmitter.fire({
                 method: 'peer/onJoinRequest',
-                user
+                params: [user]
             })[0] as JoinRequestResponse;
-            return res.accepted ? { workspace: workspace! } : undefined;
+            return res.params[0] ? { workspace: workspace! } : undefined;
         });
 
         currentConnection.peer.onInfo((_, peer) => {
@@ -121,22 +121,23 @@ export class CollaborationInstance implements types.Disposable{
                 kind: 'notification',
                 content: {
                     method: 'init',
-                    initData
+                    params: [initData]
                 },
             });
         });
     }
 
     async registerYjsObject(message: OpenDocument) {
-        if(message.type === 'text') {
-            const yjsText = this.YjsDoc.getText(message.documentUri);
+        const [type, documentUri, text] = message.params;
+        if(type === 'text') {
+            const yjsText = this.YjsDoc.getText(documentUri);
             if (this.host) {
                 this.YjsDoc.transact(() => {
                     yjsText.delete(0, yjsText.length);
-                    yjsText.insert(0, message.text);
+                    yjsText.insert(0, text);
                 });
             } else {
-                this.currentConnection.editor.open((await this.hostInfo.promise).id, message.documentUri);
+                this.currentConnection.editor.open((await this.hostInfo.promise).id, documentUri);
             }
             const observer = (textEvent: Y.YTextEvent) => {
                 if (textEvent.transaction.local) {
@@ -166,8 +167,7 @@ export class CollaborationInstance implements types.Disposable{
                     kind: 'notification',
                     content: {
                         method: 'awareness/updateDocument',
-                        documentUri: message.documentUri,
-                        changes: edits
+                        params: [documentUri, edits]
                     }
                 });
             };
@@ -176,13 +176,14 @@ export class CollaborationInstance implements types.Disposable{
     }
 
     updateYjsObjectContent(update: UpdateDocumentContent) {
-        if (update.changes.length === 0) {
+        const [documentUri, changes] = update.params;
+        if (changes.length === 0) {
             return;
         }
         this.yjsMutex.runExclusive(async () => {
-            const yjsText = this.YjsDoc.getText(update.documentUri);
+            const yjsText = this.YjsDoc.getText(documentUri);
             this.YjsDoc.transact(() => {
-                for(const change of update.changes) {
+                for(const change of changes) {
                     if(change.endOffset) {
                         yjsText.delete(change.startOffset, change.endOffset - change.startOffset);
                     }

@@ -19,7 +19,7 @@ const communicationHandler = new StdioCommunicationHandler();
 const connectionProvider = new ConnectionProvider({
     fetch: fetch,
     opener: async (url) => {
-        communicationHandler.sendMessage({ kind: 'notification', content: { method: 'onOpenUrl', url}});
+        communicationHandler.sendMessage({ kind: 'notification', content: { method: 'onOpenUrl', params: [url]}});
     },
     transports: [SocketIoTransportProvider],
     url: args.values['server-address'] ?? '',

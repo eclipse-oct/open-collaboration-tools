@@ -77,8 +77,7 @@ export class MessageHandler {
                     kind: 'notification',
                     content: {
                         method: 'error',
-                        message: error?.toString(),
-                        stack: error?.stack
+                        params: [error.message, error?.stack]
                     }});
             }
         });
@@ -87,25 +86,27 @@ export class MessageHandler {
     async login(): Promise<LoginResponse> {
         const authToken = await this.connectionProvider.login({ });
         return {
-            authToken
+            method: 'login',
+            params: [authToken]
         };
     }
 
     async joinRoom(message: JoinRoomRequest): Promise<SessionCreatedResponse> {
-        const resp = await this.connectionProvider.joinRoom({ roomId: message.room});
+        const resp = await this.connectionProvider.joinRoom({ roomId: message.params[0] });
         this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
         return {
-            roomToken: resp.roomToken,
-            roomId: resp.roomId
+            method: 'room/joinRoom',
+            params: [resp.roomToken, resp.roomId]
         };
     }
 
     async createRoom(message: CreateRoomRequest): Promise<SessionCreatedResponse> {
         const resp = await this.connectionProvider.createRoom({});
-        this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, message.workspace);
+        this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, message.params[0]);
         return {
-            roomToken: resp.roomToken,
-            roomId: resp.roomId
+            method: 'room/createRoom',
+            params: [resp.roomToken, resp.roomId]
+
         };
     }
 

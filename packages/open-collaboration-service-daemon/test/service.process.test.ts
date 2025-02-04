@@ -116,14 +116,14 @@ describe('Service Process', () => {
         guest.process?.kill();
     });
     test('test service processes without login', async () => {
-        const roomInfoResp = await host.sendRequest({method: 'room/createRoom', workspace: {name: 'test', folders: ['testFolder']}} as messages.CreateRoomRequest);
-        const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).roomId;
+        const roomInfoResp = await host.sendRequest({method: 'room/createRoom', params: [{name: 'test', folders: ['testFolder']}]} as messages.CreateRoomRequest);
+        const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).params[1];
         expect(roomId).toBeDefined();
 
         const updateArived = new Deferred();
         host.onMessage(message => {
             if(message.kind === 'request' && message.content.method === 'peer/onJoinRequest') {
-                host.sendResponse({method: 'room/joinRoom', accepted: true} as messages.JoinRequestResponse, message.id);
+                host.sendResponse({method: 'room/joinRoom', params: [true]} as messages.JoinRequestResponse, message.id);
                 console.log('host accepted join request');
             } else if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
                 console.log('filesystem request');
@@ -134,7 +134,7 @@ describe('Service Process', () => {
                     size: 1231,
                 }}, message.id);
             } else if (message.kind === 'notification' && message.content.method === 'awareness/updateDocument') {
-                expect((message.content as messages.UpdateDocumentContent).changes.length).toBe(1);
+                expect((message.content as messages.UpdateDocumentContent).params[1].length).toBe(1);
                 updateArived.resolve();
             }
         });
@@ -145,13 +145,13 @@ describe('Service Process', () => {
 
         guest.onMessage(message => {
             if(message.kind === 'notification' && message.content.method === 'init') {
-                hostId = (message.content as messages.OnInitNotification).initData.host.id;
+                hostId = (message.content as messages.OnInitNotification).params[0].host.id;
                 initDeferred.resolve();
             }
         });
 
-        const joinResp = await guest.sendRequest({method: 'room/joinRoom', room: roomId} as messages.JoinRoomRequest);
-        const guestRoomId = (joinResp.content as messages.SessionCreatedResponse).roomId;
+        const joinResp = await guest.sendRequest({method: 'room/joinRoom', params: [roomId]} as messages.JoinRoomRequest);
+        const guestRoomId = (joinResp.content as messages.SessionCreatedResponse).params[1];
         expect(guestRoomId).toEqual(roomId);
 
         // await until guest is initialized
@@ -162,10 +162,10 @@ describe('Service Process', () => {
         const folderStat = await guest.sendRequest({ method: 'fileSystem/stat', params: ['testFolder'] }, hostId);
         expect(folderStat).toBeDefined();
 
-        host.sendNotification({ method: 'awareness/openDocument', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
-        guest.sendNotification({ method: 'awareness/openDocument', type: 'text', documentUri: 'ocp://testFolder/test.txt', text: 'HELLO WORLD!'} as messages.OpenDocument);
+        host.sendNotification({ method: 'awareness/openDocument', params: ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']} as messages.OpenDocument);
+        guest.sendNotification({ method: 'awareness/openDocument', params: ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']} as messages.OpenDocument);
 
-        guest.sendNotification({ method: 'awareness/updateDocument', documentUri: 'ocp://testFolder/test.txt', changes: [{ startOffset: 5, text: ' NEW' }]} as messages.UpdateDocumentContent);
+        guest.sendNotification({ method: 'awareness/updateDocument', params: ['ocp://testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]]} as messages.UpdateDocumentContent);
 
         await updateArived.promise;
 
