@@ -26,7 +26,7 @@ export class CollaborationConnectionProvider {
     async createConnection(userToken?: string): Promise<ConnectionProvider | undefined> {
         let serverUrl = vscode.workspace.getConfiguration().get<string>('oct.serverUrl');
         userToken ??= await this.context.secrets.get(OCT_USER_TOKEN);
-    
+
         if (userToken) {
             let token, url;
             if (userToken.includes('@@')) {
@@ -38,7 +38,7 @@ export class CollaborationConnectionProvider {
             }
             userToken = token;
         }
-    
+
         if (serverUrl) {
             return new ConnectionProvider({
                 url: serverUrl,
