@@ -28,15 +28,14 @@ export class CollaborationConnectionProvider {
         userToken ??= await this.context.secrets.get(OCT_USER_TOKEN);
 
         if (userToken) {
-            let token, url;
+            let url;
             if (userToken.includes('@@')) {
-                [token, url] = userToken.split('@@');
+                [userToken, url] = userToken.split('@@');
                 serverUrl = url && url.includes('://') ? url : `http://${url}`;
             } else if (userToken.includes('@')) {
-                [token, url] = userToken.split('@');
+                [userToken, url] = userToken.split('@');
                 serverUrl = url && url.includes('://') ? url : `https://${url}`;
             }
-            userToken = token;
         }
 
         if (serverUrl) {
