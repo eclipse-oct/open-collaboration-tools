@@ -31,10 +31,10 @@ export class CollaborationConnectionProvider {
             let url;
             if (userToken.includes('@@')) {
                 [userToken, url] = userToken.split('@@');
-                serverUrl = url && url.includes('://') ? url : `http://${url}`;
+                serverUrl = url.includes('://') ? url : `http://${url}`;
             } else if (userToken.includes('@')) {
                 [userToken, url] = userToken.split('@');
-                serverUrl = url && url.includes('://') ? url : `https://${url}`;
+                serverUrl = url.includes('://') ? url : `https://${url}`;
             }
         }
 
