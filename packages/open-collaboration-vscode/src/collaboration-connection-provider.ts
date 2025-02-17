@@ -24,9 +24,21 @@ export class CollaborationConnectionProvider {
     private fetch: typeof fetch;
 
     async createConnection(userToken?: string): Promise<ConnectionProvider | undefined> {
-        const serverUrl = vscode.workspace.getConfiguration().get<string>('oct.serverUrl');
+        let serverUrl = vscode.workspace.getConfiguration().get<string>('oct.serverUrl');
         userToken ??= await this.context.secrets.get(OCT_USER_TOKEN);
-
+    
+        if (userToken) {
+            let token, url;
+            if (userToken.includes('@@')) {
+                [token, url] = userToken.split('@@');
+                serverUrl = url && url.includes('://') ? url : `http://${url}`;
+            } else if (userToken.includes('@')) {
+                [token, url] = userToken.split('@');
+                serverUrl = url && url.includes('://') ? url : `https://${url}`;
+            }
+            userToken = token;
+        }
+    
         if (serverUrl) {
             return new ConnectionProvider({
                 url: serverUrl,
