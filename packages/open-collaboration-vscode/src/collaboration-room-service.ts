@@ -105,13 +105,12 @@ export class CollaborationRoomService {
             }
         }
 
-        let url = undefined, br_url = "";
+        let url = undefined, br_url = '';
         if (roomId.includes('@@')) {
             [roomId, url] = roomId.split('@@');
             url = url.includes('://') ? url : `http://${url}`;
             br_url = `\n${url}`;
         } else if (roomId.includes('@')) {
-            let url
             [roomId, url] = roomId.split('@');
             url = url.includes('://') ? url : `https://${url}`;
             br_url = `\n${url}`;
