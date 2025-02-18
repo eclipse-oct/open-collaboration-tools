@@ -60,91 +60,108 @@ export class CollaborationRoomService {
         return undefined;
     }
 
-    async createRoom(connectionProvider: ConnectionProvider): Promise<void> {
-        this.tokenSource.cancel();
-        this.tokenSource = new vscode.CancellationTokenSource();
-        await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating Session'), cancellable: true }, async (progress, cancelToken) => {
-            const outerToken = this.tokenSource.token;
-            try {
-                const roomClaim = await connectionProvider.createRoom({
-                    abortSignal: this.toAbortSignal(this.tokenSource.token, cancelToken),
-                    reporter: info => progress.report({ message: localizeInfo(info) })
-                });
-                if (roomClaim.loginToken) {
-                    const userToken = roomClaim.loginToken;
-                    await this.context.secrets.store(OCT_USER_TOKEN, userToken);
-                }
-                const connection = await connectionProvider.connect(roomClaim.roomToken);
-                const instance = this.instanceFactory({
-                    connection,
-                    host: true,
-                    roomId: roomClaim.roomId
-                });
-                await vscode.env.clipboard.writeText(roomClaim.roomId);
-                const copyToClipboard = vscode.l10n.t('Copy to Clipboard');
-                const message = vscode.l10n.t('Created session {0}. Invitation code was automatically written to clipboard.', roomClaim.roomId);
-                vscode.window.showInformationMessage(message, copyToClipboard).then(value => {
-                    if (value === copyToClipboard) {
-                        vscode.env.clipboard.writeText(roomClaim.roomId);
+    async createRoom(): Promise<void> {
+        this.withConnectionProvider(async connectionProvider => {
+            this.tokenSource.cancel();
+            this.tokenSource = new vscode.CancellationTokenSource();
+            await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating Session'), cancellable: true }, async (progress, cancelToken) => {
+                const outerToken = this.tokenSource.token;
+                try {
+                    const roomClaim = await connectionProvider.createRoom({
+                        abortSignal: this.toAbortSignal(this.tokenSource.token, cancelToken),
+                        reporter: info => progress.report({ message: localizeInfo(info) })
+                    });
+                    if (roomClaim.loginToken) {
+                        const userToken = roomClaim.loginToken;
+                        await this.context.secrets.store(OCT_USER_TOKEN, userToken);
                     }
-                });
-                this.onDidJoinRoomEmitter.fire(instance);
-            } catch (error) {
-                this.showError(true, error, outerToken, cancelToken);
-            }
+                    const connection = await connectionProvider.connect(roomClaim.roomToken);
+                    const instance = this.instanceFactory({
+                        connection,
+                        host: true,
+                        roomId: roomClaim.roomId
+                    });
+                    await vscode.env.clipboard.writeText(roomClaim.roomId);
+                    const copyToClipboard = vscode.l10n.t('Copy to Clipboard');
+                    const message = vscode.l10n.t('Created session {0}. Invitation code was automatically written to clipboard.', roomClaim.roomId);
+                    vscode.window.showInformationMessage(message, copyToClipboard).then(value => {
+                        if (value === copyToClipboard) {
+                            vscode.env.clipboard.writeText(roomClaim.roomId);
+                        }
+                    });
+                    this.onDidJoinRoomEmitter.fire(instance);
+                } catch (error) {
+                    this.showError(true, error, outerToken, cancelToken);
+                }
+            });
         });
     }
 
-    async joinRoom(connectionProvider: ConnectionProvider, roomId?: string): Promise<void> {
+    async joinRoom(roomId?: string): Promise<void> {
         if (!roomId) {
             roomId = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Enter the invitation code') });
             if (!roomId) {
                 return;
             }
         }
-        this.tokenSource.cancel();
-        this.tokenSource = new vscode.CancellationTokenSource();
-        const success = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Joining Session'), cancellable: true }, async (progress, cancelToken) => {
-            if (roomId) {
-                const outerToken = this.tokenSource.token;
-                try {
-                    const roomClaim = await connectionProvider.joinRoom({
-                        roomId,
-                        reporter: info => progress.report({ message: localizeInfo(info) }),
-                        abortSignal: this.toAbortSignal(outerToken, cancelToken)
-                    });
-                    if (roomClaim.loginToken) {
-                        const userToken = roomClaim.loginToken;
-                        await this.context.secrets.store(OCT_USER_TOKEN, userToken);
-                    }
-                    const roomData: RoomData = {
-                        roomToken: roomClaim.roomToken,
-                        roomId: roomClaim.roomId,
-                        host: roomClaim.host
-                    };
-                    const roomDataJson = JSON.stringify(roomData);
-                    await this.context.secrets.store(OCT_ROOM_DATA, roomDataJson);
-                    const workspaceFolders = (vscode.workspace.workspaceFolders ?? []);
-                    const workspace = roomClaim.workspace;
-                    const newFolders = workspace.folders.map(folder => ({
-                        name: folder,
-                        uri: CollaborationUri.create(workspace.name, folder)
-                    }));
-                    return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
-                } catch (error) {
-                    this.showError(false, error, outerToken, cancelToken);
-                }
-            }
-            return false;
-        });
-        if (success && isWeb) {
-            // It seems like the web extension mode doesn't restart the extension host upon changing workspace folders
-            // However, force restarting the extension host by reloading the window removes the current workspace folders
-            // Therefore, we simply attempt to connect after a short delay after receiving the success signal
-            setTimeout(() => {
-                this.tryConnect();
-            }, 500);
+
+        let url = undefined, br_url = "";
+        if (roomId.includes('@@')) {
+            [roomId, url] = roomId.split('@@');
+            url = url.includes('://') ? url : `http://${url}`;
+            br_url = `\n${url}`;
+        } else if (roomId.includes('@')) {
+            let url
+            [roomId, url] = roomId.split('@');
+            url = url.includes('://') ? url : `https://${url}`;
+            br_url = `\n${url}`;
         }
+
+        await this.withConnectionProvider(async connectionProvider => {
+            this.tokenSource.cancel();
+            this.tokenSource = new vscode.CancellationTokenSource();
+            const success = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Joining Session'), cancellable: true }, async (progress, cancelToken) => {
+                if (roomId) {
+                    const outerToken = this.tokenSource.token;
+                    try {
+                        const roomClaim = await connectionProvider.joinRoom({
+                            roomId,
+                            reporter: info => progress.report({ message: localizeInfo(info) }),
+                            abortSignal: this.toAbortSignal(outerToken, cancelToken)
+                        });
+                        if (roomClaim.loginToken) {
+                            const userToken = roomClaim.loginToken + br_url;
+                            await this.context.secrets.store(OCT_USER_TOKEN, userToken);
+                        }
+                        const roomData: RoomData = {
+                            roomToken: roomClaim.roomToken,
+                            roomId: roomClaim.roomId,
+                            host: roomClaim.host
+                        };
+                        const roomDataJson = JSON.stringify(roomData);
+                        await this.context.secrets.store(OCT_ROOM_DATA, roomDataJson);
+                        const workspaceFolders = (vscode.workspace.workspaceFolders ?? []);
+                        const workspace = roomClaim.workspace;
+                        const newFolders = workspace.folders.map(folder => ({
+                            name: folder,
+                            uri: CollaborationUri.create(workspace.name, folder)
+                        }));
+                        return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
+                    } catch (error) {
+                        this.showError(false, error, outerToken, cancelToken);
+                    }
+                }
+                return false;
+            });
+            if (success && isWeb) {
+                // It seems like the web extension mode doesn't restart the extension host upon changing workspace folders
+                // However, force restarting the extension host by reloading the window removes the current workspace folders
+                // Therefore, we simply attempt to connect after a short delay after receiving the success signal
+                setTimeout(() => {
+                    this.tryConnect();
+                }, 500);
+            }
+        }, url);
     }
 
     private showError(create: boolean, error: unknown, outerToken: vscode.CancellationToken, innerToken: vscode.CancellationToken): void {
@@ -167,5 +184,20 @@ export class CollaborationRoomService {
         const controller = new AbortController();
         tokens.forEach(token => token.onCancellationRequested(() => controller.abort()));
         return controller.signal;
+    }
+
+    private async withConnectionProvider(callback: (connectionProvider: ConnectionProvider) => (Promise<void> | void), serverUrl?: string): Promise<void> {
+        const connectionProvider = await this.connectionProvider.createConnection(serverUrl ? `@${serverUrl}` : undefined);
+        if (connectionProvider) {
+            await callback(connectionProvider);
+        } else {
+            const message = vscode.l10n.t('No Open Collaboration Server configured. Please set the server URL in the settings.');
+            const openSettings = vscode.l10n.t('Open Settings');
+            vscode.window.showInformationMessage(message, openSettings).then((selection) => {
+                if (selection === openSettings) {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'oct.serverUrl');
+                }
+            });
+        }
     }
 }
