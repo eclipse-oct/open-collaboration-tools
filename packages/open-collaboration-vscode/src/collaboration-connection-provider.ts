@@ -24,8 +24,13 @@ export class CollaborationConnectionProvider {
     private fetch: typeof fetch;
 
     async createConnection(userToken?: string): Promise<ConnectionProvider | undefined> {
-        const serverUrl = vscode.workspace.getConfiguration().get<string>('oct.serverUrl');
         userToken ??= await this.context.secrets.get(OCT_USER_TOKEN);
+        let serverUrl;
+        if (userToken?.includes('\n')) {
+            [userToken, serverUrl] = userToken.split('\n');
+        } else {
+            serverUrl = vscode.workspace.getConfiguration().get<string>('oct.serverUrl');
+        }
 
         if (serverUrl) {
             return new ConnectionProvider({
