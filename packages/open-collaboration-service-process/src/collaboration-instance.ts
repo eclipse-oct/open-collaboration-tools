@@ -53,14 +53,14 @@ export class CollaborationInstance implements types.Disposable{
             this.dispose();
         });
 
-        currentConnection.onUnhandledRequest(async (origin, method, ...params) => {
+        currentConnection.onRequest(async (origin, method, ...params) => {
             return await this.sendRequestEmitter.fire({
                 method,
                 params
             })[0];
         });
 
-        currentConnection.onUnhandledNotification((origin, method, ...params) => {
+        currentConnection.onNotification((origin, method, ...params) => {
             this.sendMessageEmitter.fire({
                 kind: 'notification',
                 content: {
@@ -70,7 +70,7 @@ export class CollaborationInstance implements types.Disposable{
             });
         });
 
-        currentConnection.onUnhandledBroadcast((origin, method, ...params) => {
+        currentConnection.onBroadcast((origin, method, ...params) => {
             this.sendMessageEmitter.fire({
                 kind: 'broadcast',
                 content: {

@@ -18,13 +18,13 @@ export type ErrorHandler = (message: string) => void;
 export interface BroadcastConnection {
     onRequest(type: string, handler: Handler<any[], any>): void;
     onRequest<P extends unknown[], R>(type: msg.RequestType<P, R>, handler: Handler<P, R>): void;
+    onRequest(handler: UnhandledMessageHandler): void;
     onNotification(type: string, handler: Handler<any[]>): void;
     onNotification<P extends unknown[]>(type: msg.NotificationType<P>, handler: Handler<P>): void;
+    onNotification(handler: UnhandledMessageHandler): void;
     onBroadcast(type: string, handler: Handler<any[]>): void;
     onBroadcast<P extends unknown[]>(type: msg.BroadcastType<P>, handler: Handler<P>): void;
-    onUnhandledRequest(handler: UnhandledMessageHandler): void;
-    onUnhandledNotification(handler: UnhandledMessageHandler): void;
-    onUnhandledBroadcast(handler: UnhandledMessageHandler): void;
+    onBroadcast(handler: UnhandledMessageHandler): void;
     onError(handler: ErrorHandler): void;
     sendRequest(type: string, ...parameters: any[]): Promise<any>;
     sendRequest<P extends unknown[], R>(type: msg.RequestType<P, R>, ...parameters: P): Promise<R>;
@@ -275,37 +275,40 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
         await this.options.transport.write(Encoding.encode(message));
     }
 
+    onRequest(handler: UnhandledMessageHandler): void;
     onRequest(type: string, handler: Handler<any[], any>): void;
     onRequest<P extends unknown[], R>(type: msg.RequestType<P, R> | string, handler: Handler<P, R>): void;
-    onRequest(type: msg.RequestType<any[], any> | string, handler: Handler<any[], any>): void {
-        const method = typeof type === 'string' ? type : type.method;
-        this.messageHandlers.set(method, handler);
+    onRequest(typeOrHandler: msg.RequestType<any[], any> | string | UnhandledMessageHandler, handler?: Handler<any[], any>): void {
+        if(typeof typeOrHandler === 'function') {
+            this.onUnhandledRequestHandler = (method) => (origin, ...params) => typeOrHandler(origin, method, ...params);
+        } else {
+            const method = typeof typeOrHandler === 'string' ? typeOrHandler : typeOrHandler.method;
+            this.messageHandlers.set(method, handler!);
+        }
     }
 
+    onNotification(handler: UnhandledMessageHandler): void;
     onNotification(type: string, handler: Handler<any[]>): void
     onNotification<P extends unknown[]>(type: msg.NotificationType<P> | string, handler: Handler<P>): void
-    onNotification(type: msg.NotificationType<any[]> | string, handler: Handler<any[]>): void {
-        const method = typeof type === 'string' ? type : type.method;
-        this.messageHandlers.set(method, handler);
+    onNotification(typeOrHandler: msg.NotificationType<any[]> | string | UnhandledMessageHandler, handler?: Handler<any[]>): void {
+        if(typeof typeOrHandler === 'function') {
+            this.onUnhandledNotificationHandler = (method) => (origin, ...params) => typeOrHandler(origin, method, ...params);
+        } else {
+            const method = typeof typeOrHandler === 'string' ? typeOrHandler : typeOrHandler.method;
+            this.messageHandlers.set(method, handler!);
+        }
     }
 
+    onBroadcast(handler: UnhandledMessageHandler): void;
     onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void;
     onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void;
-    onBroadcast(type: msg.BroadcastType<any[]> | string, handler: Handler<any[]>): void {
-        const method = typeof type === 'string' ? type : type.method;
-        this.messageHandlers.set(method, handler);
-    }
-
-    onUnhandledRequest(handler: UnhandledMessageHandler): void {
-        this.onUnhandledRequestHandler = (method) => (origin, ...params) => handler(origin, method, ...params);
-    }
-
-    onUnhandledNotification(handler: UnhandledMessageHandler): void {
-        this.onUnhandledNotificationHandler = (method) => (origin, ...params) => handler(origin, method, ...params);
-    }
-
-    onUnhandledBroadcast(handler: UnhandledMessageHandler): void {
-        this.onUnhandledBroadcastHandler = (method) => (origin, ...params) => handler(origin, method, ...params);
+    onBroadcast(typeOrHandler: msg.BroadcastType<any[]> | string | UnhandledMessageHandler, handler?: Handler<any[]>): void {
+        if(typeof typeOrHandler === 'function') {
+            this.onUnhandledBroadcastHandler = (method) => (origin, ...params) => typeOrHandler(origin, method, ...params);
+        } else {
+            const method = typeof typeOrHandler === 'string' ? typeOrHandler : typeOrHandler.method;
+            this.messageHandlers.set(method, handler!);
+        }
     }
 
     sendRequest(type: string, target: msg.MessageTarget, ...parameters: any[]): Promise<any>;
