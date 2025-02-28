@@ -14,7 +14,7 @@
     "start": "node lib/process.js",
     "build": "tsc",
     "bundle": "esbuild ./lib/process.js --bundle --platform=node --outfile=lib/bundle.cjs",
-    "create:executable": "npm run build && npm run bundle && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.js"
+    "create:executable": "npm run build && npm run bundle && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.mjs"
   },
   "dependencies": {
     "open-collaboration-yjs": "0.2.0",
