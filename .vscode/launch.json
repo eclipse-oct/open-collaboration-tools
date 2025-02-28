@@ -48,10 +48,10 @@
       "request": "launch",
       "console": "integratedTerminal",
       "outFiles": [
-        "${workspaceFolder}/packages/open-collaboration-service-daemon/lib/**/*.js"
+        "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
       ],
       "sourceMaps": true,
-      "program": "${workspaceFolder}/packages/open-collaboration-service-daemon/lib/process.js",
+      "program": "${workspaceFolder}/packages/open-collaboration-service-prccess/lib/process.js",
       "args": ["--server-address=http://localhost:8100"]
     }
   ]
