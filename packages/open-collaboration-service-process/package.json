@@ -19,7 +19,8 @@
   "dependencies": {
     "open-collaboration-yjs": "0.2.0",
     "open-collaboration-protocol": "0.2.0",
-    "async-mutex": "^0.5.0"
+    "async-mutex": "^0.5.0",
+    "commander": "13.1.0"
   },
   "keywords": [
     "collaboration",

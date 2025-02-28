@@ -6,13 +6,16 @@
 
 import { StdioCommunicationHandler } from './communication-handler';
 import { ConnectionProvider, SocketIoTransportProvider }from 'open-collaboration-protocol';
-import { parseArgs } from 'util';
 import { MessageHandler } from './message-handler';
+import { program } from 'commander';
 
-const args = parseArgs({options: {
-    'server-address': {type: 'string'},
-    'auth-token': {type: 'string'},
-}});
+program
+    .option('--server-address <server-address>', 'The address of the server to connect to')
+    .option('--auth-token <auth-token>', 'The authentication token to use if available');
+
+program.parse();
+
+const args = program.opts();
 
 const communicationHandler = new StdioCommunicationHandler();
 
@@ -22,8 +25,8 @@ const connectionProvider = new ConnectionProvider({
         communicationHandler.sendMessage({ kind: 'notification', content: { method: 'onOpenUrl', params: [url]}});
     },
     transports: [SocketIoTransportProvider],
-    url: args.values['server-address'] ?? '',
-    userToken: args.values['auth-token']
+    url: args.serverAddress  ?? '',
+    userToken: args.authToken
 });
 
 new MessageHandler(connectionProvider, communicationHandler);
