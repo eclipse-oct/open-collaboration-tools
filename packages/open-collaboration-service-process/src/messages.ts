@@ -5,7 +5,7 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 
-export type DaemonMessage = Request | Response | Notification | Broadcast
+export type ServiceProcessMessage = Request | Response | Notification | Broadcast
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
     return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.params);
@@ -40,17 +40,27 @@ export interface Broadcast {
     content: OCPMessage
 }
 
-// ***************************** To service daeomon *****************************
+// ***************************** To service process *****************************
+
+export namespace ToServiceMessages {
+    export const LOGIN = 'login';
+    export const JOIN_ROOM = 'room/joinRoom';
+    export const CREATE_ROOM = 'room/createRoom';
+    export const CLOSE_SESSION = 'room/closeSession';
+    export const OPEN_DOCUMENT = 'awareness/openDocument';
+    export const UPDATE_TEXT_SELECTION = 'awareness/updateTextSelection';
+    export const UPDATE_DOCUMENT_CONTENT = 'awareness/updateDocument';
+}
 
 export interface LoginRequest extends OCPMessage {
-    method: 'login',
+    method: typeof ToServiceMessages.LOGIN,
 }
 
 /**
  * params: [roomId]
  */
 export interface JoinRoomRequest extends OCPMessage {
-    method: 'room/joinRoom',
+    method: typeof ToServiceMessages.JOIN_ROOM,
     params: [string]
 }
 
@@ -58,7 +68,7 @@ export interface JoinRoomRequest extends OCPMessage {
  * params: [accepted]
  */
 export interface JoinRequestResponse extends OCPMessage {
-    method: 'room/joinRoom',
+    method: typeof ToServiceMessages.JOIN_ROOM,
     params: [boolean]
 }
 
@@ -66,12 +76,12 @@ export interface JoinRequestResponse extends OCPMessage {
  * params: [workspace]
  */
 export interface CreateRoomRequest extends OCPMessage {
-    method: 'room/createRoom',
+    method: typeof ToServiceMessages.CREATE_ROOM,
     params: [types.Workspace]
 }
 
 export interface CloseSessionRequest extends OCPMessage {
-    method: 'room/closeSession'
+    method: typeof ToServiceMessages.CLOSE_SESSION
 }
 
 // YJS Awareness
@@ -87,7 +97,7 @@ export interface TextDocumentInsert {
  * Todo: add more types for other awarness object types
  */
 export interface OpenDocument extends OCPMessage {
-    method: 'awareness/openDocument',
+    method: typeof ToServiceMessages.OPEN_DOCUMENT,
     params: [string, string, string]
 }
 
@@ -95,7 +105,7 @@ export interface OpenDocument extends OCPMessage {
  * params: [documentUri, selections]
  */
 export interface UpdateTextSelection extends OCPMessage {
-    method: 'awareness/updateTextSelection',
+    method: typeof ToServiceMessages.UPDATE_TEXT_SELECTION,
     params: [string, types.Range[]];
 }
 
@@ -104,11 +114,11 @@ export interface UpdateTextSelection extends OCPMessage {
  * Todo: add more types for other awarness object types
  */
 export interface UpdateDocumentContent extends OCPMessage {
-    method: 'awareness/updateDocument',
+    method: typeof ToServiceMessages.UPDATE_DOCUMENT_CONTENT,
     params: [string, TextDocumentInsert[]]
 }
 
-// ***************************** From service daemon ********************************
+// ***************************** From service process ********************************
 
 /**
  * A request to the application to open the provided URL
@@ -123,7 +133,7 @@ export interface OpenUrl extends OCPMessage {
  * params: [authToken]
  */
 export interface LoginResponse extends OCPMessage {
-    method: 'login',
+    method: typeof ToServiceMessages.LOGIN,
     params: [string]
 }
 

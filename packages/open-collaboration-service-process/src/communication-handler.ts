@@ -5,10 +5,10 @@
 // ******************************************************************************
 
 import { Emitter } from 'open-collaboration-protocol';
-import { DaemonMessage } from './messages';
+import { ServiceProcessMessage } from './messages';
 
 export class StdioCommunicationHandler {
-    protected readonly onMessageEmitter: Emitter<DaemonMessage> = new Emitter();
+    protected readonly onMessageEmitter: Emitter<ServiceProcessMessage> = new Emitter();
     onMessage = this.onMessageEmitter.event;
 
     constructor() {
@@ -22,7 +22,7 @@ export class StdioCommunicationHandler {
         });
     }
 
-    sendMessage(message: DaemonMessage): void {
+    sendMessage(message: ServiceProcessMessage): void {
         const messageJson = JSON.stringify(message);
         process.stdout.write(messageJson, 'utf8');
     }

@@ -6,7 +6,7 @@
 
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import * as messages from 'open-collaboration-service-daemon/src/messages';
+import * as messages from 'open-collaboration-service-process/src/messages';
 import { Deferred, Emitter } from 'open-collaboration-protocol';
 
 const authTokenHost: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IkF2S2JlczliU1hDZ0FxSHhwa0xqYVRBcyIsIm5hbWUiOiJob3N0IiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzM4MjQxNTcwfQ.IWetdyBTAo2DswcYKs5Jzxl3AzuKGccFnGsc5A9XE8s';
@@ -17,7 +17,7 @@ class Client {
 
     lastRequestId = 0;
 
-    private onMessageEmitter = new Emitter<messages.DaemonMessage>();
+    private onMessageEmitter = new Emitter<messages.ServiceProcessMessage>();
     onMessage = this.onMessageEmitter.event;
 
     constructor(token: string) {
@@ -28,7 +28,7 @@ class Client {
             });
         this.process.stdout.on('data', (data) => {
             console.log('stdout: ', data.toString());
-            const message = JSON.parse(data.toString()) as messages.DaemonMessage;
+            const message = JSON.parse(data.toString()) as messages.ServiceProcessMessage;
             this.onMessageEmitter.fire(message);
         });
 

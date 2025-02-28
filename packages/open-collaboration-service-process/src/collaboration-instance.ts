@@ -9,7 +9,7 @@ import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { DaemonMessage, JoinRequestResponse, OCPMessage, OpenDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { ServiceProcessMessage, JoinRequestResponse, OCPMessage, OpenDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
 
 export class CollaborationInstance implements types.Disposable{
 
@@ -25,7 +25,7 @@ export class CollaborationInstance implements types.Disposable{
 
     protected identity = new Deferred<types.Peer>();
 
-    protected sendMessageEmitter = new Emitter<DaemonMessage>();
+    protected sendMessageEmitter = new Emitter<ServiceProcessMessage>();
     onSendMessage = this.sendMessageEmitter.event;
 
     protected sendRequestEmitter = new Emitter<OCPMessage>();

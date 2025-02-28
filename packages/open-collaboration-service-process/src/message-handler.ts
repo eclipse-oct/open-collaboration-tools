@@ -7,22 +7,22 @@
 import type * as types from 'open-collaboration-protocol';
 import { Deferred, MaybePromise } from 'open-collaboration-protocol';
 import { StdioCommunicationHandler } from './communication-handler';
-import { CreateRoomRequest, JoinRoomRequest, LoginResponse, OpenDocument, Response, SessionCreatedResponse, UpdateDocumentContent, UpdateTextSelection, isOCPMessage } from './messages';
+import { CreateRoomRequest, JoinRoomRequest, LoginResponse, OCPMessage, OpenDocument, Response, SessionCreatedResponse, ToServiceMessages, UpdateDocumentContent, UpdateTextSelection, isOCPMessage } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 
 export class MessageHandler {
 
     protected openRequests = new Map<number, Deferred<unknown>>();
 
-    protected handlers = new Map<string, (message: unknown) => MaybePromise<void | unknown>>(
+    protected handlers = new Map<string, (message: OCPMessage) => MaybePromise<void | unknown>>(
         [
-            ['login', () => this.login()],
-            ['room/joinRoom', message => this.joinRoom(message as JoinRoomRequest)],
-            ['room/createRoom', message => this.createRoom(message as CreateRoomRequest)],
-            ['room/closeSession',  () => this.currentCollaborationInstance?.currentConnection.dispose()],
-            ['awareness/openDocument', message => this.currentCollaborationInstance?.registerYjsObject(message as OpenDocument) ],
-            ['awareness/updateSelection', message => this.currentCollaborationInstance?.updateYjsObjectSelection(message as UpdateTextSelection)],
-            ['awareness/updateDocument', message => this.currentCollaborationInstance?.updateYjsObjectContent(message as UpdateDocumentContent)],
+            [ToServiceMessages.LOGIN, () => this.login()],
+            [ToServiceMessages.JOIN_ROOM, message => this.joinRoom(message as JoinRoomRequest)],
+            [ToServiceMessages.CREATE_ROOM, message => this.createRoom(message as CreateRoomRequest)],
+            [ToServiceMessages.CLOSE_SESSION,  () => this.currentCollaborationInstance?.currentConnection.dispose()],
+            [ToServiceMessages.OPEN_DOCUMENT, message => this.currentCollaborationInstance?.registerYjsObject(message as OpenDocument) ],
+            [ToServiceMessages.UPDATE_TEXT_SELECTION, message => this.currentCollaborationInstance?.updateYjsObjectSelection(message as UpdateTextSelection)],
+            [ToServiceMessages.UPDATE_DOCUMENT_CONTENT, message => this.currentCollaborationInstance?.updateYjsObjectContent(message as UpdateDocumentContent)],
         ]
     );
 
