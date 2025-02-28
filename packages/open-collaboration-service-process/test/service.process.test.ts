@@ -9,9 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import * as messages from 'open-collaboration-service-process/src/messages';
 import { Deferred, Emitter } from 'open-collaboration-protocol';
 
-const authTokenHost: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IkF2S2JlczliU1hDZ0FxSHhwa0xqYVRBcyIsIm5hbWUiOiJob3N0IiwiZW1haWwiOiIiLCJhdXRoUHJvdmlkZXIiOiJVbnZlcmlmaWVkIiwiaWF0IjoxNzM4MjQxNTcwfQ.IWetdyBTAo2DswcYKs5Jzxl3AzuKGccFnGsc5A9XE8s';
-const authTokenGuest: string = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IlBrQmN4blBJc1Qzenl5YVlLUEpGWXRxViIsIm5hbWUiOiJndWVzdCIsImVtYWlsIjoiIiwiYXV0aFByb3ZpZGVyIjoiVW52ZXJpZmllZCIsImlhdCI6MTczODI0MTY0Nn0.ABHj54q5u_z1Cd57Mscryp4rMPPiwxLLfSl-anCtD1E';
-
+const SERVER_ADDRESS = 'http://localhost:8100';
 class Client {
     process: ChildProcessWithoutNullStreams;
 
@@ -20,9 +18,9 @@ class Client {
     private onMessageEmitter = new Emitter<messages.ServiceProcessMessage>();
     onMessage = this.onMessageEmitter.event;
 
-    constructor(token: string) {
+    constructor() {
         this.process = spawn('node',
-            [`${__dirname}/../lib/process.js`, '--auth-token', token, '--server-address', 'http://localhost:8100'],
+            [`${__dirname}/../lib/process.js`, '--server-address', SERVER_ADDRESS],
             {
                 env: { ...process.env, 'OCT_JWT_PRIVATE_KEY': 'some_test_key'}
             });
@@ -88,7 +86,7 @@ describe('Service Process', () => {
     beforeAll(async () => {
         //Start the collaboration server
         process.env.OCT_JWT_PRIVATE_KEY = 'some_test_key';
-        server = spawn('node', [`${__dirname}/../../open-collaboration-server/bin/server`, 'start']);
+        server = spawn('node', [`${__dirname}/../../open-collaboration-server/bin/server`, 'start'], {env: { ...process.env, 'OCT_ACTIVATE_SIMPLE_LOGIN': 'true' }});
         await new Promise<void>((resolve) => {
             server.stdout.on('data', (data) => {
                 if (data.toString().includes('listening on localhost:8100')) {
@@ -108,21 +106,25 @@ describe('Service Process', () => {
     });
 
     beforeEach(() => {
-        host = new Client(authTokenHost);
-        guest = new Client(authTokenGuest);
+        host = new Client();
+        guest = new Client();
     });
     afterEach(() => {
         host.process?.kill();
         guest.process?.kill();
     });
     test('test service processes without login', async () => {
-        const roomInfoResp = await host.sendRequest({method: 'room/createRoom', params: [{name: 'test', folders: ['testFolder']}]} as messages.CreateRoomRequest);
-        const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).params[1];
-        expect(roomId).toBeDefined();
-
+        // Setup message handlers
+        host.onMessage(async message => {
+            if(message.kind === 'notification' && message.content.method === 'onOpenUrl') {
+                makeSimpleLoginRequest((message.content as messages.OpenUrl).params[0], 'host');
+            }
+        });
         const updateArived = new Deferred();
         host.onMessage(message => {
-            if(message.kind === 'request' && message.content.method === 'peer/onJoinRequest') {
+            if(message.kind === 'notification' && message.content.method === 'onOpenUrl') {
+                makeSimpleLoginRequest((message.content as messages.OpenUrl).params[0], 'host');
+            } else if(message.kind === 'request' && message.content.method === 'peer/onJoinRequest') {
                 host.sendResponse({method: 'room/joinRoom', params: [true]} as messages.JoinRequestResponse, message.id);
                 console.log('host accepted join request');
             } else if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
@@ -144,11 +146,18 @@ describe('Service Process', () => {
         let hostId: string = '';
 
         guest.onMessage(message => {
-            if(message.kind === 'notification' && message.content.method === 'init') {
+            if(message.kind === 'notification' && message.content.method === 'onOpenUrl') {
+                makeSimpleLoginRequest((message.content as messages.OpenUrl).params[0], 'guest');
+            } else if(message.kind === 'notification' && message.content.method === 'init') {
                 hostId = (message.content as messages.OnInitNotification).params[0].host.id;
                 initDeferred.resolve();
             }
         });
+
+        // room creation
+        const roomInfoResp = await host.sendRequest({method: 'room/createRoom', params: [{name: 'test', folders: ['testFolder']}]} as messages.CreateRoomRequest);
+        const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).params[1];
+        expect(roomId).toBeDefined();
 
         const joinResp = await guest.sendRequest({method: 'room/joinRoom', params: [roomId]} as messages.JoinRoomRequest);
         const guestRoomId = (joinResp.content as messages.SessionCreatedResponse).params[1];
@@ -171,3 +180,12 @@ describe('Service Process', () => {
 
     }, 2000000);
 });
+
+async function makeSimpleLoginRequest(loginUrl: string, username: string) {
+    const token = loginUrl.split('token=')[1];
+    await fetch(`${SERVER_ADDRESS}/api/login/simple/`, {
+        headers: {'Content-Type': 'application/json'},
+        method: 'POST',
+        body: JSON.stringify({ token, user: username }),
+    });
+}
