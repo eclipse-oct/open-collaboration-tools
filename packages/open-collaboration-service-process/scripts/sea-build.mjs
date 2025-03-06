@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import { inject } from 'postject'
 
-var EXECUTABLE_NAME = 'oct-servcice-daemon'
+var EXECUTABLE_NAME = 'oct-servcice-process'
 
 if (process.platform === 'win32') {
     EXECUTABLE_NAME = EXECUTABLE_NAME + '.exe'
@@ -19,6 +19,7 @@ if (process.platform === 'darwin') {
 }
 
 console.log('injecting ', process.cwd() + '/bin/sea-prep.blob', 'into ', process.cwd() + '/' + EXECUTABLE_NAME)
+// Here the sea-prep blob containing oct-service-process application is injected into the node js executable
 inject(process.cwd() + '/bin/' + EXECUTABLE_NAME, 'NODE_SEA_BLOB', fs.readFileSync(process.cwd() + '/bin/sea-prep.blob'), postjectOptions)
 
 if (process.platform === 'darwin') {
