@@ -4,8 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
-
-export type ServiceProcessMessage = Request | Response | Notification | Broadcast
+import { NotificationType, RequestType } from 'vscode-jsonrpc';
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
     return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.params);
@@ -14,31 +13,14 @@ export function isOCPMessage(message: unknown): message is OCPMessage {
 export interface OCPMessage {
     method: string
     params: unknown[]
+    target?: string
 }
 
-export interface Request {
-    kind: 'request',
-    content: OCPMessage
-    target?: string,
-    id: number // set by message handler
-}
+// ***************************** generic messages *****************************
 
-export interface Response {
-    kind: 'response',
-    content: OCPMessage
-    id: number
-}
-
-export interface Notification {
-    kind: 'notification',
-    target?: string,
-    content: OCPMessage
-}
-
-export interface Broadcast {
-    kind: 'broadcast',
-    content: OCPMessage
-}
+export const OCPRequest = new RequestType<OCPMessage, any, string>('request');
+export const OCPNotification = new NotificationType<OCPMessage>('notification');
+export const OCPBroadCast = new NotificationType<OCPMessage>('broadcast');
 
 // ***************************** To service process *****************************
 
@@ -52,37 +34,26 @@ export namespace ToServiceMessages {
     export const UPDATE_DOCUMENT_CONTENT = 'awareness/updateDocument';
 }
 
-export interface LoginRequest extends OCPMessage {
-    method: typeof ToServiceMessages.LOGIN,
-}
+/**
+ * resp params: [token]
+ */
+export const LoginRequest = new RequestType<void, [string], void>(ToServiceMessages.LOGIN);
 
 /**
  * params: [roomId]
+ * resp params: [roomToken, roomId]
  */
-export interface JoinRoomRequest extends OCPMessage {
-    method: typeof ToServiceMessages.JOIN_ROOM,
-    params: [string]
-}
 
-/**
- * params: [accepted]
- */
-export interface JoinRequestResponse extends OCPMessage {
-    method: typeof ToServiceMessages.JOIN_ROOM,
-    params: [boolean]
-}
+export const JoinRoomRequest = new RequestType<[string], [string, string], void>(ToServiceMessages.JOIN_ROOM);
 
 /**
  * params: [workspace]
+ * resp params: [roomId, roomToken]
  */
-export interface CreateRoomRequest extends OCPMessage {
-    method: typeof ToServiceMessages.CREATE_ROOM,
-    params: [types.Workspace]
-}
 
-export interface CloseSessionRequest extends OCPMessage {
-    method: typeof ToServiceMessages.CLOSE_SESSION
-}
+export const CreateRoomRequest = new RequestType<[types.Workspace], [string, string], void>(ToServiceMessages.CREATE_ROOM);
+
+export const CloseSessionRequest = new RequestType<void, void, void>(ToServiceMessages.CLOSE_SESSION);
 
 // YJS Awareness
 
@@ -92,31 +63,28 @@ export interface TextDocumentInsert {
     text: string
 }
 
+export interface ClientTextSelection {
+    start: number,
+    end: number,
+    isReversed: boolean
+}
+
 /**
  * params: [type, documentUri, text]
  * Todo: add more types for other awarness object types
  */
-export interface OpenDocument extends OCPMessage {
-    method: typeof ToServiceMessages.OPEN_DOCUMENT,
-    params: [string, string, string]
-}
+export const OpenDocument = new NotificationType<[string, string, string]>(ToServiceMessages.OPEN_DOCUMENT);
 
 /**
  * params: [documentUri, selections]
  */
-export interface UpdateTextSelection extends OCPMessage {
-    method: typeof ToServiceMessages.UPDATE_TEXT_SELECTION,
-    params: [string, types.Range[]];
-}
+export const UpdateTextSelection = new NotificationType<[string, ClientTextSelection[]]>(ToServiceMessages.UPDATE_TEXT_SELECTION);
 
 /**
  * params: [documentUri, changes]
  * Todo: add more types for other awarness object types
  */
-export interface UpdateDocumentContent extends OCPMessage {
-    method: typeof ToServiceMessages.UPDATE_DOCUMENT_CONTENT,
-    params: [string, TextDocumentInsert[]]
-}
+export const UpdateDocumentContent = new NotificationType<[string, TextDocumentInsert[]]>(ToServiceMessages.UPDATE_DOCUMENT_CONTENT);
 
 // ***************************** From service process ********************************
 
@@ -124,48 +92,24 @@ export interface UpdateDocumentContent extends OCPMessage {
  * A request to the application to open the provided URL
  * params: [url]
  */
-export interface OpenUrl extends OCPMessage {
-    method: 'onOpenUrl',
-    params: [string]
-}
+
+export const OpenUrl = new NotificationType<[string]>('onOpenUrl');
 
 /**
- * params: [authToken]
+ * A notification to the application when a session has been joined or created
+ * params: [init data of the session]
  */
-export interface LoginResponse extends OCPMessage {
-    method: typeof ToServiceMessages.LOGIN,
-    params: [string]
-}
-
-/**
- * A notification when joining or creating a room was successful
- * params: [roomToken, roomId]
- */
-export interface SessionCreatedResponse {
-    method: 'room/joinRoom' | 'room/createRoom',
-    params: [string, string]
-}
-
-/**
- * params: [initData]
- */
-export interface OnInitNotification extends OCPMessage {
-    method: 'init',
-    params: [types.InitData]
-}
+export const OnInitNotification = new NotificationType<[types.InitData]>('init');
 
 /**
  * A request to the application to allow a user to join the current session
  * params: [user]
+ * resp params: [join accepted]
  */
-export interface JoinRequest extends OCPMessage {
-    method: 'peer/onJoinRequest',
-    params: [types.User]
-}
+export const JoinSessionRequest = new RequestType<[types.User], [boolean], void>(ToServiceMessages.JOIN_ROOM);
+
 /**
- * params: [message, (stack)]
+ * params: [error message, stack trace]
  */
-export interface InternalError extends OCPMessage {
-    method: 'error',
-    params: [string, string?]
-}
+export const InternalError = new NotificationType<[string, string?]>('error');
+

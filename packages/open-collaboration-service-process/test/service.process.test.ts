@@ -7,7 +7,8 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import * as messages from 'open-collaboration-service-process/src/messages';
-import { Deferred, Emitter } from 'open-collaboration-protocol';
+import { Deferred } from 'open-collaboration-protocol';
+import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter, RequestHandler } from 'vscode-jsonrpc/node';
 
 const SERVER_ADDRESS = 'http://localhost:8100';
 class Client {
@@ -15,8 +16,7 @@ class Client {
 
     lastRequestId = 0;
 
-    private onMessageEmitter = new Emitter<messages.ServiceProcessMessage>();
-    onMessage = this.onMessageEmitter.event;
+    communicationHandler: MessageConnection;
 
     constructor() {
         this.process = spawn('node',
@@ -24,58 +24,11 @@ class Client {
             {
                 env: { ...process.env, 'OCT_JWT_PRIVATE_KEY': 'some_test_key'}
             });
-        this.process.stdout.on('data', (data) => {
-            console.log('stdout: ', data.toString());
-            const message = JSON.parse(data.toString()) as messages.ServiceProcessMessage;
-            this.onMessageEmitter.fire(message);
-        });
 
-        this.process.stderr.on('data', (data) => {
-            console.log('stderr: ', data.toString());
-            console.error(data.toString());
-        });
-    }
-
-    async sendRequest(content: object, target?: string): Promise<messages.Response> {
-        const id = this.lastRequestId++;
-        this.process.stdin.write(JSON.stringify({
-            kind: 'request',
-            content,
-            id,
-            target
-        } as messages.Request));
-
-        return new Promise<messages.Response>((resolve) => {
-            const listener = this.onMessageEmitter.event((message) => {
-                if (message.kind === 'response' && message.id === id) {
-                    resolve(message);
-                    listener.dispose();
-                }
-            });
-        });
-    }
-
-    async sendResponse(content: object, id: number) {
-        this.process.stdin.write(JSON.stringify({
-            kind: 'response',
-            content,
-            id
-        } as messages.Response));
-    }
-
-    sendNotification(content: object, target?: string) {
-        this.process.stdin.write(JSON.stringify({
-            kind: 'notification',
-            content,
-            target
-        } as messages.Notification));
-    }
-
-    sendBroadcast(content: object) {
-        this.process.stdin.write(JSON.stringify({
-            kind: 'broadcast',
-            content
-        } as messages.Broadcast));
+        this.communicationHandler = createMessageConnection(
+            new StreamMessageReader(this.process.stdout),
+            new StreamMessageWriter(this.process.stdin));
+        this.communicationHandler.listen();
     }
 }
 
@@ -114,53 +67,46 @@ describe('Service Process', () => {
         guest.process?.kill();
     });
     test('test service processes without login', async () => {
-        // Setup message handlers
-        host.onMessage(async message => {
-            if(message.kind === 'notification' && message.content.method === 'onOpenUrl') {
-                makeSimpleLoginRequest((message.content as messages.OpenUrl).params[0], 'host');
-            }
-        });
+        // Setup host message handlers
         const updateArived = new Deferred();
-        host.onMessage(message => {
-            if(message.kind === 'notification' && message.content.method === 'onOpenUrl') {
-                makeSimpleLoginRequest((message.content as messages.OpenUrl).params[0], 'host');
-            } else if(message.kind === 'request' && message.content.method === 'peer/onJoinRequest') {
-                host.sendResponse({method: 'room/joinRoom', params: [true]} as messages.JoinRequestResponse, message.id);
-                console.log('host accepted join request');
-            } else if(message.kind === 'request' && message.content.method === 'fileSystem/stat') {
-                console.log('filesystem request');
-                host.sendResponse({method: 'fileSystem/stat', params: {
+        let hostId: string = '';
+
+        host.communicationHandler.onNotification(messages.OpenUrl, (params) => {
+            makeSimpleLoginRequest(params[0], 'host');
+        });
+        host.communicationHandler.onRequest(messages.JoinSessionRequest, () => {
+            return [true];
+        });
+        host.communicationHandler.onNotification(messages.UpdateDocumentContent, () => {
+            updateArived.resolve();
+        });
+        host.communicationHandler.onRequest(messages.OCPRequest, ((message: messages.OCPMessage) => {
+            if(message.method === 'fileSystem/stat') {
+                return {method: 'fileSystem/stat', params: [{
                     type: 2,
                     mtime: 2132123,
                     ctime: 124112,
                     size: 1231,
-                }}, message.id);
-            } else if (message.kind === 'notification' && message.content.method === 'awareness/updateDocument') {
-                expect((message.content as messages.UpdateDocumentContent).params[1].length).toBe(1);
-                updateArived.resolve();
+                }]};
             }
-        });
+            return 'error';
+        }) as RequestHandler<messages.OCPMessage, messages.OCPMessage, string>);
 
+        // Setup guest message handlers
         const initDeferred = new Deferred();
-
-        let hostId: string = '';
-
-        guest.onMessage(message => {
-            if(message.kind === 'notification' && message.content.method === 'onOpenUrl') {
-                makeSimpleLoginRequest((message.content as messages.OpenUrl).params[0], 'guest');
-            } else if(message.kind === 'notification' && message.content.method === 'init') {
-                hostId = (message.content as messages.OnInitNotification).params[0].host.id;
-                initDeferred.resolve();
-            }
+        guest.communicationHandler.onNotification(messages.OpenUrl, (params) => {
+            makeSimpleLoginRequest(params[0], 'guest');
+        });
+        guest.communicationHandler.onNotification(messages.OnInitNotification, ([initData]) => {
+            hostId = initData.host.id;
+            initDeferred.resolve();
         });
 
         // room creation
-        const roomInfoResp = await host.sendRequest({method: 'room/createRoom', params: [{name: 'test', folders: ['testFolder']}]} as messages.CreateRoomRequest);
-        const roomId = (roomInfoResp.content as messages.SessionCreatedResponse).params[1];
+        const [roomId] = await host.communicationHandler.sendRequest(messages.CreateRoomRequest, [{name: 'test', folders: ['testFolder']}]);
         expect(roomId).toBeDefined();
 
-        const joinResp = await guest.sendRequest({method: 'room/joinRoom', params: [roomId]} as messages.JoinRoomRequest);
-        const guestRoomId = (joinResp.content as messages.SessionCreatedResponse).params[1];
+        const [guestRoomId] = await guest.communicationHandler.sendRequest(messages.JoinRoomRequest, [roomId]);
         expect(guestRoomId).toEqual(roomId);
 
         // await until guest is initialized
@@ -168,13 +114,13 @@ describe('Service Process', () => {
 
         expect(hostId).toBeTruthy();
 
-        const folderStat = await guest.sendRequest({ method: 'fileSystem/stat', params: ['testFolder'] }, hostId);
+        const folderStat = await guest.communicationHandler.sendRequest(messages.OCPRequest, { method: 'fileSystem/stat', params: ['testFolder'], target: hostId });
         expect(folderStat).toBeDefined();
 
-        host.sendNotification({ method: 'awareness/openDocument', params: ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']} as messages.OpenDocument);
-        guest.sendNotification({ method: 'awareness/openDocument', params: ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']} as messages.OpenDocument);
+        host.communicationHandler.sendNotification(messages.OpenDocument, ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']);
+        guest.communicationHandler.sendNotification(messages.OpenDocument, ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']);
 
-        guest.sendNotification({ method: 'awareness/updateDocument', params: ['ocp://testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]]} as messages.UpdateDocumentContent);
+        guest.communicationHandler.sendNotification(messages.UpdateDocumentContent, ['ocp://testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]]);
 
         await updateArived.promise;
 

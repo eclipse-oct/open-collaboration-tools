@@ -4,12 +4,13 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
-import { DisposableCollection, Emitter, Deferred } from 'open-collaboration-protocol';
+import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
 import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { ServiceProcessMessage, JoinRequestResponse, OCPMessage, OpenDocument, TextDocumentInsert, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { ClientTextSelection, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, UpdateDocumentContent } from './messages';
+import { MessageConnection } from 'vscode-jsonrpc';
 
 export class CollaborationInstance implements types.Disposable{
 
@@ -19,31 +20,26 @@ export class CollaborationInstance implements types.Disposable{
 
     protected yjsProvider?: OpenCollaborationYjsProvider;
     protected YjsDoc: Y.Doc;
+    protected yjsAwareness;
     private yjsMutex = new Mutex();
 
     protected connectionDisposables: DisposableCollection = new DisposableCollection();
 
     protected identity = new Deferred<types.Peer>();
 
-    protected sendMessageEmitter = new Emitter<ServiceProcessMessage>();
-    onSendMessage = this.sendMessageEmitter.event;
-
-    protected sendRequestEmitter = new Emitter<OCPMessage>();
-    onSendRequest = this.sendRequestEmitter.event;
-
-    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected host: boolean, workspace?: types.Workspace) {
+    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected communicationHandler: MessageConnection, protected host: boolean, workspace?: types.Workspace) {
         if(host && !workspace) {
             throw new Error('Host must provide workspace');
         }
         this.YjsDoc = new Y.Doc();
-        const awareness = new awarenessProtocol.Awareness(this.YjsDoc);
+        this.yjsAwareness = new awarenessProtocol.Awareness(this.YjsDoc);
         this.connectionDisposables.push({
             dispose: () => {
                 this.YjsDoc.destroy();
-                awareness.destroy();
+                this.yjsAwareness.destroy();
             }});
 
-        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, awareness);
+        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, this.yjsAwareness);
         this.yjsProvider.connect();
         this.connectionDisposables.push(currentConnection.onReconnect(() => {
             this.yjsProvider?.connect();
@@ -54,42 +50,27 @@ export class CollaborationInstance implements types.Disposable{
         });
 
         currentConnection.onRequest(async (origin, method, ...params) => {
-            return await this.sendRequestEmitter.fire({
+            return await this.communicationHandler.sendRequest(OCPRequest, {
                 method,
                 params
-            })[0];
+            });
         });
 
         currentConnection.onNotification((origin, method, ...params) => {
-            this.sendMessageEmitter.fire({
-                kind: 'notification',
-                content: {
-                    method,
-                    params
-                }
-            });
+            this.communicationHandler.sendNotification(OCPNotification, {method, params});
         });
 
         currentConnection.onBroadcast((origin, method, ...params) => {
-            this.sendMessageEmitter.fire({
-                kind: 'broadcast',
-                content: {
-                    method,
-                    params
-                }
-            });
+            this.communicationHandler.sendNotification(OCPBroadCast, {method, params});
         });
 
         currentConnection.peer.onJoinRequest(async (_, user) => {
-            const res = await this.sendRequestEmitter.fire({
-                method: 'peer/onJoinRequest',
-                params: [user]
-            })[0] as JoinRequestResponse;
-            return res.params[0] ? { workspace: workspace! } : undefined;
+            const [accepted] = await this.communicationHandler.sendRequest(JoinSessionRequest, [user]);
+            return accepted ? { workspace: workspace! } : undefined;
         });
 
         currentConnection.peer.onInfo((_, peer) => {
-            awareness.setLocalStateField('peer', peer.id);
+            this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
         });
 
@@ -117,18 +98,11 @@ export class CollaborationInstance implements types.Disposable{
             for (const guest of initData.guests) {
                 this.peers.set(guest.id, guest);
             }
-            this.sendMessageEmitter.fire({
-                kind: 'notification',
-                content: {
-                    method: 'init',
-                    params: [initData]
-                },
-            });
+            this.communicationHandler.sendNotification(OnInitNotification, [initData]);
         });
     }
 
-    async registerYjsObject(message: OpenDocument) {
-        const [type, documentUri, text] = message.params;
+    async registerYjsObject(type: string, documentUri: string, text: string) {
         if(type === 'text') {
             const yjsText = this.YjsDoc.getText(documentUri);
             if (this.host) {
@@ -163,20 +137,13 @@ export class CollaborationInstance implements types.Disposable{
                         });
                     }
                 });
-                this.sendMessageEmitter.fire({
-                    kind: 'notification',
-                    content: {
-                        method: 'awareness/updateDocument',
-                        params: [documentUri, edits]
-                    }
-                });
+                this.communicationHandler.sendNotification(UpdateDocumentContent, [documentUri, edits]);
             };
             yjsText.observe(observer);
         }
     }
 
-    updateYjsObjectContent(update: UpdateDocumentContent) {
-        const [documentUri, changes] = update.params;
+    updateYjsObjectContent([documentUri, changes]: [string, TextDocumentInsert[]]) {
         if (changes.length === 0) {
             return;
         }
@@ -193,8 +160,32 @@ export class CollaborationInstance implements types.Disposable{
         });
     }
 
-    updateYjsObjectSelection(update: UpdateTextSelection) {
-        update.method;
+    updateYjsObjectSelection([path, clientSelections]: [string, ClientTextSelection[]]) {
+        if (path) {
+            const ytext = this.YjsDoc.getText(path);
+            const selections: types.RelativeTextSelection[] = [];
+            for (const clientSelection of clientSelections) {
+                selections.push({
+                    direction: clientSelection.isReversed ?
+                        types.SelectionDirection.RightToLeft :
+                        types.SelectionDirection.LeftToRight,
+                    start: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.start),
+                    end: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.end)
+                });
+            }
+            const textSelection: types.ClientTextSelection = {
+                path,
+                textSelections: selections
+            };
+            this.setSharedSelection(textSelection);
+        } else {
+            this.setSharedSelection(undefined);
+        }
+
+    }
+
+    private setSharedSelection(selection?: types.ClientSelection): void {
+        this.yjsAwareness.setLocalStateField('selection', selection);
     }
 
     dispose(): void {

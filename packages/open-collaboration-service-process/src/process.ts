@@ -4,10 +4,11 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { StdioCommunicationHandler } from './communication-handler';
 import { ConnectionProvider, SocketIoTransportProvider }from 'open-collaboration-protocol';
 import { MessageHandler } from './message-handler';
 import { program } from 'commander';
+import {createMessageConnection, StreamMessageReader, StreamMessageWriter} from 'vscode-jsonrpc/node';
+import { OpenUrl } from './messages';
 
 program
     .option('--server-address <server-address>', 'The address of the server to connect to')
@@ -17,12 +18,15 @@ program.parse();
 
 const args = program.opts();
 
-const communicationHandler = new StdioCommunicationHandler();
+const communicationHandler = createMessageConnection(
+    new StreamMessageReader(process.stdin),
+    new StreamMessageWriter(process.stdout));
+communicationHandler.listen();
 
 const connectionProvider = new ConnectionProvider({
     fetch: fetch,
     opener: async (url) => {
-        communicationHandler.sendMessage({ kind: 'notification', content: { method: 'onOpenUrl', params: [url]}});
+        communicationHandler.sendNotification(OpenUrl, [url]);
     },
     transports: [SocketIoTransportProvider],
     url: args.serverAddress  ?? '',
