@@ -1,4 +1,4 @@
-FROM  node:18
+FROM  node:lts
 
 COPY . /home/app
 RUN cd /home/app \
