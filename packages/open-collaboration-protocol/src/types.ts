@@ -44,16 +44,33 @@ export namespace LoginValidateResponse {
 
 export interface LoginInitialResponse {
     pollToken: string;
-    url: string;
+    authMetadata: AuthMetadata;
 }
 
 export namespace LoginInitialResponse {
     export function is(arg: unknown): arg is LoginInitialResponse {
-        return isObject<LoginInitialResponse>(arg) && typeof arg.pollToken === 'string' && typeof arg.url === 'string';
+        return isObject<LoginInitialResponse>(arg) && typeof arg.pollToken === 'string' && typeof arg.authMetadata === 'object';
     }
-    export function create(pollToken: string, url: string): LoginInitialResponse {
-        return { pollToken, url };
+    export function create(pollToken: string, authMetadata: AuthMetadata): LoginInitialResponse {
+        return { pollToken, authMetadata };
     }
+}
+
+export interface AuthMetadata {
+    providers: AuthProviderMetadata[];
+    loginPageUrl?: string;
+    defaultSuccessUrl?: string;
+}
+
+export interface AuthProviderMetadata {
+    label: string;
+    type: string;
+    endpoint: string;
+}
+
+export interface FormAuthProviderCongifuration extends AuthProviderMetadata {
+    type: 'form';
+    fields: string[];
 }
 
 export interface LoginPollResponse {

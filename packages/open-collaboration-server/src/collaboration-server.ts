@@ -184,7 +184,11 @@ export class CollaborationServer {
                 }
                 const result: types.LoginInitialResponse = {
                     pollToken: token,
-                    url: loginPage
+                    authMetadata: {
+                        loginPageUrl: loginPage,
+                        providers: this.authEndpoints.map(endpoint => endpoint.getMetadata()),
+                        defaultSuccessUrl: this.configuration.getValue('oct-login-success-url') ?? ''
+                    }
                 };
                 res.status(200);
                 res.send(result);
@@ -268,7 +272,7 @@ export class CollaborationServer {
                 transports: [
                     // 'websocket',
                     'socket.io'
-                ]
+                ],
             };
             res.send(data);
         });
