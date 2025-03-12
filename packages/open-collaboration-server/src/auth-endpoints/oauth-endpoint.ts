@@ -13,6 +13,7 @@ import { Strategy as GithubStrategy } from 'passport-github';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Logger, LoggerSymbol } from '../utils/logging';
 import { Configuration } from '../utils/configuration';
+import { URL } from 'url';
 
 export const oauthProviders = Symbol('oauthProviders');
 
@@ -95,7 +96,7 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
                         res.status(400);
                         res.send('Error: Redirect URL not in whitelist');
                     } else {
-                        const url = URL.parse(redirectRequest);
+                        const url = URL.canParse(redirectRequest) ? new URL(redirectRequest) : undefined;
                         if(!url) {
                             res.status(400);
                             res.send('Error: Invalid redirect URL');
