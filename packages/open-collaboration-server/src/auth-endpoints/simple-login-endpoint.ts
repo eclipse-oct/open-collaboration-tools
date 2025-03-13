@@ -42,7 +42,7 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
                 const token = req.body.token as string;
                 const user = req.body.user as string;
                 const email = req.body.email as string | undefined;
-                await this.authSuccessEmitter.fire({token, userInfo: {name: user, email, authProvider: 'Unverified'}});
+                await Promise.all(this.authSuccessEmitter.fire({token, userInfo: {name: user, email, authProvider: 'Unverified'}}));
                 res.send('Ok');
             } catch (err) {
                 this.logger.error('Failed to perform simple login', err);

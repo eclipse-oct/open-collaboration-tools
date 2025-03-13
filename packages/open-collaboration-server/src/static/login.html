@@ -26,7 +26,7 @@
         }
 
         button {
-            background-color: rgb(87, 114, 245);
+            background-color: #5772f5;
             border-radius: 5px;
             border: none;
             box-sizing: border-box;
@@ -55,6 +55,7 @@
             max-width: 600px;
             width: 100%;
             padding: 8px;
+            min-height: 200px;
         }
 
         .login-form {
@@ -72,31 +73,46 @@
             margin: 4px 12px;
         }
 
+        #error {
+            margin: 4px 12px;
+            color: #92140C;
+        }
+
+        .login-success {
+            text-align: center;
+        }
+
     </style>
     <script>
-        function login() {
+        async function login() {
             const token = new URLSearchParams(location.search).get('token');
             const user = document.getElementById('user').value;
             const email = document.getElementById('email').value;
-            fetch('/api/login/simple', {
+            const resp = await fetch('/api/login/simple', {
                 method: 'POST',
                 body: JSON.stringify({ user, email, token }),
                 headers: {
                     'Content-Type': 'application/json'
                 }
             });
+            if(resp.ok) {
+                document.getElementById('login-form').innerHTML = '<p class="login-success">Login successful. You can close this page now.<p>';
+            } else {
+                document.getElementById('error').style.visibility = 'visible';
+            }
         }
     </script>
 </head>
 
 <body>
     <div class="center-container">
-        <div class="card-box login-form">
+        <div class="card-box login-form" id="login-form">
             <span class="label">Username *</span>
             <input class="field" id="user">
             <span class="label">Email</span>
             <input class="field" id="email">
             <button class="submit" onclick="login()">Login</button>
+            <p style="visibility: hidden;" id="error">Error, could not login. Please try again.</p>
         </div>
     </div>
 </body>

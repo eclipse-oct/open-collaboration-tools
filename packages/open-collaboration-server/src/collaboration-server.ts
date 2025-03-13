@@ -93,10 +93,14 @@ export class CollaborationServer {
         for (const authEndpoint of this.authEndpoints) {
             if (authEndpoint.shouldActivate()) {
                 authEndpoint.onStart(app, String(args.hostname), Number(args.port));
-                authEndpoint.onDidAuthenticate(event =>
-                    this.credentials.confirmUser(event.token, event.userInfo)
-                        .catch(err => this.logger.error('Failed to confirm user', err))
-                );
+                authEndpoint.onDidAuthenticate(async event => {
+                    try {
+                        await this.credentials.confirmUser(event.token, event.userInfo);
+                    } catch (err) {
+                        this.logger.error('Failed to confirm user', err);
+                        throw new Error('Failed to confirm user');
+                    }
+                });
             }
         }
 
