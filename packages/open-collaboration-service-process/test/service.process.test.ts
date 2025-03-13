@@ -8,7 +8,7 @@ import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import * as messages from 'open-collaboration-service-process/src/messages';
 import { Deferred } from 'open-collaboration-protocol';
-import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter, RequestHandler } from 'vscode-jsonrpc/node';
+import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
 
 const SERVER_ADDRESS = 'http://localhost:8100';
 class Client {
@@ -80,7 +80,8 @@ describe('Service Process', () => {
         host.communicationHandler.onNotification(messages.UpdateDocumentContent, () => {
             updateArived.resolve();
         });
-        host.communicationHandler.onRequest(messages.OCPRequest, ((message: messages.OCPMessage) => {
+        host.communicationHandler.onRequest(messages.OCPRequest, ((rawMessage) => {
+            const message = typeof rawMessage === 'string' ? messages.fromEncodedOCPMessage(rawMessage) : rawMessage;
             if(message.method === 'fileSystem/stat') {
                 return {method: 'fileSystem/stat', params: [{
                     type: 2,
@@ -90,7 +91,7 @@ describe('Service Process', () => {
                 }]};
             }
             return 'error';
-        }) as RequestHandler<messages.OCPMessage, messages.OCPMessage, string>);
+        }));
 
         // Setup guest message handlers
         const initDeferred = new Deferred();
@@ -114,7 +115,7 @@ describe('Service Process', () => {
 
         expect(hostId).toBeTruthy();
 
-        const folderStat = await guest.communicationHandler.sendRequest(messages.OCPRequest, { method: 'fileSystem/stat', params: ['testFolder'], target: hostId });
+        const folderStat = await guest.communicationHandler.sendRequest(messages.OCPRequest, messages.toEncodedOCPMessage({ method: 'fileSystem/stat', params: ['testFolder'], target: hostId }));
         expect(folderStat).toBeDefined();
 
         host.communicationHandler.sendNotification(messages.OpenDocument, ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']);

@@ -4,6 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
+import { Encoding } from 'open-collaboration-protocol';
 import { NotificationType, RequestType } from 'vscode-jsonrpc';
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
@@ -17,10 +18,18 @@ export interface OCPMessage {
 }
 
 // ***************************** generic messages *****************************
+// all params can be either msgpack encoded base64 strings of OCPMessages or just directly OCPMessages
+export const OCPRequest = new RequestType<string | OCPMessage, any, string>('request');
+export const OCPNotification = new NotificationType<string | OCPMessage>('notification');
+export const OCPBroadCast = new NotificationType<string | OCPMessage>('broadcast');
 
-export const OCPRequest = new RequestType<OCPMessage, any, string>('request');
-export const OCPNotification = new NotificationType<OCPMessage>('notification');
-export const OCPBroadCast = new NotificationType<OCPMessage>('broadcast');
+export function fromEncodedOCPMessage(encoded: string): OCPMessage {
+    return Encoding.decode(Uint8Array.from(Buffer.from(encoded, 'base64'))) as OCPMessage;
+}
+
+export function toEncodedOCPMessage(message: OCPMessage): string {
+    return Buffer.from(Encoding.encode(message)).toString('base64');
+}
 
 // ***************************** To service process *****************************
 

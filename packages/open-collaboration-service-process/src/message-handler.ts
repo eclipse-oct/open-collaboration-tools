@@ -5,7 +5,8 @@
 // ******************************************************************************
 
 import type * as types from 'open-collaboration-protocol';
-import { CloseSessionRequest, CreateRoomRequest, InternalError, JoinRoomRequest, LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { Encoding } from 'open-collaboration-protocol';
+import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest, LoginRequest, OCPBroadCast, OCPMessage, OCPNotification, OCPRequest, OpenDocument, UpdateDocumentContent, UpdateTextSelection } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 import { MessageConnection } from 'vscode-jsonrpc';
 
@@ -25,15 +26,18 @@ export class MessageHandler {
         communcationHandler.onNotification(UpdateDocumentContent, (params) => this.currentCollaborationInstance?.updateYjsObjectContent(params));
         communcationHandler.onError(([error, message]) => communcationHandler.sendNotification(InternalError, [message, error.stack]));
 
-        communcationHandler.onRequest(OCPRequest, (message) =>
-            this.currentCollaborationInstance?.currentConnection.sendRequest(message.method, message.target, ...message.params)
-        );
-        communcationHandler.onNotification(OCPNotification, async (message) =>
-            this.currentCollaborationInstance?.currentConnection.sendNotification(message.method, message.target, ...message.params)
-        );
-        communcationHandler.onNotification(OCPBroadCast, async (message) =>
-            this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.method, ...message.params)
-        );
+        communcationHandler.onRequest(OCPRequest, (rawMessage) => {
+            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
+            return this.currentCollaborationInstance?.currentConnection.sendRequest(message.method, message.target, ...message.params);
+        });
+        communcationHandler.onNotification(OCPNotification, async (rawMessage) => {
+            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
+            this.currentCollaborationInstance?.currentConnection.sendNotification(message.method, message.target, ...message.params);
+        });
+        communcationHandler.onNotification(OCPBroadCast, async (rawMessage) => {
+            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
+            this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.method, ...message.params);
+        });
     }
 
     async login(): Promise<[string]> {
@@ -61,4 +65,5 @@ export class MessageHandler {
     dispose() {
         this.currentCollaborationInstance?.dispose();
     }
+
 }

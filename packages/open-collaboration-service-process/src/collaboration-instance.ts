@@ -9,7 +9,7 @@ import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { ClientTextSelection, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, UpdateDocumentContent } from './messages';
+import { ClientTextSelection, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent } from './messages';
 import { MessageConnection } from 'vscode-jsonrpc';
 
 export class CollaborationInstance implements types.Disposable{
@@ -50,18 +50,18 @@ export class CollaborationInstance implements types.Disposable{
         });
 
         currentConnection.onRequest(async (origin, method, ...params) => {
-            return await this.communicationHandler.sendRequest(OCPRequest, {
+            return await this.communicationHandler.sendRequest(OCPRequest, toEncodedOCPMessage({
                 method,
                 params
-            });
+            }));
         });
 
         currentConnection.onNotification((origin, method, ...params) => {
-            this.communicationHandler.sendNotification(OCPNotification, {method, params});
+            this.communicationHandler.sendNotification(OCPNotification, toEncodedOCPMessage({method, params}));
         });
 
         currentConnection.onBroadcast((origin, method, ...params) => {
-            this.communicationHandler.sendNotification(OCPBroadCast, {method, params});
+            this.communicationHandler.sendNotification(OCPBroadCast, toEncodedOCPMessage({method, params}));
         });
 
         currentConnection.peer.onJoinRequest(async (_, user) => {
