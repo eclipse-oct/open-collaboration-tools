@@ -5,8 +5,7 @@
 // ******************************************************************************
 
 import type * as types from 'open-collaboration-protocol';
-import { Encoding } from 'open-collaboration-protocol';
-import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest, LoginRequest, OCPBroadCast, OCPMessage, OCPNotification, OCPRequest, OpenDocument, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest, LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument, UpdateDocumentContent, UpdateTextSelection } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 import { MessageConnection } from 'vscode-jsonrpc';
 
