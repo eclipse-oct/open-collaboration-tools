@@ -1,51 +1,58 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Server",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}/packages/open-collaboration-server/lib/app.js",
-            "args": [
-                "start",
-                "--hostname=0.0.0.0"
-            ],
-            "sourceMaps": true,
-            "outFiles": [
-                "${workspaceFolder}/packages/open-collaboration-server/lib/**/*.js",
-            ],
-            "env": {
-                "OCT_ACTIVATE_SIMPLE_LOGIN": "true"
-            }
-        },
-        {
-			"name": "Run VS Code Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode"
-			],
-            "sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
-			]
-		},
-        {
-			"name": "Run VS Code Web Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-                "--extensionDevelopmentKind=web"
-			],
-            // VS Code cannot debug the web extension directly, which is why we don't configure source maps here
-            // Instead, use VS Code browser dev tools (Help -> Toggle Developer Tools) to debug the web extension
-		}
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Server",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/packages/open-collaboration-server/lib/app.js",
+      "args": ["start", "--hostname=0.0.0.0"],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-server/lib/**/*.js"
+      ],
+      "env": {
+        "OCT_ACTIVATE_SIMPLE_LOGIN": "true"
+      }
+    },
+    {
+      "name": "Run VS Code Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode"
+      ],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
+      ]
+    },
+    {
+      "name": "Run VS Code Web Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
+        "--extensionDevelopmentKind=web"
+      ]
+      // VS Code cannot debug the web extension directly, which is why we don't configure source maps here
+      // Instead, use VS Code browser dev tools (Help -> Toggle Developer Tools) to debug the web extension
+    },
+    {
+      "name": "Launch Service Process",
+      "type": "node",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
+      ],
+      "sourceMaps": true,
+      "program": "${workspaceFolder}/packages/open-collaboration-service-process/lib/process.js",
+      "args": ["--server-address=http://localhost:8100", "--auth-token=12312"]
+    }
+  ]
 }

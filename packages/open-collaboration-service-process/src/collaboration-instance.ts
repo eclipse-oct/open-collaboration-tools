@@ -1,0 +1,195 @@
+// ******************************************************************************
+// Copyright 2024 TypeFox GmbH
+// This program and the accompanying materials are made available under the
+// terms of the MIT License, which is available in the project root.
+// ******************************************************************************
+import * as types from 'open-collaboration-protocol';
+import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
+import { OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
+import * as Y from 'yjs';
+import { Mutex } from 'async-mutex';
+import * as awarenessProtocol from 'y-protocols/awareness';
+import { ClientTextSelection, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent } from './messages';
+import { MessageConnection } from 'vscode-jsonrpc';
+
+export class CollaborationInstance implements types.Disposable{
+
+    protected peers = new Map<string, types.Peer>();
+    protected hostInfo = new Deferred<types.Peer>();
+    protected peerInfo: types.Peer;
+
+    protected yjsProvider?: OpenCollaborationYjsProvider;
+    protected YjsDoc: Y.Doc;
+    protected yjsAwareness;
+    private yjsMutex = new Mutex();
+
+    protected connectionDisposables: DisposableCollection = new DisposableCollection();
+
+    protected identity = new Deferred<types.Peer>();
+
+    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected communicationHandler: MessageConnection, protected host: boolean, workspace?: types.Workspace) {
+        if(host && !workspace) {
+            throw new Error('Host must provide workspace');
+        }
+        this.YjsDoc = new Y.Doc();
+        this.yjsAwareness = new awarenessProtocol.Awareness(this.YjsDoc);
+        this.connectionDisposables.push({
+            dispose: () => {
+                this.YjsDoc.destroy();
+                this.yjsAwareness.destroy();
+            }});
+
+        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, this.yjsAwareness);
+        this.yjsProvider.connect();
+        this.connectionDisposables.push(currentConnection.onReconnect(() => {
+            this.yjsProvider?.connect();
+        }));
+
+        currentConnection.onDisconnect(() => {
+            this.dispose();
+        });
+
+        currentConnection.onRequest(async (origin, method, ...params) => {
+            return await this.communicationHandler.sendRequest(OCPRequest, toEncodedOCPMessage({
+                method,
+                params
+            }));
+        });
+
+        currentConnection.onNotification((origin, method, ...params) => {
+            this.communicationHandler.sendNotification(OCPNotification, toEncodedOCPMessage({method, params}));
+        });
+
+        currentConnection.onBroadcast((origin, method, ...params) => {
+            this.communicationHandler.sendNotification(OCPBroadCast, toEncodedOCPMessage({method, params}));
+        });
+
+        currentConnection.peer.onJoinRequest(async (_, user) => {
+            const [accepted] = await this.communicationHandler.sendRequest(JoinSessionRequest, [user]);
+            return accepted ? { workspace: workspace! } : undefined;
+        });
+
+        currentConnection.peer.onInfo((_, peer) => {
+            this.yjsAwareness.setLocalStateField('peer', peer.id);
+            this.identity.resolve(peer);
+        });
+
+        currentConnection.room.onJoin(async (_, peer) => {
+            if (host && workspace) {
+                // Only initialize the user if we are the host
+                const initData: types.InitData = {
+                    protocol: types.VERSION,
+                    host: await this.identity.promise,
+                    guests: Array.from(this.peers.values()),
+                    capabilities: {},
+                    permissions: { readonly: false },
+                    workspace: {
+                        name: workspace.name ?? 'Collaboration',
+                        folders: workspace.folders ?? []
+                    }
+                };
+                currentConnection.peer.init(peer.id, initData);
+            }
+        });
+
+        currentConnection.peer.onInit((_, initData) => {
+            this.peers.set(initData.host.id, initData.host);
+            this.hostInfo.resolve(initData.host);
+            for (const guest of initData.guests) {
+                this.peers.set(guest.id, guest);
+            }
+            this.communicationHandler.sendNotification(OnInitNotification, [initData]);
+        });
+    }
+
+    async registerYjsObject(type: string, documentUri: string, text: string) {
+        if(type === 'text') {
+            const yjsText = this.YjsDoc.getText(documentUri);
+            if (this.host) {
+                this.YjsDoc.transact(() => {
+                    yjsText.delete(0, yjsText.length);
+                    yjsText.insert(0, text);
+                });
+            } else {
+                this.currentConnection.editor.open((await this.hostInfo.promise).id, documentUri);
+            }
+            const observer = (textEvent: Y.YTextEvent) => {
+                if (textEvent.transaction.local) {
+                    // Ignore own events or if the document is already in sync
+                    return;
+                }
+                const edits: TextDocumentInsert[] = [];
+                let index = 0;
+                textEvent.delta.forEach(delta => {
+                    if (typeof delta.retain === 'number') {
+                        index += delta.retain;
+                    } else if (typeof delta.insert === 'string') {
+                        edits.push({
+                            startOffset: index,
+                            text: delta.insert,
+                        });
+                        index += delta.insert.length;
+                    } else if (typeof delta.delete === 'number') {
+                        edits.push({
+                            startOffset: index,
+                            endOffset: index + delta.delete,
+                            text: '',
+                        });
+                    }
+                });
+                this.communicationHandler.sendNotification(UpdateDocumentContent, [documentUri, edits]);
+            };
+            yjsText.observe(observer);
+        }
+    }
+
+    updateYjsObjectContent([documentUri, changes]: [string, TextDocumentInsert[]]) {
+        if (changes.length === 0) {
+            return;
+        }
+        this.yjsMutex.runExclusive(async () => {
+            const yjsText = this.YjsDoc.getText(documentUri);
+            this.YjsDoc.transact(() => {
+                for(const change of changes) {
+                    if(change.endOffset) {
+                        yjsText.delete(change.startOffset, change.endOffset - change.startOffset);
+                    }
+                    yjsText.insert(change.startOffset, change.text);
+                }
+            });
+        });
+    }
+
+    updateYjsObjectSelection([path, clientSelections]: [string, ClientTextSelection[]]) {
+        if (path) {
+            const ytext = this.YjsDoc.getText(path);
+            const selections: types.RelativeTextSelection[] = [];
+            for (const clientSelection of clientSelections) {
+                selections.push({
+                    direction: clientSelection.isReversed ?
+                        types.SelectionDirection.RightToLeft :
+                        types.SelectionDirection.LeftToRight,
+                    start: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.start),
+                    end: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.end)
+                });
+            }
+            const textSelection: types.ClientTextSelection = {
+                path,
+                textSelections: selections
+            };
+            this.setSharedSelection(textSelection);
+        } else {
+            this.setSharedSelection(undefined);
+        }
+
+    }
+
+    private setSharedSelection(selection?: types.ClientSelection): void {
+        this.yjsAwareness.setLocalStateField('selection', selection);
+    }
+
+    dispose(): void {
+        this.yjsProvider?.dispose();
+        this.connectionDisposables.dispose();
+    }
+}

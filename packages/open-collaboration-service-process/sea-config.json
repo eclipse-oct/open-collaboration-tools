@@ -1,0 +1,5 @@
+{
+  "main": "./lib/bundle.cjs",
+  "output": "bin/sea-prep.blob",
+  "disableExperimentalSEAWarning": true
+}

@@ -1,0 +1,44 @@
+{
+  "name": "open-collaboration-service-process",
+  "version": "0.2.0",
+  "description": "A service process for integrating non Typescript projects with the Open Collaboration Tools project",
+  "files": [
+    "bin",
+    "lib",
+    "src"
+  ],
+  "bin": {
+    "oct-daemon-service": "./bin/service"
+  },
+  "scripts": {
+    "start": "node lib/process.js",
+    "build": "tsc",
+    "bundle": "esbuild ./lib/process.js --bundle --platform=node --outfile=lib/bundle.cjs",
+    "create:executable": "npm run build && npm run bundle && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.mjs"
+  },
+  "dependencies": {
+    "open-collaboration-yjs": "0.2.0",
+    "open-collaboration-protocol": "0.2.0",
+    "vscode-jsonrpc": "8.2.1",
+    "async-mutex": "^0.5.0",
+    "commander": "13.1.0"
+  },
+  "keywords": [
+    "collaboration",
+    "live-share"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TypeFox/open-collaboration-tools",
+    "directory": "packages/open-collaboration-server"
+  },
+  "bugs": {
+    "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+  },
+  "homepage": "https://www.open-collab.tools/",
+  "author": {
+    "name": "TypeFox",
+    "url": "https://www.typefox.io/"
+  }
+}
