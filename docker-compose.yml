@@ -7,3 +7,6 @@ services:
     ports:
       - 8100:8100
     container_name: oct-server
+    tty: true
+    environment:
+      - OCT_ACTIVATE_SIMPLE_LOGIN=true
