@@ -5,7 +5,8 @@
 // ******************************************************************************
 
 import 'reflect-metadata';
-import * as yargs from 'yargs';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 import serverModule from './container';
 import { Container } from 'inversify';
 import { CollaborationServer } from './collaboration-server';
@@ -19,7 +20,7 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-const command = yargs.version('0.0.1').command<{
+const command = yargs(hideBin(process.argv)).command<{
     port: number,
     hostname: string,
     logLevel: string
