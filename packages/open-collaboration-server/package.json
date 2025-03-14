@@ -11,7 +11,9 @@
     "oct-server": "./bin/server"
   },
   "scripts": {
-    "start": "node lib/app.js start --hostname=0.0.0.0"
+    "start": "node lib/app.js start --hostname=0.0.0.0",
+    "bundle": "tsx scripts/esbuild.ts",
+    "bundle:exec": "node bundle/app.js start --hostname=0.0.0.0"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -37,7 +39,7 @@
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-oauth2": "1.4.17",
     "@types/ws": "^8.5.10",
-    "@types/yargs": "^17.0.32"
+    "@types/yargs": "~17.0.33"
   },
   "keywords": [
     "collaboration",
@@ -59,7 +61,7 @@
     "url": "https://www.typefox.io/"
   },
   "volta": {
-    "node": "18.20.3",
-    "npm": "10.7.0"
+    "node": "22.14.0",
+    "npm": "10.9.2"
   }
 }
