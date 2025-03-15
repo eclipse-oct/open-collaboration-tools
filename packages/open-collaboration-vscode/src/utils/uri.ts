@@ -64,3 +64,43 @@ export namespace CollaborationUri {
     }
 
 }
+
+export interface RoomUri<URL extends boolean = boolean> {
+    serverUrl: URL extends true ? string : undefined;
+    roomId: string;
+}
+
+export namespace RoomUri {
+
+    export function create(roomUri: RoomUri<true>): string {
+        const uri = vscode.Uri.parse(roomUri.serverUrl);
+        return uri.with({
+            fragment: roomUri.roomId
+        }).toString(true);
+    }
+
+    const pureRoomId = /^[a-zA-Z0-9]+$/;
+
+    export function parse(stringValue: string): RoomUri {
+        if (pureRoomId.test(stringValue)) {
+            return {
+                serverUrl: undefined,
+                roomId: stringValue
+            };
+        } else {
+            const uri = vscode.Uri.parse(stringValue, true);
+            if (!pureRoomId.test(uri.fragment)) {
+                throw new Error(`Invalid room id: ${uri.fragment}`);
+            }
+            return {
+                serverUrl: uri.with({ fragment: '' }).toString(true),
+                roomId: uri.fragment
+            };
+        }
+    }
+
+    export function normalizeServerUri(serverUrl: string): string {
+        const uri = vscode.Uri.parse(serverUrl);
+        return uri.toString(true);
+    }
+}

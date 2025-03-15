@@ -9,13 +9,12 @@ import { inject, injectable } from 'inversify';
 import { FollowService } from './follow-service';
 import { CollaborationInstance, PeerWithColor } from './collaboration-instance';
 import { ExtensionContext } from './inversify';
-import { OCT_USER_TOKEN } from './collaboration-connection-provider';
 import { QuickPickItem, showQuickPick } from './utils/quick-pick';
 import { ContextKeyService } from './context-key-service';
 import { CollaborationRoomService } from './collaboration-room-service';
 import { CollaborationStatusService } from './collaboration-status-service';
 import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
-import { ConnectionProvider } from 'open-collaboration-protocol';
+import { SecretStorage } from './secret-storage';
 
 @injectable()
 export class Commands {
@@ -34,6 +33,9 @@ export class Commands {
 
     @inject(CollaborationStatusService)
     private statusService: CollaborationStatusService;
+
+    @inject(SecretStorage)
+    private secretStorage: SecretStorage;
 
     initialize(): void {
         this.context.subscriptions.push(
@@ -116,7 +118,7 @@ export class Commands {
             }),
             vscode.commands.registerCommand('oct.signOut', async () => {
                 await vscode.commands.executeCommand('oct.closeConnection');
-                await this.context.secrets.delete(OCT_USER_TOKEN);
+                await this.secretStorage.deleteUserTokens();
                 vscode.window.showInformationMessage(vscode.l10n.t('Signed out successfully!'));
             })
         );
