@@ -7,36 +7,29 @@
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { ExtensionContext } from './inversify';
 import { packageVersion } from './utils/package';
-
-export const OCT_USER_TOKEN = 'oct.userToken';
+import { SecretStorage } from './secret-storage';
 
 export const Fetch = Symbol('Fetch');
 
 @injectable()
 export class CollaborationConnectionProvider {
 
-    @inject(ExtensionContext)
-    private context: vscode.ExtensionContext;
+    @inject(SecretStorage)
+    private secretStorage: SecretStorage;
 
     @inject(Fetch)
     private fetch: typeof fetch;
 
-    async createConnection(userToken?: string): Promise<ConnectionProvider | undefined> {
-        const serverUrl = vscode.workspace.getConfiguration().get<string>('oct.serverUrl');
-        userToken ??= await this.context.secrets.get(OCT_USER_TOKEN);
-
-        if (serverUrl) {
-            return new ConnectionProvider({
-                url: serverUrl,
-                client: `OCT_CODE_${vscode.env.appName.replace(/\s+/, '_')}@${packageVersion}`,
-                opener: (url) => vscode.env.openExternal(vscode.Uri.parse(url)),
-                transports: [SocketIoTransportProvider],
-                userToken,
-                fetch: this.fetch
-            });
-        }
-        return undefined;
+    async createConnection(serverUrl: string): Promise<ConnectionProvider> {
+        const userToken = await this.secretStorage.retrieveUserToken(serverUrl);
+        return new ConnectionProvider({
+            url: serverUrl,
+            client: `OCT_CODE_${vscode.env.appName.replace(/\s+/, '_')}@${packageVersion}`,
+            opener: (url) => vscode.env.openExternal(vscode.Uri.parse(url)),
+            transports: [SocketIoTransportProvider],
+            userToken,
+            fetch: this.fetch
+        });
     }
 }
