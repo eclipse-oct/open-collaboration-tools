@@ -7,5 +7,6 @@
   "oct.signOut": "Kijelentkezés",
   "oct.roomView": "Jelenlegi együttműködési ülésszak",
   "oct.serverUrl": "Az Open Collaboration Tools Server példányának URL-címe az élő együttműködési munkamenetekhez.",
+  "oct.alwaysAskToOverrideServerUrl": "Mindig kérje a kiszolgáló URL-jének felülbírálását, amikor olyan együttműködési munkamenethez csatlakozik, amely a munkamenet azonosítójának részeként egy adott kiszolgáló URL-címet használ.",
   "oct.user.color": "Szín a felhasználók számára az együttműködési munkamenetekben"
 }

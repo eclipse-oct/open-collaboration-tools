@@ -106,6 +106,7 @@ export class CollaborationRoomService {
             roomId = roomUri.roomId;
             if (roomUri.serverUrl) {
                 parsedUrl = roomUri.serverUrl;
+                this.askToOverrideServerUrl(parsedUrl);
             }
         } catch {
             vscode.window.showErrorMessage(vscode.l10n.t('Invalid invitation code! Invitation codes must be either a string of alphanumeric characters or a URL with a fragment.'));
@@ -203,5 +204,23 @@ export class CollaborationRoomService {
                 vscode.commands.executeCommand('workbench.action.openSettings', Settings.SERVER_URL);
             }
         });
+    }
+
+    private async askToOverrideServerUrl(url: string): Promise<void> {
+        const currentSetting = Settings.getServerUrl();
+        // If the current setting is the same as the URL, or the user has disabled the override, we don't ask
+        if (currentSetting === url || !Settings.getServerUrlOverride()) {
+            return;
+        }
+        const message = vscode.l10n.t('Do you want to override the server URL setting with {0}?', url);
+        const yes = vscode.l10n.t('Yes');
+        const no = vscode.l10n.t('No');
+        const never = vscode.l10n.t('Never');
+        const choice = await vscode.window.showInformationMessage(message, yes, no, never);
+        if (choice === yes) {
+            Settings.setServerUrl(url);
+        } else if (choice === never) {
+            Settings.setServerUrlOverride(false);
+        }
     }
 }

@@ -10,6 +10,7 @@ import { RoomUri } from './uri';
 export namespace Settings {
 
     export const SERVER_URL = 'oct.serverUrl';
+    export const ALWAYS_ASK_TO_OVERRIDE_SERVER_URL = 'oct.alwaysAskToOverrideServerUrl';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -18,6 +19,19 @@ export namespace Settings {
             return normalized;
         }
         return undefined;
+    }
+
+    export async function setServerUrl(url: string): Promise<void> {
+        await vscode.workspace.getConfiguration().update(SERVER_URL, url, vscode.ConfigurationTarget.Global);
+    }
+
+    export function getServerUrlOverride(): boolean {
+        const value = vscode.workspace.getConfiguration().get(ALWAYS_ASK_TO_OVERRIDE_SERVER_URL);
+        return typeof value === 'boolean' ? value : false;
+    }
+
+    export async function setServerUrlOverride(value: boolean): Promise<void> {
+        await vscode.workspace.getConfiguration().update(ALWAYS_ASK_TO_OVERRIDE_SERVER_URL, value, vscode.ConfigurationTarget.Global);
     }
 
 }
