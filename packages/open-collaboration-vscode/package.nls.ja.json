@@ -7,5 +7,6 @@
   "oct.signOut": "サインアウト",
   "oct.roomView": "現在参加中の部屋",
   "oct.serverUrl": "Open Collaboration Tools サーバの URL",
+  "oct.alwaysAskToOverrideServerUrl": "セッションIDの一部として特定のサーバーURLを使用してコラボレーションセッションに参加する場合は、必ずサーバーURLを上書きするよう依頼してください。",
   "oct.user.color": "共同作業部屋でのユーザーの色"
 }

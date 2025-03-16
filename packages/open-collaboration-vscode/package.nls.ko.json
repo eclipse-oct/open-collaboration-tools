@@ -7,5 +7,6 @@
   "oct.signOut": "로그아웃",
   "oct.roomView": "현재 협업 세션",
   "oct.serverUrl": "라이브 공동 작업 세션용 Open Collaboration Tools 서버 인스턴스의 URL입니다.",
+  "oct.alwaysAskToOverrideServerUrl": "특정 서버 URL을 세션 ID의 일부로 사용하여 공동 작업 세션에 참여할 때는 항상 서버 URL을 재정의하도록 요청하세요.",
   "oct.user.color": "공동 작업 세션에서 사용자를 위한 색상"
 }

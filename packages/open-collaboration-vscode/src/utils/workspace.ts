@@ -26,6 +26,6 @@ export async function closeSharedEditors(): Promise<void> {
     await vscode.window.tabGroups.close(
         vscode.window.tabGroups.all
             .flatMap(group => group.tabs)
-            .filter(tab => (tab.input as { uri?: vscode.Uri }).uri?.scheme === CollaborationUri.SCHEME)
+            .filter(tab => (tab.input as { uri?: vscode.Uri })?.uri?.scheme === CollaborationUri.SCHEME)
     );
 }
