@@ -7,5 +7,6 @@
   "oct.signOut": "Abmelden",
   "oct.roomView": "Aktuelle Collaboration-Session",
   "oct.serverUrl": "URL der Open Collaboration Tools Server-Instanz für Live-Collaboration-Sessions.",
+  "oct.alwaysAskToOverrideServerUrl": "Bitten Sie immer darum, die Server-URL zu überschreiben, wenn Sie einer Zusammenarbeitssitzung mit einer bestimmten Server-URL als Teil der Sitzungs-ID beitreten.",
   "oct.user.color": "Farbe für Benutzer in Collaboration-Sessions"
 }

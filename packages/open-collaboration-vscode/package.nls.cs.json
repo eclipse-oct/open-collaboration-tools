@@ -7,5 +7,6 @@
   "oct.signOut": "Odhlásit se",
   "oct.roomView": "Aktuální relace spolupráce",
   "oct.serverUrl": "Adresa URL instance serveru Open Collaboration Tools Server pro živé relace spolupráce.",
+  "oct.alwaysAskToOverrideServerUrl": "Při připojování k relaci spolupráce pomocí konkrétní adresy URL serveru jako součásti ID relace vždy požádejte o přepsání adresy URL serveru.",
   "oct.user.color": "Barva pro uživatele v relacích spolupráce"
 }

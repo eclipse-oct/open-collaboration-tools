@@ -7,5 +7,6 @@
   "oct.signOut": "S'inscrire",
   "oct.roomView": "Session de collaboration en cours",
   "oct.serverUrl": "URL de l'instance d'Open Collaboration Tools Server pour les sessions de collaboration en direct.",
+  "oct.alwaysAskToOverrideServerUrl": "Demandez toujours à remplacer l'URL du serveur lorsque vous rejoignez une session de collaboration utilisant une URL de serveur spécifique dans l'ID de la session.",
   "oct.user.color": "Couleur pour les utilisateurs lors des sessions de collaboration"
 }

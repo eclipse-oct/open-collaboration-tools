@@ -68,6 +68,11 @@
           "type": "string",
           "default": "https://api.open-collab.tools/",
           "description": "%oct.serverUrl%"
+        },
+        "oct.alwaysAskToOverrideServerUrl": {
+          "type": "boolean",
+          "default": true,
+          "description": "%oct.alwaysAskToOverrideServerUrl%"
         }
       }
     },
