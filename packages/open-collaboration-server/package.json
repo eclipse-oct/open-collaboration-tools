@@ -12,8 +12,7 @@
   },
   "scripts": {
     "start": "node lib/app.js start --hostname=0.0.0.0",
-    "bundle": "tsx scripts/esbuild.ts",
-    "bundle:exec": "node bundle/app.js start --hostname=0.0.0.0"
+    "start:bundle": "tsx scripts/esbuild.ts && node bundle/app.js start --hostname=0.0.0.0"
   },
   "dependencies": {
     "express": "^4.19.2",

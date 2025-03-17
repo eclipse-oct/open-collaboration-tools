@@ -14,6 +14,7 @@
     "lint": "eslint {**/src/**/*.ts,**/src/**/*.tsx,**/test/**/*.ts,**/test/**/*.tsx}",
     "lint:fix": "eslint --fix {**/src/**/*.ts,**/src/**/*.tsx,**/test/**/*.ts,**/test/**/*.tsx}",
     "start": "npm run start --workspace=open-collaboration-server",
+    "start:bundle": "npm run start:bundle --workspace=open-collaboration-server",
     "test": "vitest",
     "test-ui": "vitest --ui",
     "coverage": "vitest run --coverage",
