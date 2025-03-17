@@ -16,23 +16,6 @@ const main = async () => {
 		platform: 'node',
         target: 'node18',
 		outfile: 'bundle/app.js',
-		// logLevel: 'silent',
-        external: [
-            'url',
-            'https',
-            'http',
-            'crypto',
-            'querystring',
-            'zlib',
-            'path',
-            'fs',
-            'stream',
-            'util',
-            'assert',
-            'net',
-            'async_hooks',
-            'timers'
-        ],
 		plugins: [
 			esbuildProblemMatcherPlugin('node', 'build')
 		]
