@@ -45,5 +45,8 @@
   "volta": {
     "node": "22.14.0",
     "npm": "10.9.2"
+  },
+  "scripts": {
+    "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
   }
 }

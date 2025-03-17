@@ -1,27 +1,7 @@
 import esbuild from "esbuild";
+import { esbuildProblemMatcherPlugin } from "../../../scripts/esbuild";
 
 const production = process.argv.includes('--production');
-
-function esbuildProblemMatcherPlugin(): esbuild.Plugin {
-    const prefix = 'node';
-    return {
-        name: 'esbuild-problem-matcher',
-        setup(build) {
-            build.onStart(() => {
-                console.log(prefix + ' started');
-            });
-            build.onEnd((result) => {
-                result.errors.forEach(({ text, location }) => {
-                    console.error(`✘ [ERROR] ${text}`);
-                    if (location) {
-                        console.error(`    ${location.file}:${location.line}:${location.column}:`);
-                    }
-                });
-                console.log(prefix + ' finished');
-            });
-        },
-    };
-};
 
 const main = async () => {
 	const nodeContext = await esbuild.context({
@@ -54,7 +34,7 @@ const main = async () => {
             'timers'
         ],
 		plugins: [
-			esbuildProblemMatcherPlugin()
+			esbuildProblemMatcherPlugin('node', 'build')
 		]
 	});
 

@@ -7,14 +7,13 @@
     "npm": ">= 9.5.0"
   },
   "scripts": {
-    "clean": "shx rm -rf packages/*/lib packages/*/out packages/*/*.tsbuildinfo",
-    "build": "tsc -b tsconfig.build.json && npm run build --workspace=open-collaboration-tools",
+    "clean": "shx rm -rf packages/*/lib packages/*/out packages/*/bundle packages/*/*.tsbuildinfo",
+    "build": "tsc -b tsconfig.build.json && npm run build --workspaces",
     "watch": "tsc -b tsconfig.build.json -w",
     "build:clean": "npm run clean && npm run build",
     "lint": "eslint {**/src/**/*.ts,**/src/**/*.tsx,**/test/**/*.ts,**/test/**/*.tsx}",
     "lint:fix": "eslint --fix {**/src/**/*.ts,**/src/**/*.tsx,**/test/**/*.ts,**/test/**/*.tsx}",
     "start": "npm run start --workspace=open-collaboration-server",
-    "start:bundle": "npm run start:bundle --workspace=open-collaboration-server",
     "test": "vitest",
     "test-ui": "vitest --ui",
     "coverage": "vitest run --coverage",

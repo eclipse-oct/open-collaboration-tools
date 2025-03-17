@@ -11,8 +11,9 @@
     "oct-server": "./bin/server"
   },
   "scripts": {
-    "start": "node lib/app.js start --hostname=0.0.0.0",
-    "start:bundle": "tsx scripts/esbuild.ts && node bundle/app.js start --hostname=0.0.0.0"
+    "build": "tsx scripts/esbuild.ts",
+    "start": "node bundle/app.js start --hostname=0.0.0.0",
+    "start:direct": "tsx src/app.ts start --hostname=0.0.0.0"
   },
   "dependencies": {
     "express": "^4.19.2",

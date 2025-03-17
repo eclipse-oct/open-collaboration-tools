@@ -38,5 +38,8 @@
   "volta": {
     "node": "22.14.0",
     "npm": "10.9.2"
+  },
+  "scripts": {
+    "build": "echo 'open-collaboration-yjs: Nothing extra to build.'"
   }
 }
