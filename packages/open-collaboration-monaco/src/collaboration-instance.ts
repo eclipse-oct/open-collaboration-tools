@@ -44,6 +44,7 @@ export class CollaborationInstance implements Disposable {
     private throttles = new Map<string, () => void>();
     private decorations = new Map<DisposablePeer, monaco.editor.IEditorDecorationsCollection>();
     private usersChangedCallbacks: UsersChangeEvent[] = [];
+    private currentPath?: string;
 
     private _following?: string;
     get following(): string | undefined {
@@ -228,6 +229,14 @@ export class CollaborationInstance implements Disposable {
 
     protected async followSelection(selection: types.ClientTextSelection): Promise<void> {
         const uri = this.getResourceUri(selection.path);
+        const text = this.yjs.getText(selection.path);
+
+        if (this.options.editor && this.currentPath !== selection.path) {
+            this.options.editor.setValue(text.toString());
+        }
+        this.currentPath = selection.path;
+
+        this.registerTextObserver(selection.path, this.options.editor!.getModel()!, text);
         if (uri && selection.visibleRanges && selection.visibleRanges.length > 0) {
             const visibleRange = selection.visibleRanges[0];
             const range = new monaco.Range(visibleRange.start.line, visibleRange.start.character, visibleRange.end.line, visibleRange.end.character);
@@ -241,8 +250,7 @@ export class CollaborationInstance implements Disposable {
         if (!document || !selections) {
             return;
         }
-        const uri = document.uri;
-        const path = this.getProtocolPath(uri);
+        const path = this.currentPath;
         if (path) {
             const ytext = this.yjs.getText(path);
             const textSelections: types.RelativeTextSelection[] = [];
@@ -278,8 +286,11 @@ export class CollaborationInstance implements Disposable {
     }
 
     protected async registerTextDocument(document: monaco.editor.ITextModel): Promise<void> {
-        const uri = document.uri;
-        const path = this.getProtocolPath(uri);
+        if (!this.currentPath) {
+            const uri = document.uri;
+            this.currentPath = this.getProtocolPath(uri);
+        }
+        const path = this.currentPath;
         if (path) {
             const text = document.getValue();
             const yjsText = this.yjs.getText(path);
@@ -295,52 +306,60 @@ export class CollaborationInstance implements Disposable {
                 document.setValue(ytextContent);
             }
 
-            const resyncThrottle = this.getOrCreateThrottle(path, document);
-            const observer = (textEvent: Y.YTextEvent) => {
-                this.yjsMutex(async () => {
-                    if(this.options.editor) {
-                        this.updates.add(path);
-                        let index = 0;
-                        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-                        textEvent.delta.forEach(delta => {
-                            // console.log('Setting DELTA', delta);
-                            if (delta.retain !== undefined) {
-                                index += delta.retain;
-                            } else if (delta.insert !== undefined) {
-                                const pos = document.getPositionAt(index);
-                                const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
-                                const insert = delta.insert as string;
-                                edits.push({
-                                    range,
-                                    text: insert,
-                                    forceMoveMarkers: true
-                                });
-                                index += insert.length;
-                            } else if (delta.delete !== undefined) {
-                                const pos = document.getPositionAt(index);
-                                const endPos = document.getPositionAt(index + delta.delete);
-                                const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
-                                edits.push({
-                                    range,
-                                    text: '',
-                                    forceMoveMarkers: true
-                                });
-                            }
-                        });
-                        this.options.editor.executeEdits(document.id, edits);
-                        this.updates.delete(path);
-                        resyncThrottle();
-                    }
-                });
-            };
-            yjsText.observe(observer);
-            this.pushDocumentDisposable(path, { dispose: () => yjsText.unobserve(observer) });
+            this.registerTextObserver(path, document, yjsText);
         }
     }
 
+    private registerTextObserver(path: string, document: monaco.editor.ITextModel, yjsText: Y.Text) {
+        const textObserver = this.documentDisposables.get('textObserver');
+        if (textObserver) {
+            textObserver.dispose();
+        }
+
+        const resyncThrottle = this.getOrCreateThrottle(path, document);
+        const observer = (textEvent: Y.YTextEvent) => {
+            this.yjsMutex(async () => {
+                if (this.options.editor) {
+                    this.updates.add(path);
+                    let index = 0;
+                    const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
+                    textEvent.delta.forEach(delta => {
+                        // console.log('Setting DELTA', delta);
+                        if (delta.retain !== undefined) {
+                            index += delta.retain;
+                        } else if (delta.insert !== undefined) {
+                            const pos = document.getPositionAt(index);
+                            const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
+                            const insert = delta.insert as string;
+                            edits.push({
+                                range,
+                                text: insert,
+                                forceMoveMarkers: true
+                            });
+                            index += insert.length;
+                        } else if (delta.delete !== undefined) {
+                            const pos = document.getPositionAt(index);
+                            const endPos = document.getPositionAt(index + delta.delete);
+                            const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
+                            edits.push({
+                                range,
+                                text: '',
+                                forceMoveMarkers: true
+                            });
+                        }
+                    });
+                    this.options.editor.executeEdits(document.id, edits);
+                    this.updates.delete(path);
+                    resyncThrottle();
+                }
+            });
+        };
+        yjsText.observe(observer);
+        this.pushDocumentDisposable('textObserver', { dispose: () => yjsText.unobserve(observer) });
+    }
+
     protected updateTextDocument(event: monaco.editor.IModelContentChangedEvent, document: monaco.editor.ITextModel): void {
-        const uri = document.uri;
-        const path = this.getProtocolPath(uri);
+        const path = this.currentPath;
         if (path) {
             if (this.updates.has(path)) {
                 return;
@@ -486,11 +505,11 @@ export class CollaborationInstance implements Disposable {
     }
 
     async initialize(data: types.InitData): Promise<void> {
-        const own = await this.ownUserData;
-        console.log('in initialize - Own user data', own);
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
+        // follow the host for now
+        this.followUser(data.host.id);
         this.usersChangedCallbacks.forEach(callback => callback());
     }
 
