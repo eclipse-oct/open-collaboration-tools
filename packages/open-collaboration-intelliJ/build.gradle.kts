@@ -4,6 +4,10 @@ plugins {
   id("org.jetbrains.intellij") version "1.17.4"
 }
 
+dependencies {
+  implementation("org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc:0.24.0")
+}
+
 group = "org.typefox"
 version = "1.0-SNAPSHOT"
 
@@ -44,4 +48,15 @@ tasks {
   publishPlugin {
     token.set(System.getenv("PUBLISH_TOKEN"))
   }
+
+  prepareSandbox {
+      from("../../packages/open-collaboration-service-process/bin/oct-service-process.exe") {
+        into("${intellij.pluginName.get()}/lib")
+      }
+  }
+}
+
+tasks.register<Exec>("createExecutable") {
+  workingDir = file("../../packages/open-collaboration-service-process")
+  commandLine("npm", "run", "create:executable")
 }

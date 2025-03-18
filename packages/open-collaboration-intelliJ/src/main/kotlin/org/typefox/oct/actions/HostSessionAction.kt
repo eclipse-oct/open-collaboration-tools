@@ -1,4 +1,4 @@
-package org.typefox.oct
+package org.typefox.oct.actions
 
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
@@ -6,8 +6,8 @@ import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 
-class JoinSessionAction : AnAction() {
+class HostSessionAction : AnAction() {
   override fun actionPerformed(e: AnActionEvent) {
-    Notifications.Bus.notify(Notification("OCT-Notifications", "Join session", NotificationType.INFORMATION))
+    Notifications.Bus.notify(Notification("OCT-Notifications", "Hosted session", NotificationType.INFORMATION))
   }
 }
