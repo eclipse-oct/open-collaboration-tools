@@ -183,6 +183,11 @@ export class CollaborationInstance implements vscode.Disposable {
         return this._following;
     }
 
+    private _ready = new Deferred<void>();
+    get ready(): Promise<void> {
+        return Promise.all([this._ready.promise, this.identity.promise]).then(() => { });
+    }
+
     private readonly onDidUsersChangeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidUsersChange: vscode.Event<void> = this.onDidUsersChangeEmitter.event;
 
@@ -221,6 +226,10 @@ export class CollaborationInstance implements vscode.Disposable {
 
     @postConstruct()
     protected init(): void {
+        if (this.options.host) {
+            // The host is always ready
+            this._ready.resolve();
+        }
         CollaborationInstance.Current = this;
         const connection = this.options.connection;
         this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness);
@@ -856,5 +865,6 @@ export class CollaborationInstance implements vscode.Disposable {
         this.fileSystem = new CollaborationFileSystemProvider(this.options.connection, this.yjs, data.host);
         this.toDispose.push(vscode.workspace.registerFileSystemProvider('oct', this.fileSystem));
         this.onDidUsersChangeEmitter.fire();
+        this._ready.resolve();
     }
 }

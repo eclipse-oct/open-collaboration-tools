@@ -14,7 +14,6 @@ import { QuickPickItem, showQuickPick } from './utils/quick-pick';
 import { ContextKeyService } from './context-key-service';
 import { CollaborationRoomService } from './collaboration-room-service';
 import { CollaborationStatusService } from './collaboration-status-service';
-import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
 import { ConnectionProvider } from 'open-collaboration-protocol';
 
 @injectable()
@@ -118,8 +117,8 @@ export class Commands {
                     instance.dispose();
                     this.contextKeyService.setConnection(undefined);
                     if (!instance.host) {
-                        await closeSharedEditors();
-                        removeWorkspaceFolders();
+                        // Close the workspace if the user is not the host
+                        await vscode.commands.executeCommand('workbench.action.closeFolder');
                     }
                 }
             }),

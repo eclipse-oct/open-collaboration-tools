@@ -13,6 +13,7 @@ import { ExtensionContext } from './inversify';
 import { CollaborationConnectionProvider, OCT_USER_TOKEN } from './collaboration-connection-provider';
 import { localizeInfo } from './utils/l10n';
 import { isWeb } from './utils/system';
+import { storeWorkspace } from './utils/workspace';
 
 export const OCT_ROOM_DATA = 'oct.roomData';
 
@@ -130,7 +131,19 @@ export class CollaborationRoomService {
                         name: folder,
                         uri: CollaborationUri.create(workspace.name, folder)
                     }));
-                    return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
+                    const uri = await storeWorkspace(newFolders, this.context.globalStorageUri);
+                    if (uri) {
+                        // We were able to store the workspace folders in a file
+                        // We now attempt to load that workspace file
+                        await vscode.commands.executeCommand('vscode.openFolder', uri, {
+                            forceNewWindow: false,
+                            forceReuseWindow: true,
+                            noRecentEntry: true
+                        });
+                        return true;
+                    } else {
+                        return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
+                    }
                 } catch (error) {
                     this.showError(false, error, outerToken, cancelToken);
                 }

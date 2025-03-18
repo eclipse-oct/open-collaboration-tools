@@ -4,8 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import * as vscode from 'vscode';
 import 'reflect-metadata';
+import * as vscode from 'vscode';
 import { CollaborationInstance } from './collaboration-instance';
 import { CollaborationRoomService } from './collaboration-room-service';
 import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
@@ -21,12 +21,15 @@ export async function activate(context: vscode.ExtensionContext) {
     commands.initialize();
     const roomService = container.get(CollaborationRoomService);
 
-    roomService.tryConnect().then(value => {
-        if (!value) {
-            closeSharedEditors();
-            removeWorkspaceFolders();
-        }
-    });
+    const connection = await roomService.tryConnect();
+    if (connection) {
+        // Wait for the connection to be ready before returning.
+        // This allows other extensions that need some workspace information to wait for the data.
+        await connection.ready;
+    } else {
+        await closeSharedEditors();
+        removeWorkspaceFolders();
+    }
 }
 
 export async function deactivate(): Promise<void> {

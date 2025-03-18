@@ -42,7 +42,8 @@
     "vscode": "^1.73.0"
   },
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onUri:oct"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -221,6 +222,7 @@
     "open-collaboration-yjs": "0.2.0",
     "open-collaboration-protocol": "0.2.0",
     "lodash": "^4.17.21",
+    "nanoid": "^5.1.4",
     "node-fetch": "^2.0.0"
   },
   "devDependencies": {
