@@ -5,7 +5,7 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 import { Encoding } from 'open-collaboration-protocol';
-import { NotificationType, RequestType } from 'vscode-jsonrpc';
+import { NotificationType, NotificationType2, NotificationType3, RequestType } from 'vscode-jsonrpc';
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
     return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.params);
@@ -53,14 +53,14 @@ export const LoginRequest = new RequestType<void, [string], void>(ToServiceMessa
  * resp params: [roomToken, roomId]
  */
 
-export const JoinRoomRequest = new RequestType<[string], [string, string], void>(ToServiceMessages.JOIN_ROOM);
+export const JoinRoomRequest = new RequestType<string, [string, string], void>(ToServiceMessages.JOIN_ROOM);
 
 /**
  * params: [workspace]
  * resp params: [roomId, roomToken]
  */
 
-export const CreateRoomRequest = new RequestType<[types.Workspace], [string, string], void>(ToServiceMessages.CREATE_ROOM);
+export const CreateRoomRequest = new RequestType<types.Workspace, [string, string], void>(ToServiceMessages.CREATE_ROOM);
 
 export const CloseSessionRequest = new RequestType<void, void, void>(ToServiceMessages.CLOSE_SESSION);
 
@@ -82,18 +82,18 @@ export interface ClientTextSelection {
  * params: [type, documentUri, text]
  * Todo: add more types for other awarness object types
  */
-export const OpenDocument = new NotificationType<[string, string, string]>(ToServiceMessages.OPEN_DOCUMENT);
+export const OpenDocument = new NotificationType3<string, string, string>(ToServiceMessages.OPEN_DOCUMENT);
 
 /**
  * params: [documentUri, selections]
  */
-export const UpdateTextSelection = new NotificationType<[string, ClientTextSelection[]]>(ToServiceMessages.UPDATE_TEXT_SELECTION);
+export const UpdateTextSelection = new NotificationType2<string, ClientTextSelection[]>(ToServiceMessages.UPDATE_TEXT_SELECTION);
 
 /**
  * params: [documentUri, changes]
  * Todo: add more types for other awarness object types
  */
-export const UpdateDocumentContent = new NotificationType<[string, TextDocumentInsert[]]>(ToServiceMessages.UPDATE_DOCUMENT_CONTENT);
+export const UpdateDocumentContent = new NotificationType2<string, TextDocumentInsert[]>(ToServiceMessages.UPDATE_DOCUMENT_CONTENT);
 
 // ***************************** From service process ********************************
 

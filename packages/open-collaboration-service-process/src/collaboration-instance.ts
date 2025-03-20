@@ -137,13 +137,13 @@ export class CollaborationInstance implements types.Disposable{
                         });
                     }
                 });
-                this.communicationHandler.sendNotification(UpdateDocumentContent, [documentUri, edits]);
+                this.communicationHandler.sendNotification(UpdateDocumentContent, documentUri, edits);
             };
             yjsText.observe(observer);
         }
     }
 
-    updateYjsObjectContent([documentUri, changes]: [string, TextDocumentInsert[]]) {
+    updateYjsObjectContent(documentUri: string, changes: TextDocumentInsert[]) {
         if (changes.length === 0) {
             return;
         }
@@ -160,7 +160,7 @@ export class CollaborationInstance implements types.Disposable{
         });
     }
 
-    updateYjsObjectSelection([path, clientSelections]: [string, ClientTextSelection[]]) {
+    updateYjsObjectSelection(path: string, clientSelections: ClientTextSelection[]) {
         if (path) {
             const ytext = this.YjsDoc.getText(path);
             const selections: types.RelativeTextSelection[] = [];
