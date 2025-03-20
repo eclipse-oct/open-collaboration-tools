@@ -5,7 +5,9 @@
 // ******************************************************************************
 
 import type * as types from 'open-collaboration-protocol';
-import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest, LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest,
+    LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument,
+    SessionData, UpdateDocumentContent, UpdateTextSelection } from './messages';
 import { CollaborationInstance } from './collaboration-instance';
 import { MessageConnection } from 'vscode-jsonrpc';
 
@@ -23,7 +25,7 @@ export class MessageHandler {
         communcationHandler.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
         communcationHandler.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
         communcationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
-        communcationHandler.onError(([error, message]) => communcationHandler.sendNotification(InternalError, [message, error.stack]));
+        communcationHandler.onError(([error]) => communcationHandler.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
         communcationHandler.onRequest(OCPRequest, (rawMessage) => {
             const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
@@ -39,21 +41,29 @@ export class MessageHandler {
         });
     }
 
-    async login(): Promise<[string]> {
+    async login(): Promise<string> {
         const authToken = await this.connectionProvider.login({ });
-        return [authToken];
+        return authToken;
     }
 
-    async joinRoom(roomId: string): Promise<[string, string]> {
+    async joinRoom(roomId: string): Promise<SessionData> {
         const resp = await this.connectionProvider.joinRoom({ roomId });
         this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
-        return [resp.roomId, resp.roomToken];
+        return {
+            roomId: resp.roomId,
+            roomToken: resp.roomToken,
+            authToken: resp.loginToken ?? this.connectionProvider.authToken
+        };
     }
 
-    async createRoom(workspace: types.Workspace): Promise<[string, string]> {
+    async createRoom(workspace: types.Workspace): Promise<SessionData> {
         const resp = await this.connectionProvider.createRoom({});
         this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, workspace);
-        return [resp.roomId, resp.roomToken];
+        return {
+            roomId: resp.roomId,
+            roomToken: resp.roomToken,
+            authToken: resp.loginToken ?? this.connectionProvider.authToken
+        };
     }
 
     onConnection(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {

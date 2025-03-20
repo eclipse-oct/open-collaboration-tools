@@ -41,6 +41,9 @@ class OCTServiceProcess(): Disposable {
           "C:\\Typefox\\Open_Source\\open-collaboration-server\\packages\\open-collaboration-service-process\\lib\\process.js",
           "--server-address=${OCTSettings.getInstance().state.defaultServerURL}")
         .start()
+      currentProcess?.onExit()?.thenRun {
+        currentProcess = null
+      }
 
       val messageHandler = MessageHandler()
       this.jsonRpc = Launcher.createLauncher(messageHandler, MessageHandler.OCTService::class.java,

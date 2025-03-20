@@ -26,7 +26,7 @@ communicationHandler.listen();
 const connectionProvider = new ConnectionProvider({
     fetch: fetch,
     opener: async (url) => {
-        communicationHandler.sendNotification(OpenUrl, [url]);
+        communicationHandler.sendNotification(OpenUrl, url);
     },
     transports: [SocketIoTransportProvider],
     url: args.serverAddress  ?? '',

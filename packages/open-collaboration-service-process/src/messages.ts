@@ -46,21 +46,26 @@ export namespace ToServiceMessages {
 /**
  * resp params: [token]
  */
-export const LoginRequest = new RequestType<void, [string], void>(ToServiceMessages.LOGIN);
+export const LoginRequest = new RequestType<void, string, void>(ToServiceMessages.LOGIN);
+
+export interface SessionData {
+    roomId: string,
+    roomToken: string
+    authToken?: string
+}
 
 /**
  * params: [roomId]
  * resp params: [roomToken, roomId]
  */
-
-export const JoinRoomRequest = new RequestType<string, [string, string], void>(ToServiceMessages.JOIN_ROOM);
+export const JoinRoomRequest = new RequestType<string, SessionData, void>(ToServiceMessages.JOIN_ROOM);
 
 /**
  * params: [workspace]
  * resp params: [roomId, roomToken]
  */
 
-export const CreateRoomRequest = new RequestType<types.Workspace, [string, string], void>(ToServiceMessages.CREATE_ROOM);
+export const CreateRoomRequest = new RequestType<types.Workspace, SessionData, void>(ToServiceMessages.CREATE_ROOM);
 
 export const CloseSessionRequest = new RequestType<void, void, void>(ToServiceMessages.CLOSE_SESSION);
 
@@ -102,7 +107,7 @@ export const UpdateDocumentContent = new NotificationType2<string, TextDocumentI
  * params: [url]
  */
 
-export const OpenUrl = new NotificationType<[string]>('onOpenUrl');
+export const OpenUrl = new NotificationType<string>('onOpenUrl');
 
 /**
  * A notification to the application when a session has been joined or created
@@ -115,10 +120,10 @@ export const OnInitNotification = new NotificationType<[types.InitData]>('init')
  * params: [user]
  * resp params: [join accepted]
  */
-export const JoinSessionRequest = new RequestType<[types.User], [boolean], void>(ToServiceMessages.JOIN_ROOM);
+export const JoinSessionRequest = new RequestType<types.User, boolean, void>(ToServiceMessages.JOIN_ROOM);
 
 /**
  * params: [error message, stack trace]
  */
-export const InternalError = new NotificationType<[string, string?]>('error');
+export const InternalError = new NotificationType<{message: string, stack?: string}>('error');
 

@@ -24,7 +24,7 @@ class HostSessionAction : AnAction() {
     process.communication()?.createRoom(Workspace("oct-session",
       rootUris?.toArray(Array(size = rootUris.size, init = { "" })) ?: emptyArray()
     ))?.thenAccept {
-      println(it)
+      println("room created")
     }
 
     // Notifications.Bus.notify(Notification("OCT-Notifications", "Hosted session", NotificationType.INFORMATION))
