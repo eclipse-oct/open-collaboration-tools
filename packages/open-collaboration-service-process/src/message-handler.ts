@@ -17,12 +17,12 @@ export class MessageHandler {
 
     constructor(private connectionProvider: types.ConnectionProvider, private communcationHandler: MessageConnection) {
         communcationHandler.onRequest(LoginRequest, async () => this.login());
-        communcationHandler.onRequest(JoinRoomRequest, async (params) => await this.joinRoom(...params));
-        communcationHandler.onRequest(CreateRoomRequest, async (params) => await this.createRoom(...params));
+        communcationHandler.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
+        communcationHandler.onRequest(CreateRoomRequest, this.createRoom.bind(this));
         communcationHandler.onRequest(CloseSessionRequest, () => this.currentCollaborationInstance?.currentConnection.dispose());
-        communcationHandler.onNotification(OpenDocument, (params) => this.currentCollaborationInstance?.registerYjsObject(...params));
-        communcationHandler.onNotification(UpdateTextSelection, (params) => this.currentCollaborationInstance?.updateYjsObjectSelection(params));
-        communcationHandler.onNotification(UpdateDocumentContent, (params) => this.currentCollaborationInstance?.updateYjsObjectContent(params));
+        communcationHandler.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
+        communcationHandler.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
+        communcationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
         communcationHandler.onError(([error, message]) => communcationHandler.sendNotification(InternalError, [message, error.stack]));
 
         communcationHandler.onRequest(OCPRequest, (rawMessage) => {

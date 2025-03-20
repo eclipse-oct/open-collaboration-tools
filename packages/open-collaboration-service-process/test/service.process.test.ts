@@ -104,10 +104,10 @@ describe('Service Process', () => {
         });
 
         // room creation
-        const [roomId] = await host.communicationHandler.sendRequest(messages.CreateRoomRequest, [{name: 'test', folders: ['testFolder']}]);
+        const [roomId] = await host.communicationHandler.sendRequest(messages.CreateRoomRequest, {name: 'test', folders: ['testFolder']});
         expect(roomId).toBeDefined();
 
-        const [guestRoomId] = await guest.communicationHandler.sendRequest(messages.JoinRoomRequest, [roomId]);
+        const [guestRoomId] = await guest.communicationHandler.sendRequest(messages.JoinRoomRequest, roomId);
         expect(guestRoomId).toEqual(roomId);
 
         // await until guest is initialized
@@ -118,10 +118,10 @@ describe('Service Process', () => {
         const folderStat = await guest.communicationHandler.sendRequest(messages.OCPRequest, messages.toEncodedOCPMessage({ method: 'fileSystem/stat', params: ['testFolder'], target: hostId }));
         expect(folderStat).toBeDefined();
 
-        host.communicationHandler.sendNotification(messages.OpenDocument, ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']);
-        guest.communicationHandler.sendNotification(messages.OpenDocument, ['text', 'ocp://testFolder/test.txt', 'HELLO WORLD!']);
+        host.communicationHandler.sendNotification(messages.OpenDocument, 'text', 'ocp://testFolder/test.txt', 'HELLO WORLD!');
+        guest.communicationHandler.sendNotification(messages.OpenDocument, 'text', 'ocp://testFolder/test.txt', 'HELLO WORLD!');
 
-        guest.communicationHandler.sendNotification(messages.UpdateDocumentContent, ['ocp://testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]]);
+        guest.communicationHandler.sendNotification(messages.UpdateDocumentContent, 'ocp://testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]);
 
         await updateArived.promise;
 
