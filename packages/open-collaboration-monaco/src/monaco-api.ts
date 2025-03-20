@@ -36,7 +36,9 @@ export type MonacoCollabApi = {
     isLoggedIn: () => boolean
     setEditor: (editor: monaco.editor.IStandaloneCodeEditor) => void
     getUserData: () => Promise<UserData | undefined>
-    onUsersChanged: (evt: UsersChangeEvent) => void;
+    onUsersChanged: (evt: UsersChangeEvent) => void
+    followUser: (id?: string) => void
+    getFollowedUser: () => string | undefined
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -124,6 +126,19 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }
     };
 
+    const doFollowUser = (id?: string) => {
+        if (instance) {
+            instance.followUser(id);
+        }
+    };
+
+    const doGetFollowedUser = () => {
+        if (instance) {
+            return instance.following;
+        }
+        return undefined;
+    };
+
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
@@ -131,7 +146,9 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         isLoggedIn: () => !!connectionProvider?.authToken,
         setEditor: doSetEditor,
         getUserData: doGetUserData,
-        onUsersChanged: registerUserChangeHandler
+        onUsersChanged: registerUserChangeHandler,
+        followUser: doFollowUser,
+        getFollowedUser: doGetFollowedUser
     };
 
 }

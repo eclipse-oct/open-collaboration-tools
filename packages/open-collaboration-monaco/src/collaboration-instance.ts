@@ -76,15 +76,6 @@ export class CollaborationInstance implements Disposable {
         this.yjsProvider = new OpenCollaborationYjsProvider(this.options.connection, this.yjs, this.yjsAwareness);
         this.yjsProvider.connect();
 
-        // this.toDispose.push(this.options.connection);
-        // this.toDispose.push(this.yjsProvider);
-        // this.toDispose.push({
-        //     dispose: () => {
-        //         this.yjs.destroy();
-        //         this.yjsAwareness.destroy();
-        //     }
-        // });
-
         connection.peer.onJoinRequest(async (_, user) => {
             const result = await this.options.callbacks.onUserRequestsAccess(user);
             return result ? {
@@ -231,10 +222,11 @@ export class CollaborationInstance implements Disposable {
         const uri = this.getResourceUri(selection.path);
         const text = this.yjs.getText(selection.path);
 
-        if (this.options.editor && this.currentPath !== selection.path) {
+        const prevPath = this.currentPath;
+        this.currentPath = selection.path;
+        if (this.options.editor && prevPath !== selection.path) {
             this.options.editor.setValue(text.toString());
         }
-        this.currentPath = selection.path;
 
         this.registerTextObserver(selection.path, this.options.editor!.getModel()!, text);
         if (uri && selection.visibleRanges && selection.visibleRanges.length > 0) {
@@ -508,8 +500,6 @@ export class CollaborationInstance implements Disposable {
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
-        // follow the host for now
-        this.followUser(data.host.id);
         this.usersChangedCallbacks.forEach(callback => callback());
     }
 
