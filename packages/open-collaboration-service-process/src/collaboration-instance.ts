@@ -65,7 +65,7 @@ export class CollaborationInstance implements types.Disposable{
         });
 
         currentConnection.peer.onJoinRequest(async (_, user) => {
-            const [accepted] = await this.communicationHandler.sendRequest(JoinSessionRequest, [user]);
+            const accepted = await this.communicationHandler.sendRequest(JoinSessionRequest, user);
             return accepted ? { workspace: workspace! } : undefined;
         });
 

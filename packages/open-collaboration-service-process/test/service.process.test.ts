@@ -71,11 +71,11 @@ describe('Service Process', () => {
         const updateArived = new Deferred();
         let hostId: string = '';
 
-        host.communicationHandler.onNotification(messages.OpenUrl, (params) => {
-            makeSimpleLoginRequest(params[0], 'host');
+        host.communicationHandler.onNotification(messages.OpenUrl, (authUrl) => {
+            makeSimpleLoginRequest(authUrl, 'host');
         });
         host.communicationHandler.onRequest(messages.JoinSessionRequest, () => {
-            return [true];
+            return true;
         });
         host.communicationHandler.onNotification(messages.UpdateDocumentContent, () => {
             updateArived.resolve();
@@ -95,8 +95,8 @@ describe('Service Process', () => {
 
         // Setup guest message handlers
         const initDeferred = new Deferred();
-        guest.communicationHandler.onNotification(messages.OpenUrl, (params) => {
-            makeSimpleLoginRequest(params[0], 'guest');
+        guest.communicationHandler.onNotification(messages.OpenUrl, (authUrl) => {
+            makeSimpleLoginRequest(authUrl, 'guest');
         });
         guest.communicationHandler.onNotification(messages.OnInitNotification, ([initData]) => {
             hostId = initData.host.id;
@@ -104,10 +104,10 @@ describe('Service Process', () => {
         });
 
         // room creation
-        const [roomId] = await host.communicationHandler.sendRequest(messages.CreateRoomRequest, {name: 'test', folders: ['testFolder']});
+        const {roomId} = await host.communicationHandler.sendRequest(messages.CreateRoomRequest, {name: 'test', folders: ['testFolder']});
         expect(roomId).toBeDefined();
 
-        const [guestRoomId] = await guest.communicationHandler.sendRequest(messages.JoinRoomRequest, roomId);
+        const {roomId: guestRoomId} = await guest.communicationHandler.sendRequest(messages.JoinRoomRequest, roomId);
         expect(guestRoomId).toEqual(roomId);
 
         // await until guest is initialized
