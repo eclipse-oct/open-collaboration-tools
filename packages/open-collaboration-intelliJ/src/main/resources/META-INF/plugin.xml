@@ -46,7 +46,6 @@ y
       displayName="Open Collaboration Tools"/>
 
     <applicationService serviceImplementation="org.typefox.oct.settings.OCTSettings" />
-    <applicationService serviceImplementation="org.typefox.oct.OCTServiceProcess" />
   </extensions>
 
 </idea-plugin>

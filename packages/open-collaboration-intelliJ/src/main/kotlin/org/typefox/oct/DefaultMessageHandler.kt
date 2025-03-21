@@ -1,13 +1,13 @@
 package org.typefox.oct
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.ui.popup.ComponentPopupBuilder
+import com.intellij.openapi.components.service
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.jetbrains.rd.util.printlnError
 import org.eclipse.lsp4j.jsonrpc.Endpoint
-import org.eclipse.lsp4j.jsonrpc.RemoteEndpoint
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import java.awt.Desktop
@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture
 import javax.swing.SwingUtilities
 
 @Service
-class MessageHandler : Endpoint {
+class DefaultMessageHandler : Endpoint {
 
   interface OCTService {
     @JsonRequest fun login(): CompletableFuture<String>
@@ -39,21 +39,7 @@ class MessageHandler : Endpoint {
 
   @JsonNotification
   fun onOpenUrl(url: String) {
-    if(JBCefApp.isSupported()) {
-      val browser = JBCefBrowser()
-
-      browser.loadURL(url)
-      val popup = JBPopupFactory.getInstance()
-        .createComponentPopupBuilder(browser.component, null)
-        .setRequestFocus(true)
-        .setFocusable(true)
-        .createPopup()
-      SwingUtilities.invokeLater {
-        popup.showInFocusCenter()
-      }
-    } else {
-      Desktop.getDesktop().browse(URI("http://www.example.com"))
-    }
+    service<AuthenticationService>().openAuthUrl(url)
   }
 
   @JsonNotification
@@ -61,5 +47,6 @@ class MessageHandler : Endpoint {
     printlnError(error)
     printlnError(stack ?: "")
   }
+
 }
 
