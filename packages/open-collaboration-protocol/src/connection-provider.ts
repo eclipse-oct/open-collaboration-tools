@@ -21,7 +21,7 @@ export interface ConnectionProviderOptions {
     client?: string;
     protocolVersion?: string;
     fetch: Fetch;
-    opener: (url: string) => void;
+    authenticationHandler: (token: string, authenticationMetadata: types.AuthMetadata) => void;
     transports: MessageTransportProvider[];
 }
 
@@ -114,9 +114,12 @@ export class ConnectionProvider {
             throw new Error('Invalid login response');
         }
         const confirmToken = loginBody.pollToken;
-        const url = loginBody.url;
-        const fullUrl = url.startsWith('/') ? this.getUrl(url) : url;
-        this.options.opener(fullUrl);
+        const url = loginBody.authMetadata.loginPageUrl;
+        const fullUrl = url?.startsWith('/') ? this.getUrl(url) : url;
+        this.options.authenticationHandler(confirmToken, {
+            ...loginBody.authMetadata,
+            loginPageUrl: fullUrl,
+        });
         const authToken = await this.pollLogin(confirmToken, options);
         this.userAuthToken = authToken;
         return authToken;

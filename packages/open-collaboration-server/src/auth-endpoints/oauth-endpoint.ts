@@ -6,13 +6,14 @@
 
 import { inject, injectable, postConstruct } from 'inversify';
 import { type Express } from 'express';
-import { Emitter, Event } from 'open-collaboration-protocol';
+import { AuthProviderMetadata, Emitter, Event } from 'open-collaboration-protocol';
 import { AuthEndpoint, AuthSuccessEvent, UserInfo } from './auth-endpoint';
 import passport from 'passport';
 import { Strategy as GithubStrategy } from 'passport-github';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Logger, LoggerSymbol } from '../utils/logging';
 import { Configuration } from '../utils/configuration';
+import { URL } from 'url';
 
 export const oauthProviders = Symbol('oauthProviders');
 
@@ -33,6 +34,8 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
 
     private authSuccessEmitter = new Emitter<AuthSuccessEvent>();
     onDidAuthenticate: Event<AuthSuccessEvent> = this.authSuccessEmitter.event;
+
+    abstract getMetadata(): AuthProviderMetadata;
 
     @postConstruct()
     initialize() {
@@ -93,7 +96,14 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
                         res.status(400);
                         res.send('Error: Redirect URL not in whitelist');
                     } else {
-                        res.redirect(redirectRequest);
+                        const url = URL.canParse(redirectRequest) ? new URL(redirectRequest) : undefined;
+                        if(!url) {
+                            res.status(400);
+                            res.send('Error: Invalid redirect URL');
+                            return;
+                        }
+                        url.searchParams.append('token', token);
+                        res.redirect(url.toString());
                     }
                 } else if (loginSuccessURL) {
                     res.redirect(loginSuccessURL);
@@ -123,6 +133,14 @@ export class GitHubOAuthEndpoint extends OAuthEndpoint {
         return Boolean(this.configuration.getValue('oct-oauth-github-clientid') && this.configuration.getValue('oct-oauth-github-clientsecret'));
     }
 
+    override getMetadata(): AuthProviderMetadata {
+        return {
+            label: 'Github',
+            type: 'oauth',
+            endpoint: this.path
+        };
+    }
+
     override getStrategy(hostname: string, port: number): passport.Strategy {
         return new GithubStrategy({
             clientID: this.configuration.getValue('oct-oauth-github-clientid')!,
@@ -148,6 +166,14 @@ export class GoogleOAuthEndpoint extends OAuthEndpoint {
 
     shouldActivate(): boolean {
         return Boolean(this.configuration.getValue('oct-oauth-google-clientid') && this.configuration.getValue('oct-oauth-google-clientsecret'));
+    }
+
+    override getMetadata(): AuthProviderMetadata {
+        return {
+            label: 'Google',
+            type: 'oauth',
+            endpoint: this.path
+        };
     }
 
     override getStrategy(hostname: string, port: number): passport.Strategy {

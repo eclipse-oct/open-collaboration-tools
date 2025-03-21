@@ -6,13 +6,15 @@
 
 import { inject, injectable } from 'inversify';
 import { type Express } from 'express';
-import { Emitter } from 'open-collaboration-protocol';
+import { AuthProviderMetadata, Emitter, FormAuthProviderCongifuration } from 'open-collaboration-protocol';
 import { AuthEndpoint, AuthSuccessEvent } from './auth-endpoint';
 import { Logger, LoggerSymbol } from '../utils/logging';
 import { Configuration } from '../utils/configuration';
 
 @injectable()
 export class SimpleLoginEndpoint implements AuthEndpoint {
+
+    protected static readonly ENDPOINT = '/api/login/simple';
 
     @inject(LoggerSymbol) protected logger: Logger;
 
@@ -25,13 +27,22 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
         return this.configuration.getValue('oct-activate-simple-login', 'boolean') ?? false;
     }
 
+    getMetadata(): AuthProviderMetadata {
+        return {
+            label: 'Unverified',
+            type: 'form',
+            endpoint: SimpleLoginEndpoint.ENDPOINT,
+            fields: ['user', 'email']
+        } as FormAuthProviderCongifuration;
+    }
+
     onStart(app: Express, _hostname: string, _port: number): void {
-        app.post('/api/login/simple', async (req, res) => {
+        app.post(SimpleLoginEndpoint.ENDPOINT, async (req, res) => {
             try {
                 const token = req.body.token as string;
                 const user = req.body.user as string;
                 const email = req.body.email as string | undefined;
-                await this.authSuccessEmitter.fire({token, userInfo: {name: user, email, authProvider: 'Unverified'}});
+                await Promise.all(this.authSuccessEmitter.fire({token, userInfo: {name: user, email, authProvider: 'Unverified'}}));
                 res.send('Ok');
             } catch (err) {
                 this.logger.error('Failed to perform simple login', err);
