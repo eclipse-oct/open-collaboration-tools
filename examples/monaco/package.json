@@ -1,0 +1,22 @@
+{
+  "name": "monaco-editor-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build.js",
+    "serve": "esbuild --serve --servedir=dist",
+    "start": "npm run serve",
+    "watch": "node build.js --watch"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.28.1",
+    "oct-collaboration-monaco": "^0.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.12.15",
+    "concurrently": "^6.3.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

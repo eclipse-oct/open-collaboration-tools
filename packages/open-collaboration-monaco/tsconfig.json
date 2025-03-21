@@ -1,0 +1,23 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "rootDir": "src",
+        "outDir": "lib",
+        "sourceMap": true,
+        "declaration": true
+    },
+    "references": [
+        {
+            "path": "../open-collaboration-protocol/tsconfig.json"
+        },
+        {
+            "path": "../open-collaboration-yjs/tsconfig.json"
+        }
+    ],
+    "include": [
+        "src/**/*.ts"
+    ]
+}
