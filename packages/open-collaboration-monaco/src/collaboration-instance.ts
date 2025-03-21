@@ -44,6 +44,7 @@ export class CollaborationInstance implements Disposable {
     protected decorations = new Map<DisposablePeer, monaco.editor.IEditorDecorationsCollection>();
     protected usersChangedCallbacks: UsersChangeEvent[] = [];
     protected currentPath?: string;
+    protected stopPropagation = false;
 
     protected _following?: string;
     get following(): string | undefined {
@@ -161,13 +162,15 @@ export class CollaborationInstance implements Disposable {
         }
 
         this.options.editor.onDidChangeModelContent(event => {
-            if (text) {
+            if (text && !this.stopPropagation) {
                 this.updateTextDocument(event, text);
             }
         });
 
         this.options.editor.onDidChangeCursorSelection(_e => {
-            this.options.editor && this.updateTextSelection(this.options.editor);
+            if (this.options.editor && !this.stopPropagation) {
+                this.updateTextSelection(this.options.editor);
+            }
         });
 
         let awarenessTimeout: NodeJS.Timeout | undefined;
@@ -222,7 +225,9 @@ export class CollaborationInstance implements Disposable {
         const prevPath = this.currentPath;
         this.currentPath = selection.path;
         if (prevPath !== selection.path) {
+            this.stopPropagation = true;
             this.options.editor.setValue(text.toString());
+            this.stopPropagation = false;
         }
 
         this.registerTextObserver(selection.path, this.options.editor.getModel()!, text);
