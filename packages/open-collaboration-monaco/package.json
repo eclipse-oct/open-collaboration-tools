@@ -18,7 +18,8 @@
   "scripts": {
     "dev": "vite",
     "dev:debug": "vite --debug --force",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
   },
   "dependencies": {
     "lodash": "^4.17.21",
