@@ -1,5 +1,6 @@
 package org.typefox.oct
 
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.ui.popup.ComponentPopupBuilder
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.jcef.JBCefApp
@@ -14,13 +15,14 @@ import java.net.URI
 import java.util.concurrent.CompletableFuture
 import javax.swing.SwingUtilities
 
+@Service
 class MessageHandler : Endpoint {
 
   interface OCTService {
     @JsonRequest fun login(): CompletableFuture<String>
-    @JsonRequest(value = "room/joinRoom") fun joinRoom(): CompletableFuture<String>
-    @JsonRequest(value = "room/createRoom") fun createRoom(workspace: Workspace): CompletableFuture<Array<String>>
-    @JsonRequest(value = "room/closeSession")fun closeSession(): CompletableFuture<String>
+    @JsonRequest(value = "room/joinRoom") fun joinRoom(roomId: String): CompletableFuture<SessionData>
+    @JsonRequest(value = "room/createRoom") fun createRoom(workspace: Workspace): CompletableFuture<SessionData>
+    @JsonRequest(value = "room/closeSession")fun closeSession(): CompletableFuture<Void>
     @JsonNotification(value = "awareness/openDocument") fun openDocument()
     @JsonNotification(value = "awareness/updateTextSelection") fun updateTextSelection()
     @JsonNotification(value = "awareness/updateDocument") fun updateDocument()
@@ -57,6 +59,7 @@ class MessageHandler : Endpoint {
   @JsonNotification
   fun error(error: String, stack: String?) {
     printlnError(error)
+    printlnError(stack ?: "")
   }
 }
 
