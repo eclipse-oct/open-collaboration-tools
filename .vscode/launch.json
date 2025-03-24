@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Chrome",
+            "name": "Debug Monaco Examples",
             "request": "launch",
             "type": "chrome",
             "url": "http://localhost:5173/",

@@ -49,6 +49,14 @@ if (container) {
         monacoCollabApi.joinRoom(roomToken).then(state => {
             if (state) {
                 monacoCollabApi.setEditor(myEditor);
+                monacoCollabApi.onUsersChanged(() => {
+                    monacoCollabApi.getUserData().then(userData => {
+                        const host = userData?.others.find(u => u.peer.host);
+                        if (host && monacoCollabApi.getFollowedUser() === undefined) {
+                            monacoCollabApi.followUser(host.peer.id);
+                        }
+                    });
+                });
             }
             console.log('Joined room');
         });
