@@ -35,6 +35,8 @@ export interface CryptoLib {
 export type CryptoModule = typeof self.crypto | typeof import('node:crypto').webcrypto;
 
 export function setCryptoModule(module: CryptoModule): void {
+    // Use globalThis instead of global to get cross-platform compatibility
+    // global is node specific
     (globalThis as any)[Crypto] = module;
 }
 
