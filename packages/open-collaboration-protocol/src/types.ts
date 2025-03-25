@@ -68,7 +68,7 @@ export interface AuthProviderMetadata {
     endpoint: string;
 }
 
-export interface FormAuthProviderCongifuration extends AuthProviderMetadata {
+export interface FormAuthProviderConfiguration extends AuthProviderMetadata {
     type: 'form';
     fields: string[];
 }

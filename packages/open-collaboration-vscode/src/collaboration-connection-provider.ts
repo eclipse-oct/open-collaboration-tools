@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
-import { AuthProviderMetadata, ConnectionProvider, FormAuthProviderCongifuration, SocketIoTransportProvider } from 'open-collaboration-protocol';
+import { AuthProviderMetadata, ConnectionProvider, FormAuthProviderConfiguration, SocketIoTransportProvider } from 'open-collaboration-protocol';
 import { ExtensionContext } from './inversify';
 import { packageVersion } from './utils/package';
 
@@ -40,7 +40,7 @@ export class CollaborationConnectionProvider {
                     if(provider) {
                         switch(provider.type) {
                             case 'form':
-                                this.handleFormAuth(token, provider as FormAuthProviderCongifuration, serverUrl);
+                                this.handleFormAuth(token, provider as FormAuthProviderConfiguration, serverUrl);
                                 break;
                             case 'oauth':
                                 this.handleOauthAuth(token, provider, serverUrl);
@@ -56,7 +56,7 @@ export class CollaborationConnectionProvider {
         return undefined;
     }
 
-    private async handleFormAuth(token: string, provider: FormAuthProviderCongifuration, serverUrl: string) {
+    private async handleFormAuth(token: string, provider: FormAuthProviderConfiguration, serverUrl: string) {
         const fields = provider.fields;
         const values:  Record<string, string> = {
             token

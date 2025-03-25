@@ -6,7 +6,7 @@
 
 import { inject, injectable } from 'inversify';
 import { type Express } from 'express';
-import { AuthProviderMetadata, Emitter, FormAuthProviderCongifuration } from 'open-collaboration-protocol';
+import { AuthProviderMetadata, Emitter, FormAuthProviderConfiguration } from 'open-collaboration-protocol';
 import { AuthEndpoint, AuthSuccessEvent } from './auth-endpoint';
 import { Logger, LoggerSymbol } from '../utils/logging';
 import { Configuration } from '../utils/configuration';
@@ -33,7 +33,7 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
             type: 'form',
             endpoint: SimpleLoginEndpoint.ENDPOINT,
             fields: ['user', 'email']
-        } as FormAuthProviderCongifuration;
+        } as FormAuthProviderConfiguration;
     }
 
     onStart(app: Express, _hostname: string, _port: number): void {
