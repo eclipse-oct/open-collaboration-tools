@@ -1,12 +1,42 @@
 {
   "name": "open-collaboration-monaco",
-  "displayName": "OCT Live Collaboration Monaco Editor",
-  "description": "Connect with others and share your code in real-time collaboration sessions",
-  "version": "0.0.1",
+  "displayName": "OCT Monaco Client API",
+  "description": "Connect a single Monaco Editor to an Open Collaboration Tools session",
+  "version": "0.2.4",
+  "publisher": "typefox",
   "type": "module",
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "collaboration",
+    "share",
+    "live-share",
+    "real-time",
+    "team",
+    "co-edit",
+    "pair-programming",
+    "monaco-editor"
+  ],
+  "license": "MIT",
+  "icon": "data/oct-logo.png",
+  "galleryBanner": {
+    "color": "#031021",
+    "theme": "dark"
+  },
+  "homepage": "https://www.open-collab.tools/",
+  "bugs": {
+    "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TypeFox/open-collaboration-tools",
+    "directory": "packages/open-collaboration-monaco"
+  },
+  "author": {
+    "name": "TypeFox",
+    "url": "https://www.typefox.io/"
+  },
   "main": "./lib/index.js",
   "module": "./lib/index.js",
   "exports": {
