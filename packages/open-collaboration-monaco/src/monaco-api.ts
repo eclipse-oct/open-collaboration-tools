@@ -44,7 +44,9 @@ export type MonacoCollabApi = {
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
     connectionProvider = new ConnectionProvider({
         url: options.serverUrl,
-        opener: options.loginPageOpener ?? ((url) => window.open(url, '_blank')),
+        authenticationHandler: async (_token, authMetadata) => {
+            options.loginPageOpener ?? window.open(authMetadata.loginPageUrl, '_blank');
+        },
         transports: [SocketIoTransportProvider],
         userToken: options.userToken,
         fetch: async (url, options) => {
