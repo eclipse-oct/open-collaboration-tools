@@ -6,7 +6,7 @@
 
 import { inject, injectable } from 'inversify';
 import { type Express } from 'express';
-import { AuthProviderMetadata, Emitter, FormAuthProviderConfiguration } from 'open-collaboration-protocol';
+import { Emitter, FormAuthProvider, Info } from 'open-collaboration-protocol';
 import { AuthEndpoint, AuthSuccessEvent } from './auth-endpoint';
 import { Logger, LoggerSymbol } from '../utils/logging';
 import { Configuration } from '../utils/configuration';
@@ -27,13 +27,51 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
         return this.configuration.getValue('oct-activate-simple-login', 'boolean') ?? false;
     }
 
-    getMetadata(): AuthProviderMetadata {
+    getProtocolProvider(): FormAuthProvider {
         return {
-            label: 'Unverified',
             type: 'form',
+            name: 'unverified',
             endpoint: SimpleLoginEndpoint.ENDPOINT,
-            fields: ['user', 'email']
-        } as FormAuthProviderConfiguration;
+            label: {
+                code: Info.Codes.UnverifiedLoginLabel,
+                message: 'Unverified',
+                params: []
+            },
+            group: {
+                code: Info.Codes.BuiltinsGroup,
+                message: 'Builtins',
+                params: []
+            },
+            fields: [
+                {
+                    name: 'user',
+                    label: {
+                        code: Info.Codes.UsernameLabel,
+                        message: 'Username',
+                        params: []
+                    },
+                    required: true,
+                    placeHolder: {
+                        code: Info.Codes.UsernamePlaceholder,
+                        message: 'Your user name that will be shown to all session participants',
+                        params: []
+                    }
+                }, {
+                    name: 'email',
+                    label: {
+                        code: Info.Codes.EmailLabel,
+                        message: 'Email',
+                        params: []
+                    },
+                    required: false,
+                    placeHolder: {
+                        code: Info.Codes.EmailPlaceholder,
+                        message: 'Your email that will be shown to the host when joining the session',
+                        params: []
+                    }
+                }
+            ]
+        };
     }
 
     onStart(app: Express, _hostname: string, _port: number): void {
@@ -42,7 +80,7 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
                 const token = req.body.token as string;
                 const user = req.body.user as string;
                 const email = req.body.email as string | undefined;
-                await Promise.all(this.authSuccessEmitter.fire({token, userInfo: {name: user, email, authProvider: 'Unverified'}}));
+                await Promise.all(this.authSuccessEmitter.fire({ token, userInfo: { name: user, email, authProvider: 'Unverified' } }));
                 res.send('Ok');
             } catch (err) {
                 this.logger.error('Failed to perform simple login', err);

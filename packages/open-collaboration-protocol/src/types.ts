@@ -44,33 +44,48 @@ export namespace LoginValidateResponse {
 
 export interface LoginInitialResponse {
     pollToken: string;
-    authMetadata: AuthMetadata;
+    auth: AuthMetadata;
 }
 
 export namespace LoginInitialResponse {
     export function is(arg: unknown): arg is LoginInitialResponse {
-        return isObject<LoginInitialResponse>(arg) && typeof arg.pollToken === 'string' && typeof arg.authMetadata === 'object';
+        return isObject<LoginInitialResponse>(arg) && typeof arg.pollToken === 'string' && typeof arg.auth === 'object';
     }
-    export function create(pollToken: string, authMetadata: AuthMetadata): LoginInitialResponse {
-        return { pollToken, authMetadata };
+    export function create(pollToken: string, auth: AuthMetadata): LoginInitialResponse {
+        return { pollToken, auth };
     }
 }
 
 export interface AuthMetadata {
-    providers: AuthProviderMetadata[];
+    providers: AuthProvider[];
     loginPageUrl?: string;
     defaultSuccessUrl?: string;
 }
 
-export interface AuthProviderMetadata {
-    label: string;
-    type: string;
-    endpoint: string;
+export type AuthProvider = FormAuthProvider | WebAuthProvider;
+
+export interface CommonAuthProvider {
+    name: string;
+    group: InfoMessage;
+    label: InfoMessage;
 }
 
-export interface FormAuthProviderConfiguration extends AuthProviderMetadata {
+export interface FormAuthProvider extends CommonAuthProvider {
     type: 'form';
-    fields: string[];
+    endpoint: string;
+    fields: FormAuthProviderField[];
+}
+
+export interface FormAuthProviderField {
+    name: string;
+    required: boolean;
+    label: InfoMessage;
+    placeHolder?: InfoMessage;
+}
+
+export interface WebAuthProvider extends CommonAuthProvider {
+    type: 'web';
+    endpoint: string;
 }
 
 export interface LoginPollResponse {
@@ -121,13 +136,13 @@ export namespace JoinRoomResponse {
     }
 }
 
-export interface JoinRoomPollResponse extends ProtocolServerInfo {
+export interface JoinRoomPollResponse extends InfoMessage {
     failure: boolean;
 }
 
 export namespace JoinRoomPollResponse {
     export function is(arg: unknown): arg is JoinRoomPollResponse {
-        return ProtocolServerInfo.is(arg) && typeof (arg as JoinRoomPollResponse).failure === 'boolean';
+        return InfoMessage.is(arg) && typeof (arg as JoinRoomPollResponse).failure === 'boolean';
     }
     export function create(code: string, params: string[], message: string, failure: boolean): JoinRoomPollResponse {
         return { code, params, message, failure };
@@ -140,21 +155,21 @@ export interface ProtocolServerMetaData {
     transports: string[];
 }
 
-export interface ProtocolServerInfo {
+export interface InfoMessage {
     code: string;
     params: string[];
     message: string;
 }
 
-export namespace ProtocolServerInfo {
-    export function is(arg: unknown): arg is ProtocolServerInfo {
-        return isObject<ProtocolServerInfo>(arg)
+export namespace InfoMessage {
+    export function is(arg: unknown): arg is InfoMessage {
+        return isObject<InfoMessage>(arg)
             && typeof arg.code === 'string'
             && Array.isArray(arg.params)
             && arg.params.every(param => typeof param === 'string')
             && typeof arg.message === 'string';
     }
-    export function create(code: string, params: string[], message: string): ProtocolServerInfo {
+    export function create(code: string, params: string[], message: string): InfoMessage {
         return { code, params, message };
     }
 }
