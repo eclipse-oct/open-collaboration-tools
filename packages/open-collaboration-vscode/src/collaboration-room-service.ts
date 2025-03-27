@@ -14,6 +14,8 @@ import { localizeInfo } from './utils/l10n';
 import { isWeb } from './utils/system';
 import { Settings } from './utils/settings';
 import { RoomData, SecretStorage } from './secret-storage';
+import { storeWorkspace } from './utils/workspace';
+import { ExtensionContext } from './inversify';
 
 @injectable()
 export class CollaborationRoomService {
@@ -23,6 +25,9 @@ export class CollaborationRoomService {
 
     @inject(CollaborationInstanceFactory)
     private instanceFactory: CollaborationInstanceFactory;
+
+    @inject(ExtensionContext)
+    private context: vscode.ExtensionContext;
 
     @inject(SecretStorage)
     private secretStore: SecretStorage;
@@ -39,6 +44,7 @@ export class CollaborationRoomService {
             const connection = await connectionProvider.connect(roomData.roomToken, roomData.host);
             const instance = this.instanceFactory({
                 connection,
+                serverUrl: roomData.serverUrl,
                 host: false,
                 roomId: roomData.roomId,
                 hostId: roomData.host.id
@@ -66,6 +72,7 @@ export class CollaborationRoomService {
                     }
                     const connection = await connectionProvider.connect(roomClaim.roomToken);
                     const instance = this.instanceFactory({
+                        serverUrl: url,
                         connection,
                         host: true,
                         roomId: roomClaim.roomId
@@ -142,7 +149,19 @@ export class CollaborationRoomService {
                             name: folder,
                             uri: CollaborationUri.create(workspace.name, folder)
                         }));
-                        return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
+                        const uri = await storeWorkspace(newFolders, this.context.globalStorageUri);
+                        if (uri) {
+                            // We were able to store the workspace folders in a file
+                            // We now attempt to load that workspace file
+                            await vscode.commands.executeCommand('vscode.openFolder', uri, {
+                                forceNewWindow: false,
+                                forceReuseWindow: true,
+                                noRecentEntry: true
+                            });
+                            return true;
+                        } else {
+                            return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
+                        }
                     } catch (error) {
                         this.showError(false, error, outerToken, cancelToken);
                     }

@@ -13,8 +13,8 @@ import { QuickPickItem, showQuickPick } from './utils/quick-pick';
 import { ContextKeyService } from './context-key-service';
 import { CollaborationRoomService } from './collaboration-room-service';
 import { CollaborationStatusService } from './collaboration-status-service';
-import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
 import { SecretStorage } from './secret-storage';
+import { RoomUri } from './utils/uri';
 
 @injectable()
 export class Commands {
@@ -69,7 +69,15 @@ export class Commands {
                     });
                     if (result === 'invite') {
                         vscode.env.clipboard.writeText(instance.roomId);
-                        vscode.window.showInformationMessage(vscode.l10n.t('Invitation code {0} copied to clipboard!', instance.roomId));
+                        const copyWithServer = vscode.l10n.t('Copy with Server URL');
+                        vscode.window.showInformationMessage(vscode.l10n.t('Invitation code {0} copied to clipboard!', instance.roomId), copyWithServer).then(value => {
+                            if (value === copyWithServer) {
+                                vscode.env.clipboard.writeText(RoomUri.create({
+                                    roomId: instance.roomId,
+                                    serverUrl: instance.serverUrl
+                                }));
+                            }
+                        });
                     } else if (result === 'stop') {
                         vscode.commands.executeCommand('oct.closeConnection');
                     }

@@ -153,6 +153,7 @@ export const CollaborationInstanceFactory = Symbol('CollaborationInstanceFactory
 export const CollaborationInstanceOptions = Symbol('CollaborationInstanceOptions');
 
 export interface CollaborationInstanceOptions {
+    serverUrl: string;
     connection: ProtocolBroadcastConnection;
     host: boolean;
     hostId?: string;
@@ -219,6 +220,10 @@ export class CollaborationInstance implements vscode.Disposable {
 
     get connection(): ProtocolBroadcastConnection {
         return this.options.connection;
+    }
+
+    get serverUrl(): string {
+        return this.options.serverUrl;
     }
 
     @inject(CollaborationInstanceOptions)
