@@ -43,6 +43,7 @@ export class CollaborationConnectionProvider {
                 }
                 const quickPickItems: AuthQuickPickItem[] = this.enhanceQuickPickGroups(authMetadata.providers.map(provider => ({
                     label: localizeInfo(provider.label),
+                    description: provider.details && localizeInfo(provider.details),
                     provider
                 })));
                 const item = await vscode.window.showQuickPick(quickPickItems, {
@@ -120,7 +121,11 @@ export class CollaborationConnectionProvider {
                 'Content-Type': 'application/json'
             }
         });
-        vscode.window.showInformationMessage(response.ok ? vscode.l10n.t('Login successful.') : vscode.l10n.t('Login failed.'));
+        if (response.ok) {
+            vscode.window.showInformationMessage(vscode.l10n.t('Login successful.'));
+        } else {
+            vscode.window.showErrorMessage(vscode.l10n.t('Login failed.'));
+        }
         return response.ok;
     }
 

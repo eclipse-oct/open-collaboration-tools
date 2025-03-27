@@ -68,6 +68,7 @@ export interface CommonAuthProvider {
     name: string;
     group: InfoMessage;
     label: InfoMessage;
+    details?: InfoMessage;
 }
 
 export interface FormAuthProvider extends CommonAuthProvider {

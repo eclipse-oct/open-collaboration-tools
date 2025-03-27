@@ -33,6 +33,7 @@ export namespace Info {
         export const JoinRejected = 'JoinRejected';
         export const WaitingForHost = 'WaitingForHost';
         export const UnverifiedLoginLabel = 'UnverifiedLoginLabel';
+        export const UnverifiedLoginDetails = 'UnverifiedLoginDetails';
         export const BuiltinsGroup = 'BuiltinsGroup';
         export const UsernameLabel = 'UsernameLabel';
         export const UsernamePlaceholder = 'UsernamePlaceholder';
