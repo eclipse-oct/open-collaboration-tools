@@ -6,3 +6,4 @@
 
 export type { Peer } from 'open-collaboration-protocol';
 export type { User } from 'open-collaboration-protocol';
+export type { AuthMetadata } from 'open-collaboration-protocol';
