@@ -57,11 +57,11 @@ export class WebSocketTransport implements MessageTransport {
         this.socket.onopen = () => this.ready.resolve();
     }
 
-    async write(data: ArrayBufferLike): Promise<void> {
+    async write(data: Uint8Array): Promise<void> {
         await this.ready.promise.then(() => this.socket.send(data));
     }
 
-    read(cb: (data: ArrayBuffer) => void): void {
+    read(cb: (data: Uint8Array) => void): void {
         this.socket.onmessage = event => cb(event.data);
     }
 

@@ -6,8 +6,8 @@
 
 import { Event } from '../utils/event';
 
-export type ConnectionWriter = (data: ArrayBufferLike) => Promise<void>;
-export type ConnectionReader = (cb: (data: ArrayBufferLike) => void) => void;
+export type ConnectionWriter = (data: Uint8Array) => Promise<void>;
+export type ConnectionReader = (cb: (data: Uint8Array) => void) => void;
 
 export interface MessageTransportProvider {
     readonly id: string;

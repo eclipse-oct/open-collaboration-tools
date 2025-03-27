@@ -166,8 +166,12 @@ export class SocketIoChannel implements TransportChannel {
 
     onMessage(cb: (message: Message) => void): Disposable {
         const decode = (message: ArrayBuffer) => {
-            const data = Encoding.decode(new Uint8Array(message)) as Message;
-            cb(data);
+            try {
+                const data = Encoding.decode(new Uint8Array(message)) as Message;
+                cb(data);
+            } catch(e) {
+                console.error(e);
+            }
         };
         this._socket.on('message', decode);
         return Disposable.create(() => {
