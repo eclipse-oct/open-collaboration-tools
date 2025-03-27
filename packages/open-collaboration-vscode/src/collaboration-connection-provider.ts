@@ -6,11 +6,16 @@
 
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
-import { AuthProviderMetadata, ConnectionProvider, FormAuthProviderConfiguration, SocketIoTransportProvider } from 'open-collaboration-protocol';
+import { AuthProvider, ConnectionProvider, FormAuthProvider, SocketIoTransportProvider, WebAuthProvider } from 'open-collaboration-protocol';
 import { packageVersion } from './utils/package';
 import { SecretStorage } from './secret-storage';
+import { localizeInfo } from './utils/l10n';
 
 export const Fetch = Symbol('Fetch');
+
+interface AuthQuickPickItem extends vscode.QuickPickItem {
+    provider: AuthProvider;
+}
 
 @injectable()
 export class CollaborationConnectionProvider {
@@ -27,21 +32,31 @@ export class CollaborationConnectionProvider {
             url: serverUrl,
             client: `OCT_CODE_${vscode.env.appName.replace(/\s+/, '_')}@${packageVersion}`,
             authenticationHandler: async (token, authMetadata) => {
-                if (!authMetadata.providers?.length && authMetadata.loginPageUrl) {
-                    vscode.env.openExternal(vscode.Uri.parse(authMetadata.loginPageUrl));
-                    return;
-                }
-                const provider = await vscode.window.showQuickPick(authMetadata.providers, { title: vscode.l10n.t('Select authentication method') });
-                if (provider) {
-                    switch (provider.type) {
-                        case 'form':
-                            this.handleFormAuth(token, provider as FormAuthProviderConfiguration, serverUrl);
-                            break;
-                        case 'oauth':
-                            this.handleOauthAuth(token, provider, serverUrl);
-                            break;
+                const hasAuthProviders = Boolean(authMetadata.providers.length);
+                if (!hasAuthProviders && authMetadata.loginPageUrl) {
+                    if (authMetadata.loginPageUrl) {
+                        return await vscode.env.openExternal(vscode.Uri.parse(authMetadata.loginPageUrl));
+                    } else {
+                        vscode.window.showErrorMessage(vscode.l10n.t('No authentication method provided by the server.'));
+                        return false;
                     }
                 }
+                const quickPickItems: AuthQuickPickItem[] = this.enhanceQuickPickGroups(authMetadata.providers.map(provider => ({
+                    label: localizeInfo(provider.label),
+                    provider
+                })));
+                const item = await vscode.window.showQuickPick(quickPickItems, {
+                    title: vscode.l10n.t('Select Authentication Method')
+                });
+                if (item) {
+                    switch (item.provider.type) {
+                        case 'form':
+                            return this.handleFormAuth(token, item.provider, serverUrl);
+                        case 'web':
+                            return this.handleWebAuth(token, item.provider, serverUrl);
+                    }
+                }
+                return false;
             },
             transports: [SocketIoTransportProvider],
             userToken,
@@ -49,18 +64,51 @@ export class CollaborationConnectionProvider {
         });
     }
 
-    private async handleFormAuth(token: string, provider: FormAuthProviderConfiguration, serverUrl: string) {
+    private enhanceQuickPickGroups(items: AuthQuickPickItem[]): AuthQuickPickItem[] {
+        const groups = new Map<string, AuthQuickPickItem[]>();
+        for (const item of items) {
+            const group = localizeInfo(item.provider.group);
+            if (!groups.has(group)) {
+                groups.set(group, []);
+            }
+            groups.get(group)!.push(item);
+        }
+        const result: AuthQuickPickItem[] = [];
+        for (const [group, items] of groups) {
+            result.push({
+                label: group,
+                kind: vscode.QuickPickItemKind.Separator,
+                provider: undefined!
+            });
+            result.push(...items);
+        }
+        return result;
+    }
+
+    private async handleFormAuth(token: string, provider: FormAuthProvider, serverUrl: string): Promise<boolean> {
         const fields = provider.fields;
         const values: Record<string, string> = {
             token
         };
 
         for (const field of fields) {
+            let placeHolder: string;
+            if (field.placeHolder) {
+                placeHolder = localizeInfo(field.placeHolder);
+            } else {
+                placeHolder = localizeInfo(field.label);
+            }
+            placeHolder += field.required ? '' : ` (${vscode.l10n.t('optional')})`;
             const value = await vscode.window.showInputBox({
-                prompt: field,
+                prompt: localizeInfo(field.label),
+                placeHolder,
             });
-            if (value !== undefined) {
-                values[field] = value;
+            // Test for thruthyness to also test for empty string
+            if (value) {
+                values[field.name] = value;
+            } else if (field.required) {
+                vscode.window.showErrorMessage(vscode.l10n.t('The {0} field is required. Login aborted.', localizeInfo(field.label)));
+                return false;
             }
         }
 
@@ -72,12 +120,12 @@ export class CollaborationConnectionProvider {
                 'Content-Type': 'application/json'
             }
         });
-        vscode.window.showInformationMessage(response.ok ? vscode.l10n.t('Login successful') : vscode.l10n.t('Login failed'));
+        vscode.window.showInformationMessage(response.ok ? vscode.l10n.t('Login successful.') : vscode.l10n.t('Login failed.'));
+        return response.ok;
     }
 
-    private handleOauthAuth(token: string, provider: AuthProviderMetadata, serverUrl: string) {
+    private async handleWebAuth(token: string, provider: WebAuthProvider, serverUrl: string): Promise<boolean> {
         const endpointUrl = vscode.Uri.parse(serverUrl).with({ path: provider.endpoint, query: `token=${token}` });
-
-        vscode.env.openExternal(endpointUrl);
+        return await vscode.env.openExternal(endpointUrl);
     }
 }

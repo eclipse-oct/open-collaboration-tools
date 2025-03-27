@@ -31,6 +31,24 @@ export function localizeInfo(info: Info): string {
             return l10n.t('Session not found');
         case Info.Codes.WaitingForHost:
             return l10n.t('Waiting for host to accept join request');
+        case Info.Codes.UnverifiedLoginLabel:
+            return l10n.t('Unverified');
+        case Info.Codes.GithubLabel:
+            return l10n.t('GitHub');
+        case Info.Codes.GoogleLabel:
+            return l10n.t('Google');
+        case Info.Codes.BuiltinsGroup:
+            return l10n.t('Built-in');
+        case Info.Codes.ThirdParty:
+            return l10n.t('Third-party');
+        case Info.Codes.EmailLabel:
+            return l10n.t('Email');
+        case Info.Codes.EmailPlaceholder:
+            return l10n.t('Your email that will be shown to the host when joining the session');
+        case Info.Codes.UsernameLabel:
+            return l10n.t('Username');
+        case Info.Codes.UsernamePlaceholder:
+            return l10n.t('Your user name that will be shown to all session participants');
     }
     return info.message;
 }

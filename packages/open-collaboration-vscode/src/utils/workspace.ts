@@ -54,7 +54,8 @@ export async function storeWorkspace(folders: Folder[], storageUri: vscode.Uri):
         };
         await vscode.workspace.fs.createDirectory(workspaceFileDir);
         const workspaceFile = workspaceFileDir.with({ path: workspaceFileDir.path + '/Open Collaboration.code-workspace' });
-        await vscode.workspace.fs.writeFile(workspaceFile, Buffer.from(JSON.stringify(workspace, undefined, 2)));
+        const textEncoder = new TextEncoder();
+        await vscode.workspace.fs.writeFile(workspaceFile, textEncoder.encode(JSON.stringify(workspace, undefined, 2)));
         return workspaceFile;
     } catch {
         // In case of failure, the extension should replace the existing workspace folders with the new ones.

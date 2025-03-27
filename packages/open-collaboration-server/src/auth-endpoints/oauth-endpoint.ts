@@ -6,7 +6,7 @@
 
 import { inject, injectable, postConstruct } from 'inversify';
 import { type Express } from 'express';
-import { AuthProviderMetadata, Emitter, Event } from 'open-collaboration-protocol';
+import { AuthProvider, Emitter, Event, Info } from 'open-collaboration-protocol';
 import { AuthEndpoint, AuthSuccessEvent, UserInfo } from './auth-endpoint';
 import passport from 'passport';
 import { Strategy as GithubStrategy } from 'passport-github';
@@ -16,6 +16,12 @@ import { Configuration } from '../utils/configuration';
 import { URL } from 'url';
 
 export const oauthProviders = Symbol('oauthProviders');
+
+const ThirdParty: Info = {
+    code: Info.Codes.ThirdParty,
+    message: 'Third-party',
+    params: []
+};
 
 @injectable()
 export abstract class OAuthEndpoint implements AuthEndpoint {
@@ -35,7 +41,7 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
     private authSuccessEmitter = new Emitter<AuthSuccessEvent>();
     onDidAuthenticate: Event<AuthSuccessEvent> = this.authSuccessEmitter.event;
 
-    abstract getMetadata(): AuthProviderMetadata;
+    abstract getProtocolProvider(): AuthProvider;
 
     @postConstruct()
     initialize() {
@@ -133,11 +139,17 @@ export class GitHubOAuthEndpoint extends OAuthEndpoint {
         return Boolean(this.configuration.getValue('oct-oauth-github-clientid') && this.configuration.getValue('oct-oauth-github-clientsecret'));
     }
 
-    override getMetadata(): AuthProviderMetadata {
+    override getProtocolProvider(): AuthProvider {
         return {
-            label: 'Github',
-            type: 'oauth',
-            endpoint: this.path
+            type: 'web',
+            name: 'github',
+            endpoint: this.path,
+            label: {
+                code: Info.Codes.GithubLabel,
+                message: 'Github',
+                params: []
+            },
+            group: ThirdParty
         };
     }
 
@@ -168,11 +180,17 @@ export class GoogleOAuthEndpoint extends OAuthEndpoint {
         return Boolean(this.configuration.getValue('oct-oauth-google-clientid') && this.configuration.getValue('oct-oauth-google-clientsecret'));
     }
 
-    override getMetadata(): AuthProviderMetadata {
+    override getProtocolProvider(): AuthProvider {
         return {
-            label: 'Google',
-            type: 'oauth',
-            endpoint: this.path
+            type: 'web',
+            name: 'google',
+            endpoint: this.path,
+            label: {
+                code: Info.Codes.GoogleLabel,
+                message: 'Google',
+                params: []
+            },
+            group: ThirdParty
         };
     }
 

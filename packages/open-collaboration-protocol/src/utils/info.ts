@@ -32,5 +32,14 @@ export namespace Info {
         export const JoinTimeout = 'JoinTimeout';
         export const JoinRejected = 'JoinRejected';
         export const WaitingForHost = 'WaitingForHost';
+        export const UnverifiedLoginLabel = 'UnverifiedLoginLabel';
+        export const BuiltinsGroup = 'BuiltinsGroup';
+        export const UsernameLabel = 'UsernameLabel';
+        export const UsernamePlaceholder = 'UsernamePlaceholder';
+        export const EmailLabel = 'EmailLabel';
+        export const EmailPlaceholder = 'EmailPlaceholder';
+        export const ThirdParty = 'ThirdParty';
+        export const GithubLabel = 'GithubLabel';
+        export const GoogleLabel = 'GoogleLabel';
     }
 }

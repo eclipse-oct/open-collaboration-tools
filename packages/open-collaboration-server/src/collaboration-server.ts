@@ -186,11 +186,13 @@ export class CollaborationServer {
                 } catch (error) {
                     loginPage = `/login.html?token=${encodeURIComponent(token)}`;
                 }
+                // Ensure that we don't send inactive auth providers to the client
+                const activeAuthProviders = this.authEndpoints.filter(e => e.shouldActivate());
                 const result: types.LoginInitialResponse = {
                     pollToken: token,
-                    authMetadata: {
+                    auth: {
                         loginPageUrl: loginPage,
-                        providers: this.authEndpoints.map(endpoint => endpoint.getMetadata()),
+                        providers: activeAuthProviders.map(endpoint => endpoint.getProtocolProvider()),
                         defaultSuccessUrl: this.configuration.getValue('oct-login-success-url') ?? ''
                     }
                 };
@@ -212,7 +214,7 @@ export class CollaborationServer {
         });
         app.post('/api/login/poll/:token', async (req, res) => {
             try {
-                const authTimeoutResponse: types.ProtocolServerInfo = {
+                const authTimeoutResponse: types.InfoMessage = {
                     code: 'AuthTimeout',
                     params: [],
                     message: 'Authentication timed out'
@@ -288,7 +290,7 @@ export class CollaborationServer {
                 if (!room) {
                     this.logger.warn(`User tried joining non-existing room with id '${roomId}'`);
                     res.status(404);
-                    const roomNotFound: types.ProtocolServerInfo = {
+                    const roomNotFound: types.InfoMessage = {
                         code: 'RoomNotFound',
                         params: [],
                         message: 'Room not found'
@@ -315,7 +317,7 @@ export class CollaborationServer {
                 const poll = this.roomManager.pollJoin(joinToken);
                 if (!poll) {
                     res.status(404);
-                    const joinNotFound: types.ProtocolServerInfo = {
+                    const joinNotFound: types.InfoMessage = {
                         code: 'JoinRequestNotFound',
                         params: [],
                         message: 'Join request not found'

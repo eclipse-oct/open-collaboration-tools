@@ -21,7 +21,7 @@ export interface ConnectionProviderOptions {
     client?: string;
     protocolVersion?: string;
     fetch: Fetch;
-    authenticationHandler: (token: string, authenticationMetadata: types.AuthMetadata) => void;
+    authenticationHandler: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
     transports: MessageTransportProvider[];
 }
 
@@ -114,13 +114,24 @@ export class ConnectionProvider {
             throw new Error('Invalid login response');
         }
         const confirmToken = loginBody.pollToken;
-        const url = loginBody.authMetadata.loginPageUrl;
+        const url = loginBody.auth.loginPageUrl;
         const fullUrl = url?.startsWith('/') ? this.getUrl(url) : url;
+        const authController = new AbortController();
+        const abortSignal = this.mergeAbortSignals(options.abortSignal, authController.signal);
         this.options.authenticationHandler(confirmToken, {
-            ...loginBody.authMetadata,
+            ...loginBody.auth,
             loginPageUrl: fullUrl,
+        }).then(success => {
+            if (!success) {
+                // If we failed to start the authentication process, abort the polling
+                // This could be due to failing to open the URL or invalid login data
+                authController.abort();
+            }
+        }, () => authController.abort());
+        const authToken = await this.pollLogin(confirmToken, {
+            ...options,
+            abortSignal
         });
-        const authToken = await this.pollLogin(confirmToken, options);
         this.userAuthToken = authToken;
         return authToken;
     }
@@ -349,5 +360,21 @@ export class ConnectionProvider {
             }
         }
         return -1;
+    }
+
+    private mergeAbortSignals(...signals: (AbortSignal | undefined)[]): AbortSignal {
+        const controller = new AbortController();
+        for (const signal of signals) {
+            if (signal) {
+                if (signal.aborted) {
+                    // If already aborted, just return that signal
+                    return signal;
+                }
+                signal.addEventListener('abort', () => {
+                    controller.abort();
+                });
+            }
+        }
+        return controller.signal;
     }
 }
