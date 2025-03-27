@@ -33,6 +33,8 @@ export function localizeInfo(info: Info): string {
             return l10n.t('Waiting for host to accept join request');
         case Info.Codes.UnverifiedLoginLabel:
             return l10n.t('Unverified');
+        case Info.Codes.UnverifiedLoginDetails:
+            return l10n.t('Login with a user name and an optional email address');
         case Info.Codes.GithubLabel:
             return l10n.t('GitHub');
         case Info.Codes.GoogleLabel:

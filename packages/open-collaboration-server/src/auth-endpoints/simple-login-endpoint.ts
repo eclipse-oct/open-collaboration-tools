@@ -37,6 +37,11 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
                 message: 'Unverified',
                 params: []
             },
+            details: {
+                code: Info.Codes.UnverifiedLoginDetails,
+                message: 'Login with a user name and an optional email address',
+                params: []
+            },
             group: {
                 code: Info.Codes.BuiltinsGroup,
                 message: 'Builtins',
