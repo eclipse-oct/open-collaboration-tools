@@ -62,7 +62,7 @@ export class SocketIoTransport implements MessageTransport {
         this.socket.on('connect', () => this.ready.resolve());
     }
 
-    async write(data: ArrayBuffer): Promise<void> {
+    async write(data: ArrayBufferLike): Promise<void> {
         await this.ready.promise.then(() => this.socket.send(data));
     }
 

@@ -262,7 +262,7 @@ export abstract class AbstractBroadcastConnection implements BroadcastConnection
     protected abstract getPublicKeysLength(): number;
 
     private async write(message: msg.Message): Promise<void> {
-        await this.options.transport.write(Encoding.encode(message).buffer as ArrayBuffer);
+        await this.options.transport.write(Encoding.encode(message).buffer);
     }
 
     onRequest(type: string, handler: Handler<any[], any>): void;
