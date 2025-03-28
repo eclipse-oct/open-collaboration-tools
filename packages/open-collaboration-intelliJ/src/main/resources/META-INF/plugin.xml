@@ -1,0 +1,52 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+  <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+  <id>org.typefox.open-collaboration-intelliJ</id>
+
+  <!-- Public plugin name should be written in Title Case.
+       Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+  <name>Open Collaboration Tools</name>
+
+  <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+  <vendor email="support@typefox.io" url="https://www.typefox.io">Typefox</vendor>
+
+  <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+       Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
+       Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+  <description><![CDATA[
+    IntelliJ Extension for the <a href="https://www.open-collab.tools/">Open Collaboration Tools</a>
+  ]]></description>
+
+  <!-- Product and plugin compatibility requirements.
+       Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+  <depends>com.intellij.modules.platform</depends>
+
+  <!-- Extension points defined by the plugin.
+       Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+  <actions>
+    <action id="org.typefox.oct.JoinSession" class="org.typefox.oct.actions.JoinSessionAction" text="Join OCT Session"
+            description="Join an OCT Session"/>
+    <action id="org.typefox.oct.HostSession" class="org.typefox.oct.actions.HostSessionAction" text="Create OCT Session"
+            description="Create an OCT Session"/>
+  </actions>
+  <extensions defaultExtensionNs="com.intellij">
+
+    <notificationGroup id="Oct-Notifications"
+                       displayType="BALLOON"
+                       />
+
+    <virtualFileSystem id="Oct-Virtual-File-System"
+                       key="com.intellij.virtualFileSystem"
+                       physical="false"
+                       implementationClass="org.typefox.oct.fileSystem.OCTSessionFileSystem"/>
+
+    <applicationConfigurable
+      parentId="tools"
+      instance="org.typefox.oct.settings.OCTSettingsConfigurable"
+      id="org.typefox.oct.settings.OCTSettingsConfigurable"
+      displayName="Open Collaboration Tools"/>
+
+    <applicationService serviceImplementation="org.typefox.oct.settings.OCTSettings" />
+  </extensions>
+
+</idea-plugin>
