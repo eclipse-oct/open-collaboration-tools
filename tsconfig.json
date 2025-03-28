@@ -31,7 +31,8 @@
     "forceConsistentCasingInFileNames": true, /* Disallow inconsistently-cased references to the same file. */
 
     /* Experimental Options */
-    "experimentalDecorators": true            /* Enables experimental support for ES7 decorators. */
+    "experimentalDecorators": true,            /* Enables experimental support for ES7 decorators. */
+    "skipLibCheck": true
   },
   "include": [
      "**/src/**/*",
