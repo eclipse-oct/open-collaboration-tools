@@ -176,17 +176,17 @@ export class CollaborationInstance implements types.Disposable{
 
         const currentSelections: Map<string, ClientTextSelection[]> = new Map();
 
-        for (const [clientID, state] of states.entries()) {
-            if (types.ClientTextSelection.is(state.selection)) {
+        for (const [clientId, state] of states.entries()) {
+            if (types.ClientTextSelection.is(state.selection) && clientId !== this.yjsAwareness.clientID) {
                 const selections = state.selection.textSelections.map(s => ({
                     peer: state.peer,
-                    start: s.start.assoc,
-                    end: s.end.assoc,
+                    start: Y.createAbsolutePositionFromRelativePosition(s.start, this.YjsDoc)?.index ?? 0,
+                    end: Y.createAbsolutePositionFromRelativePosition(s.end, this.YjsDoc)?.index,
                     isReversed: s.direction === types.SelectionDirection.RightToLeft
                 }));
-                currentSelections.has(state.peer) ?
-                    currentSelections.get(state.peer)!.push(...selections) :
-                    currentSelections.set(clientID.toString(), selections);
+                currentSelections.has(state.selection.path) ?
+                    currentSelections.get(state.selection.path)!.push(...selections) :
+                    currentSelections.set(state.selection.path, selections);
             }
         }
 
@@ -216,7 +216,7 @@ export class CollaborationInstance implements types.Disposable{
                         types.SelectionDirection.RightToLeft :
                         types.SelectionDirection.LeftToRight,
                     start: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.start),
-                    end: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.end)
+                    end: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.end ?? clientSelection.start)
                 });
             }
             const textSelection: types.ClientTextSelection = {
