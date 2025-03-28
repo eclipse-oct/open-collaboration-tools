@@ -18,6 +18,7 @@ import { AuthEndpoint } from './auth-endpoints/auth-endpoint';
 import { GitHubOAuthEndpoint, GoogleOAuthEndpoint  } from './auth-endpoints/oauth-endpoint';
 import { Configuration, DefaultConfiguration } from './utils/configuration';
 import { PeerManager } from './peer-manager';
+import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endoint';
 
 export default new ContainerModule(bind => {
     bind(LoggerSymbol).to(ConsoleLogger).inSingletonScope();
@@ -44,4 +45,6 @@ export default new ContainerModule(bind => {
     bind(AuthEndpoint).toService(GitHubOAuthEndpoint);
     bind(GoogleOAuthEndpoint).toSelf().inSingletonScope();
     bind(AuthEndpoint).toService(GoogleOAuthEndpoint);
+    bind(KeycloakOAuthEndpoint).toSelf().inSingletonScope();
+    bind(AuthEndpoint).toService(KeycloakOAuthEndpoint);
 });
