@@ -46,6 +46,12 @@ class JoinSessionAction : AnAction() {
 
 }
 
+class CloseSessionAction: AnAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        service<OCTSessionService>().closeCurrentSession()
+    }
+}
+
 
 class CopyRoomTokenAction(private val roomId: String, private val onClick: () -> Unit) : AnAction("Copy Room ID") {
   override fun actionPerformed(e: AnActionEvent) {

@@ -108,6 +108,14 @@ class OCTSessionService() {
     }
   }
 
+    fun closeCurrentSession() {
+        currentProcess?.dispose()
+        currentProcess = null
+        currentCollaborationInstance?.dispose()
+        currentCollaborationInstance = null
+        // TODO do more cleanup
+    }
+
   private fun sessionCreated(sessionData: SessionData, serverUrl: String, project: Project) {
     if(sessionData.authToken != null) {
       service<AuthenticationService>().onAuthenticated(sessionData.authToken, serverUrl)
