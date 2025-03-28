@@ -28,6 +28,8 @@
             description="Join an OCT Session"/>
     <action id="org.typefox.oct.HostSession" class="org.typefox.oct.actions.HostSessionAction" text="Create OCT Session"
             description="Create an OCT Session"/>
+    <action id="org.typefox.oct.CloseSession" class="org.typefox.oct.actions.CloseSessionAction" text="Close OCT Session"
+          description="Close the current OCT Session"/>
   </actions>
   <extensions defaultExtensionNs="com.intellij">
 
