@@ -81,7 +81,7 @@ export interface TextDocumentInsert {
 
 export interface ClientTextSelection {
     start: number,
-    end: number,
+    end?: number,
     isReversed: boolean
     peer?: string
 }
