@@ -5,13 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Monaco Examples",
-            "request": "launch",
-            "type": "chrome",
-            "url": "http://localhost:5173/",
-            "webRoot": "${workspaceFolder}/packages/open-collaboration-monaco",
-        },
-        {
             "type": "node",
             "request": "launch",
             "name": "Launch Server",
@@ -32,39 +25,65 @@
             }
         },
         {
-			"name": "Run VS Code Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode"
-			],
+            "name": "Run VS Code Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode"
+            ],
+            "env": {
+                "DEVELOPMENT": "true"
+            },
             "sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
-			]
-		},
+            "outFiles": [
+                "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
+            ]
+        },
         {
-			"name": "Run VS Code Web Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
+            "name": "Run VS Code Web Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
                 "--extensionDevelopmentKind=web"
-			],
+            ],
             // VS Code cannot debug the web extension directly, which is why we don't configure source maps here
             // Instead, use VS Code browser dev tools (Help -> Toggle Developer Tools) to debug the web extension
-		},
-    {
-      "name": "Launch Service Process",
-      "type": "node",
-      "request": "launch",
-      "console": "integratedTerminal",
-      "outFiles": [
-        "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
-      ],
-      "sourceMaps": true,
-      "program": "${workspaceFolder}/packages/open-collaboration-service-process/lib/process.js",
-      "args": ["--server-address=http://localhost:8100", "--auth-token=12312"]
-    }
+        },
+        {
+            "name": "Launch Service Process",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "outFiles": [
+                "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
+            ],
+            "sourceMaps": true,
+            "program": "${workspaceFolder}/packages/open-collaboration-service-process/lib/process.js",
+            "args": [
+                "--server-address=http://localhost:8100",
+                "--auth-token=12312"
+            ]
+        },
+        {
+            "name": "Debug Monaco Examples",
+            "request": "launch",
+            "type": "chrome",
+            "url": "http://localhost:5173/",
+            "webRoot": "${workspaceFolder}/packages/open-collaboration-monaco",
+        },
+        {
+            "name": "Vitest: Run Selected File",
+            "type": "node",
+            "request": "launch",
+            "autoAttachChildProcesses": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**", "!**/node_modules/vscode-*/**"],
+            "program": "${workspaceRoot}/node_modules/vitest/vitest.mjs",
+            "args": ["run", "${relativeFile}"],
+            "console": "integratedTerminal",
+            "smartStep": true,
+            "sourceMaps": true,
+            "outFiles": []
+        }
     ]
 }

@@ -25,7 +25,7 @@ export class CollaborationConnectionProvider {
         const userToken = await this.secretStorage.retrieveUserToken(serverUrl);
         return new ConnectionProvider({
             url: serverUrl,
-            client: `OCT_CODE_${vscode.env.appName.replace(/\s+/, '_')}@${packageVersion}`,
+            client: `OCT_CODE_${vscode.env.appName.replace(/[\s\-_]+/g, '_')}@${packageVersion}`,
             authenticationHandler: async (token, authMetadata) => {
                 if (!authMetadata.providers?.length && authMetadata.loginPageUrl) {
                     vscode.env.openExternal(vscode.Uri.parse(authMetadata.loginPageUrl));

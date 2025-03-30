@@ -73,7 +73,9 @@ export class CollaborationInstance implements Disposable {
 
     constructor(protected options: CollaborationInstanceOptions) {
         const connection = options.connection;
-        this.yjsProvider = new OpenCollaborationYjsProvider(this.options.connection, this.yjs, this.yjsAwareness);
+        this.yjsProvider = new OpenCollaborationYjsProvider(this.options.connection, this.yjs, this.yjsAwareness, {
+            resyncTimer: 10_000
+        });
         this.yjsProvider.connect();
 
         connection.peer.onJoinRequest(async (_, user) => {

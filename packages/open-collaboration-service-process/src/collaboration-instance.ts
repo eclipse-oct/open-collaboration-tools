@@ -45,7 +45,9 @@ export class CollaborationInstance implements types.Disposable{
                 this.yjsAwareness.destroy();
             }});
 
-        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, this.yjsAwareness);
+        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, this.yjsAwareness, {
+            resyncTimer: 10_000
+        });
         this.yjsProvider.connect();
         this.connectionDisposables.push(currentConnection.onReconnect(() => {
             this.yjsProvider?.connect();

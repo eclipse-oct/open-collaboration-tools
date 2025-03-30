@@ -6,8 +6,6 @@
 
 import { fromBase64, toBase64 } from './base64';
 
-const Crypto = Symbol('Crypto');
-
 export interface KeyPair {
     publicKey: string;
     privateKey: string;
@@ -34,14 +32,16 @@ export interface CryptoLib {
 
 export type CryptoModule = typeof self.crypto | typeof import('node:crypto').webcrypto;
 
+let cryptoModule: CryptoModule | undefined = undefined;
+
 export function setCryptoModule(module: CryptoModule): void {
-    // Use globalThis instead of global to get cross-platform compatibility
-    // global is node specific
-    (globalThis as any)[Crypto] = module;
+    cryptoModule = module;
 }
 
 export function getCryptoLib(): CryptoLib {
-    const cryptoModule = (globalThis as any)[Crypto] as CryptoModule;
+    if (!cryptoModule) {
+        throw new Error('Crypto module not set. Please set the crypto module using setCryptoModule().');
+    }
     return fromCryptoModule(cryptoModule);
 }
 
@@ -54,7 +54,7 @@ function fromCryptoModule(crypto: CryptoModule): CryptoLib {
                 modulusLength: 4096,
                 publicExponent: new Uint8Array([1, 0, 1]),
                 hash: 'SHA-256'
-            }, true, ['encrypt', 'decrypt']) as CryptoKeyPair;
+            }, true, ['encrypt', 'decrypt']);
             const exportedPublic = await subtle.exportKey('spki', pair.publicKey);
             const exportedPrivate = await subtle.exportKey('pkcs8', pair.privateKey);
             return {

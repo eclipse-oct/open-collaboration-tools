@@ -10,7 +10,7 @@ import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
 import { CollaborationFileSystemProvider } from './collaboration-file-system';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
+import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YTextChangeTracker, YTextChange } from 'open-collaboration-yjs';
 import debounce from 'lodash/debounce';
 import throttle from 'lodash/throttle';
 import { inject, injectable, postConstruct } from 'inversify';
@@ -173,11 +173,12 @@ export class CollaborationInstance implements vscode.Disposable {
     private toDispose = new DisposableCollection();
     protected yjsProvider: OpenCollaborationYjsProvider;
     private yjsMutex = new Mutex();
-    private updates = new Set<string>();
+    private resyncing = new Set<string>();
     private documentDisposables = new Map<string, DisposableCollection>();
     private peers = new Map<string, DisposablePeer>();
     private throttles = new Map<string, () => void>();
     private fileSystem?: CollaborationFileSystemProvider;
+    private asyncTrackers = new Map<string, YTextChangeTracker>();
 
     private _following?: string;
     get following(): string | undefined {
@@ -237,7 +238,9 @@ export class CollaborationInstance implements vscode.Disposable {
         }
         CollaborationInstance.Current = this;
         const connection = this.options.connection;
-        this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness);
+        this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness, {
+            resyncTimer: 10_000 // resync every 10 seconds
+        });
         this.yjsProvider.connect();
         this.toDispose.push(connection);
         this.toDispose.push(connection.onDisconnect(() => {
@@ -411,7 +414,13 @@ export class CollaborationInstance implements vscode.Disposable {
                     const textContent = new TextDecoder().decode(content.content);
                     // In case the supplied content differs from the current document content, apply the change first
                     if (textContent !== document.getText()) {
-                        await this.applyEdit(this.createFullDocumentEdit(document, textContent));
+                        await this.applyEdit([], () => {
+                            const doc = this.findDocument(uri);
+                            if (!doc) {
+                                return undefined;
+                            }
+                            this.createFullDocumentEdit(doc, textContent);
+                        });
                     }
                     // Then save the document
                     await document.save();
@@ -499,6 +508,7 @@ export class CollaborationInstance implements vscode.Disposable {
             const uri = document.uri.toString();
             this.documentDisposables.get(uri)?.dispose();
             this.documentDisposables.delete(uri);
+            this.asyncTrackers.delete(uri);
         }));
 
         this.toDispose.push(vscode.window.onDidChangeTextEditorSelection(event => {
@@ -526,7 +536,7 @@ export class CollaborationInstance implements vscode.Disposable {
         });
     }
 
-    protected createFileWatcher(): void {
+    private createFileWatcher(): void {
         // Batch all changes and send them in one go
         // We don't want to send hundreds of messages in case of multiple changes in a short time
         // However, we also don't want to wait too long to send the changes. This will send the changes every 100ms
@@ -555,7 +565,7 @@ export class CollaborationInstance implements vscode.Disposable {
         this.toDispose.push(watcher);
     }
 
-    protected isNotebookCell(doc: vscode.TextDocument): boolean {
+    private isNotebookCell(doc: vscode.TextDocument): boolean {
         return doc.uri.scheme === 'vscode-notebook-cell';
     }
 
@@ -564,7 +574,7 @@ export class CollaborationInstance implements vscode.Disposable {
         this.updateFollow();
     }
 
-    protected updateFollow(): void {
+    private updateFollow(): void {
         if (this._following) {
             let userState: types.ClientAwareness | undefined = undefined;
             const states = this.yjsAwareness.getStates() as Map<number, types.ClientAwareness>;
@@ -582,7 +592,7 @@ export class CollaborationInstance implements vscode.Disposable {
         }
     }
 
-    protected async followSelection(selection: types.ClientTextSelection): Promise<void> {
+    private async followSelection(selection: types.ClientTextSelection): Promise<void> {
         const uri = CollaborationUri.getResourceUri(selection.path);
         if (uri && selection.visibleRanges && selection.visibleRanges.length > 0) {
             let editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === uri.toString());
@@ -596,7 +606,7 @@ export class CollaborationInstance implements vscode.Disposable {
         }
     }
 
-    protected updateTextSelection(editor?: vscode.TextEditor): void {
+    private updateTextSelection(editor?: vscode.TextEditor): void {
         if (!editor) {
             this.setSharedSelection(undefined);
             return;
@@ -639,12 +649,14 @@ export class CollaborationInstance implements vscode.Disposable {
         }
     }
 
-    protected registerTextDocument(document: vscode.TextDocument): void {
+    private registerTextDocument(document: vscode.TextDocument): void {
         const uri = document.uri;
         const path = CollaborationUri.getProtocolPath(uri);
         if (path) {
+            const asyncTracker = this.getAsyncTracker(uri);
             const text = document.getText();
             const yjsText = this.yjs.getText(path);
+            const throttle = this.getOrCreateThrottle(path);
             if (this.host) {
                 this.yjs.transact(() => {
                     yjsText.delete(0, yjsText.length);
@@ -653,65 +665,90 @@ export class CollaborationInstance implements vscode.Disposable {
             } else {
                 this.options.connection.editor.open(this.options.hostId, path);
             }
-            const resyncThrottle = this.getOrCreateThrottle(path);
-            const observer = (textEvent: Y.YTextEvent) => {
+            const observer = async (textEvent: Y.YTextEvent) => {
                 const document = this.findDocument(uri);
-                if (textEvent.transaction.local || !document || yjsText.toString() === document.getText()) {
+                if (textEvent.transaction.local || !document) {
                     // Ignore own events or if the document is already in sync
                     return;
                 }
-                let index = 0;
-                const edit = new vscode.WorkspaceEdit();
-                textEvent.delta.forEach(delta => {
-                    if (typeof delta.retain === 'number') {
-                        index += delta.retain;
-                    } else if (typeof delta.insert === 'string') {
-                        const pos = document.positionAt(index);
-                        edit.insert(uri, pos, delta.insert);
-                        index += delta.insert.length;
-                    } else if (typeof delta.delete === 'number') {
-                        const pos = document.positionAt(index);
-                        const endPos = document.positionAt(index + delta.delete);
-                        const range = new vscode.Range(pos.line, pos.character, endPos.line, endPos.character);
-                        edit.delete(uri, range);
-                    }
+                await asyncTracker.applyDelta(textEvent.delta, document.getText(), async (changes) => {
+                    await this.applyEdit(changes, localChanges => {
+                        const edit = new vscode.WorkspaceEdit();
+                        for (const change of localChanges) {
+                            const start = document.positionAt(change.start);
+                            const end = document.positionAt(change.end);
+                            if (change.text.length === 0) {
+                                edit.delete(uri, new vscode.Range(start, end));
+                            } else {
+                                edit.insert(uri, start, change.text);
+                            }
+                        }
+                        return edit;
+                    });
                 });
-                this.yjsMutex.runExclusive(async () => {
-                    this.updates.add(path);
-                    await this.applyEdit(edit);
-                    this.updates.delete(path);
-                    resyncThrottle();
-                }, 1000);
+                throttle();
             };
             yjsText.observe(observer);
             this.pushDocumentDisposable(path, { dispose: () => yjsText.unobserve(observer) });
         }
     }
 
-    protected updateTextDocument(event: vscode.TextDocumentChangeEvent): void {
+    private getAsyncTracker(uri: vscode.Uri | string): YTextChangeTracker {
+        const key = typeof uri === 'string' ? uri : uri.toString();
+        let tracker = this.asyncTrackers.get(key);
+        if (!tracker) {
+            tracker = new YTextChangeTracker();
+            this.asyncTrackers.set(key, tracker);
+        }
+        return tracker;
+    }
+
+    private updateTextDocument(event: vscode.TextDocumentChangeEvent): void {
+        if (event.contentChanges.length === 0) {
+            // VS Code sometimes fires the event, even though nothing has changed
+            // Simply return immediately
+            return;
+        }
         const uri = event.document.uri;
         const path = CollaborationUri.getProtocolPath(uri);
         if (path) {
-            if (this.updates.has(path)) {
+            if (this.resyncing.has(path)) {
+                // Don't update the Yjs document if we are resyncing
+                return;
+            }
+            const asyncTracker = this.getAsyncTracker(uri);
+            const changes: YTextChange[] = [];
+            for (const change of event.contentChanges) {
+                const start = change.rangeOffset;
+                const end = change.rangeOffset + change.rangeLength;
+                changes.push({
+                    start,
+                    end,
+                    text: change.text
+                });
+            }
+            if (!asyncTracker.shouldApply(changes)) {
+                // The changes most likely came from the Yjs document, so we don't need to apply them again
                 return;
             }
             const ytext = this.yjs.getText(path);
-            this.yjsMutex.runExclusive(() => {
-                this.yjs.transact(() => {
-                    for (const change of event.contentChanges) {
-                        ytext.delete(change.rangeOffset, change.rangeLength);
-                        ytext.insert(change.rangeOffset, change.text);
-                    }
-                });
-                this.getOrCreateThrottle(path)();
-            }, 500);
+            this.yjs.transact(() => {
+                for (const change of changes) {
+                    ytext.delete(change.start, change.end - change.start);
+                    ytext.insert(change.start, change.text);
+                }
+            });
+            this.getOrCreateThrottle(path)();
         }
     }
 
     private getOrCreateThrottle(path: string): () => void {
         let value = this.throttles.get(path);
+        if (value) {
+            return value;
+        }
         const uri = CollaborationUri.getResourceUri(path);
-        if (uri && !value) {
+        if (uri) {
             value = debounce(() => {
                 this.yjsMutex.runExclusive(async () => {
                     const document = this.findDocument(uri);
@@ -719,36 +756,49 @@ export class CollaborationInstance implements vscode.Disposable {
                         const yjsText = this.yjs.getText(path);
                         const newContent = yjsText.toString();
                         if (newContent !== document.getText()) {
-                            this.updates.add(path);
-                            await this.applyEdit(this.createFullDocumentEdit(document, newContent));
-                            this.updates.delete(path);
+                            this.resyncing.add(path);
+                            await this.applyEdit([], () => {
+                                // Refetch the document in case any modifications have been made
+                                const doc = this.findDocument(uri);
+                                return doc ? this.createFullDocumentEdit(doc, newContent) : undefined;
+                            });
+                            this.resyncing.delete(path);
                         }
                     }
                 });
-            }, 200);
+            }, 100, { // Try to update after 100ms
+                leading: false,
+                trailing: true,
+                maxWait: 500 // Update at least every 500ms
+            });
             this.throttles.set(path, value);
         } else {
-            console.error('Could not determine URI for path', path);
+            console.warn('Could not determine URI for path', path);
             value = () => { };
         }
         return value;
     }
 
-    private async applyEdit(edit: vscode.WorkspaceEdit): Promise<boolean> {
-        if (this.host) {
-            return await vscode.workspace.applyEdit(edit);
-        } else {
-            const entries = edit.entries();
-            if (entries.length > 1) {
-                throw new Error('Only one file should be edited at a time!');
-            }
-            for (const [uri] of entries) {
-                if (!this.findDocument(uri)) {
-                    return false;
+    /**
+     * Applies the given changes to the document. If the changes are not applied successfully, it will retry up to 20 times.
+     * Note that the actual `WorkspaceEdit` needs to be recalculated on every retry attempt, as the document may have changed in the meantime.
+     */
+    private async applyEdit(changes: YTextChange[], edit: (changes: YTextChange[]) => vscode.WorkspaceEdit | undefined): Promise<boolean> {
+        let success = false;
+        let attempts = 0;
+        const maxAttempts = 20;
+        while (!success && attempts++ < maxAttempts) {
+            try {
+                const workspaceEdit = edit(changes);
+                if (!workspaceEdit) {
+                    return true;
                 }
+                success = await vscode.workspace.applyEdit(workspaceEdit);
+            } catch {
+                return false;
             }
-            return await vscode.workspace.applyEdit(edit);
         }
+        return success;
     }
 
     private findDocument(uri: vscode.Uri): vscode.TextDocument | undefined {
@@ -763,7 +813,7 @@ export class CollaborationInstance implements vscode.Disposable {
         return edit;
     }
 
-    protected rerenderPresence() {
+    private rerenderPresence() {
         const states = this.yjsAwareness.getStates() as Map<number, types.ClientAwareness>;
         for (const [clientID, state] of states.entries()) {
             if (clientID === this.yjs.clientID) {
@@ -781,7 +831,7 @@ export class CollaborationInstance implements vscode.Disposable {
         }
     }
 
-    protected renderTextPresence(peer: DisposablePeer, selection: types.ClientTextSelection): void {
+    private renderTextPresence(peer: DisposablePeer, selection: types.ClientTextSelection): void {
         const nameTagVisible = peer.lastUpdated !== undefined && Date.now() - peer.lastUpdated < 1900;
         const { path, textSelections } = selection;
         const uri = CollaborationUri.getResourceUri(path);

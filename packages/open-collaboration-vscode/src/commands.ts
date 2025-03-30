@@ -130,6 +130,28 @@ export class Commands {
                 vscode.window.showInformationMessage(vscode.l10n.t('Signed out successfully!'));
             })
         );
+        if (typeof process === 'object' && process && process.env?.DEVELOPMENT === 'true') {
+            this.contextKeyService.set('oct.dev', true);
+            this.context.subscriptions.push(
+                vscode.commands.registerCommand('oct.dev.fuzzing', async () => {
+                    const editor = vscode.window.activeTextEditor;
+                    // Generate random character a-z
+                    const char = String.fromCharCode(Math.floor(Math.random() * 26) + 97);
+                    if (editor) {
+                        const interval = setInterval(() => {
+                            if (vscode.window.activeTextEditor !== editor) {
+                                // If the user changes the editor or closes it, end the fuzzing
+                                clearInterval(interval);
+                                return;
+                            }
+                            editor.edit(builder => {
+                                builder.insert(editor.selection.start, char);
+                            });
+                        }, 50);
+                    }
+                })
+            );
+        }
         this.statusService.initialize('oct.enter');
     }
 }

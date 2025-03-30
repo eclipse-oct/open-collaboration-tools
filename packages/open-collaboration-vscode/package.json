@@ -94,18 +94,6 @@
         {
           "command": "oct.stopFollowPeer",
           "when": "oct.connection && oct.following"
-        },
-        {
-          "command": "oct.closeConnection",
-          "when": "oct.connection"
-        },
-        {
-          "command": "oct.joinRoom",
-          "when": "!oct.connection"
-        },
-        {
-          "command": "oct.createRoom",
-          "when": "workbenchState != empty && !oct.connection"
         }
       ],
       "view/item/context": [
@@ -123,6 +111,12 @@
     },
     "commands": [
       {
+        "command": "oct.dev.fuzzing",
+        "title": "Run Fuzzing Test",
+        "category": "Open Collaboration Tools Developer",
+        "enablement": "oct.dev"
+      },
+      {
         "command": "oct.followPeer",
         "title": "%oct.followPeer%",
         "category": "Open Collaboration Tools",
@@ -138,19 +132,22 @@
         "command": "oct.closeConnection",
         "title": "%oct.closeConnection%",
         "category": "Open Collaboration Tools",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "oct.connection"
       },
       {
         "command": "oct.joinRoom",
         "title": "%oct.joinRoom%",
         "category": "Open Collaboration Tools",
-        "icon": "$(vm-connect)"
+        "icon": "$(vm-connect)",
+        "enablement": "!oct.connection"
       },
       {
         "command": "oct.createRoom",
         "title": "%oct.createRoom%",
         "category": "Open Collaboration Tools",
-        "icon": "$(vm-connect)"
+        "icon": "$(vm-connect)",
+        "enablement": "workbenchState != empty && !oct.connection"
       },
       {
         "command": "oct.signOut",

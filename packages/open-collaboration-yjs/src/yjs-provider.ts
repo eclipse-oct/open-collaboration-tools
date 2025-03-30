@@ -21,14 +21,17 @@ export interface AwarenessChange {
 
 export const LOCAL_ORIGIN = 'local';
 
+export interface YjsProviderOptions {
+    resyncTimer?: number;
+}
+
 export class OpenCollaborationYjsProvider extends ObservableV2<string> {
 
     private connection: types.ProtocolBroadcastConnection;
     private doc: Y.Doc;
     private awareness: awarenessProtocol.Awareness;
-    private synced = false;
 
-    constructor(connection: types.ProtocolBroadcastConnection, doc: Y.Doc, awareness: awarenessProtocol.Awareness) {
+    constructor(connection: types.ProtocolBroadcastConnection, doc: Y.Doc, awareness: awarenessProtocol.Awareness, options?: YjsProviderOptions) {
         super();
         this.connection = connection;
         this.doc = doc;
@@ -39,15 +42,27 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
         connection.sync.onDataUpdate(this.ocpDataUpdateHandler.bind(this));
         connection.sync.onAwarenessUpdate(this.ocpAwarenessUpdateHandler.bind(this));
         connection.sync.onAwarenessQuery(this.ocpAwarenessQueryHandler.bind(this));
+        if (options?.resyncTimer && options.resyncTimer > 0) {
+            this.setResyncInterval(options.resyncTimer);
+        }
+    }
+
+    private setResyncInterval(timeout: number): void {
+        const interval = setInterval(() => {
+            const encoder = encoding.createEncoder();
+            syncProtocol.writeSyncStep1(encoder, this.doc);
+            this.connection.sync.dataUpdate(this.encode(encoder));
+        }, timeout);
+        this.doc.on('destroy', () => {
+            clearInterval(interval);
+        });
     }
 
     private ocpDataUpdateHandler(origin: string, update: types.Binary): void {
         const decoder = this.decode(update);
         const encoder = encoding.createEncoder();
         const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, origin);
-        if (syncMessageType === syncProtocol.messageYjsSyncStep2 && !this.synced) {
-            // todo handle room syncing (might not be necessary)
-        } else if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
+        if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
             this.connection.sync.dataUpdate(origin, this.encode(encoder));
         }
     }
