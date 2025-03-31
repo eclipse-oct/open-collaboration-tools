@@ -34,7 +34,7 @@ class OCTSessionService() {
 
   private var currentProcess: OCTServiceProcess? = null
 
-  private var currentCollaborationInstance: CollaborationInstance? = null
+  var currentCollaborationInstance: CollaborationInstance? = null
 
   fun createRoom(workspace: Workspace, project: Project) {
 

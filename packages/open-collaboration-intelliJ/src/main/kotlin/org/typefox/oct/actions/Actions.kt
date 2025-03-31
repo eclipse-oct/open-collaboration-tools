@@ -1,8 +1,6 @@
 package org.typefox.oct.actions
 
-import com.intellij.notification.Notification
-import com.intellij.notification.NotificationType
-import com.intellij.notification.Notifications
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
@@ -15,6 +13,7 @@ import org.typefox.oct.*
 import org.typefox.oct.settings.OCTSettings
 import java.util.concurrent.CompletableFuture
 import javax.swing.JTextField
+
 
 class HostSessionAction : AnAction() {
   override fun actionPerformed(e: AnActionEvent) {
@@ -49,6 +48,14 @@ class JoinSessionAction : AnAction() {
 class CloseSessionAction: AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         service<OCTSessionService>().closeCurrentSession()
+    }
+
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.EDT
+    }
+
+    override fun update(e: AnActionEvent) {
+        e.presentation.isEnabled = service<OCTSessionService>().currentCollaborationInstance != null
     }
 }
 
