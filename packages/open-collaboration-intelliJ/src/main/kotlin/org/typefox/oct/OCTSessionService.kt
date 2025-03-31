@@ -109,11 +109,11 @@ class OCTSessionService() {
   }
 
     fun closeCurrentSession() {
+        currentProcess?.octService?.closeSession()
         currentProcess?.dispose()
         currentProcess = null
         currentCollaborationInstance?.dispose()
         currentCollaborationInstance = null
-        // TODO do more cleanup
     }
 
   private fun sessionCreated(sessionData: SessionData, serverUrl: String, project: Project) {

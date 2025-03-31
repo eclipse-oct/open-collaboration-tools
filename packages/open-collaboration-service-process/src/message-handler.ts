@@ -21,7 +21,7 @@ export class MessageHandler {
         communicationHandler.onRequest(LoginRequest, async () => this.login());
         communicationHandler.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
         communicationHandler.onRequest(CreateRoomRequest, this.createRoom.bind(this));
-        communicationHandler.onRequest(CloseSessionRequest, () => this.currentCollaborationInstance?.currentConnection.dispose());
+        communicationHandler.onRequest(CloseSessionRequest, () => this.currentCollaborationInstance?.dispose());
         communicationHandler.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
         communicationHandler.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
         communicationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
