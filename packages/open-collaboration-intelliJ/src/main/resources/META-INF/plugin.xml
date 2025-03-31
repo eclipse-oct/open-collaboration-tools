@@ -24,12 +24,22 @@
   <!-- Extension points defined by the plugin.
        Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
   <actions>
-    <action id="org.typefox.oct.JoinSession" class="org.typefox.oct.actions.JoinSessionAction" text="Join OCT Session"
-            description="Join an OCT Session"/>
-    <action id="org.typefox.oct.HostSession" class="org.typefox.oct.actions.HostSessionAction" text="Create OCT Session"
-            description="Create an OCT Session"/>
-    <action id="org.typefox.oct.CloseSession" class="org.typefox.oct.actions.CloseSessionAction" text="Close OCT Session"
-          description="Close the current OCT Session"/>
+    <group
+      id="org.typefox.oct.actions.OCTActions"
+      text="OCT"
+      description="Open Collaboration Tools"
+      popup="true"
+      icon="/icons/share-icon.svg"
+    >
+      <add-to-group group-id="MainToolbarGeneralActionsGroup"/>
+      <add-to-group group-id="ToolsMenu"/>
+      <action id="org.typefox.oct.JoinSession" class="org.typefox.oct.actions.JoinSessionAction" text="Join OCT Session"
+              description="Join an OCT Session"/>
+      <action id="org.typefox.oct.HostSession" class="org.typefox.oct.actions.HostSessionAction" text="Create OCT Session"
+              description="Create an OCT Session"/>
+      <action id="org.typefox.oct.CloseSession" class="org.typefox.oct.actions.CloseSessionAction" text="Close OCT Session"
+              description="Close the current OCT Session"/>
+    </group>
   </actions>
   <extensions defaultExtensionNs="com.intellij">
 
