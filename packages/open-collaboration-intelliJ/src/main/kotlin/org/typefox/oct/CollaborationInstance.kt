@@ -10,11 +10,10 @@ import org.typefox.oct.fileSystem.WorkspaceFileSystemService
 class CollaborationInstance(octService: OCTMessageHandler.OCTService, project: Project) : Disposable {
 
     val workspaceFileSystem: WorkspaceFileSystemService = project.getService(WorkspaceFileSystemService::class.java)
+    private val editorManager: EditorManager = EditorManager(octService, project)
 
     private val guests: ArrayList<Peer> = ArrayList()
     private var host: Peer? = null
-
-    private val editorManager: EditorManager = EditorManager(octService, project)
 
     init {
         EditorFactory.getInstance().addEditorFactoryListener(editorManager, this)

@@ -235,7 +235,10 @@ export class CollaborationInstance implements types.Disposable{
     }
 
     dispose(): void {
+        this.currentConnection.room.leave();
+        this.currentConnection.dispose();
         this.yjsProvider?.dispose();
+        this.YjsDoc.destroy();
         this.connectionDisposables.dispose();
     }
 }
