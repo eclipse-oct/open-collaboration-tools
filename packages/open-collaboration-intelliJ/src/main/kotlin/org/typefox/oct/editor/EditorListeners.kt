@@ -1,6 +1,9 @@
 package org.typefox.oct.editor
 
+import com.intellij.openapi.editor.Document
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.*
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.JBColor
 import org.typefox.oct.ClientTextSelection
 import org.typefox.oct.OCTMessageHandler
@@ -11,16 +14,22 @@ import kotlin.io.path.pathString
 
 class EditorDocumentListener(private val octService: OCTMessageHandler.OCTService, private val path: String) :
     DocumentListener {
+
+    var sendUpdates = true
+
     override fun documentChanged(event: DocumentEvent) {
-        octService.updateDocument(
-            path, arrayOf(
-                TextDocumentInsert(
-                    event.offset,
-                    event.oldFragment.length,
-                    event.newFragment.toString()
+        if(sendUpdates) {
+            val offset = event.offset
+            octService.updateDocument(
+                path, arrayOf(
+                    TextDocumentInsert(
+                        offset,
+                        offset + event.oldFragment.length,
+                        event.newFragment.toString()
+                    )
                 )
             )
-        )
+        }
     }
 }
 
@@ -28,16 +37,17 @@ class EditorCaretListener(private val octService: OCTMessageHandler.OCTService, 
     CaretListener {
     override fun caretPositionChanged(event: CaretEvent) {
         val caret = event.caret!!
+        val selectionStart = caret.selectionStart
+        val selectionEnd = caret.selectionEnd
         octService.updateTextSelection(
             path, arrayOf(
                 ClientTextSelection(
                     "", // by default its always oneself
-                    caret.offset,
-                    caret.selectionEnd,
-                    caret.selectionEnd < caret.offset
+                    selectionStart,
+                    selectionEnd,
+                    selectionEnd < selectionStart
                 )
             )
         )
     }
 }
-
