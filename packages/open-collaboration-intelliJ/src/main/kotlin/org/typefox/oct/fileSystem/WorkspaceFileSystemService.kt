@@ -18,104 +18,112 @@ import kotlin.io.path.Path
 @Service(Service.Level.PROJECT)
 class WorkspaceFileSystemService(private val project: Project) {
 
-  private val workspaceDir: VirtualFile = VirtualFileManager.getInstance().findFileByNioPath(Path(project.basePath!!))!!
+    private val workspaceDir: VirtualFile =
+        VirtualFileManager.getInstance().findFileByNioPath(Path(project.basePath!!))!!
 
-  fun stat(path: String): FileSystemStat? {
-    try {
+    fun stat(path: String): FileSystemStat? {
+        try {
+            val file = getRelativeFile(path)
 
-      val file = getRelativeFile(path)
-
-      return FileSystemStat(
-        getFileType(file),
-        file.modificationStamp,
-        file.timeStamp,
-        file.length
-      )
-    } catch (e: FileNotFoundException) {
-      return null;
-    }
-  }
-
-  fun readFile(path: String): BinaryResponse {
-    val file = getRelativeFile(path)
-    return BinaryResponse(FileContent(file.contentsToByteArray()))
-  }
-
-  fun readDir(path: String): Map<String, FileType> {
-    val file = getRelativeFile(path)
-
-    val files = HashMap<String, FileType>()
-    if(!file.isDirectory) {
-      return files
+            return FileSystemStat(
+                getFileType(file),
+                file.modificationStamp,
+                file.timeStamp,
+                file.length
+            )
+        } catch (e: FileNotFoundException) {
+            return null;
+        }
     }
 
-    file.children.forEach {
-      files[it.name] = getFileType(it)
-    }
-    return files
-  }
-
-  fun mkdir(path: String) {
-    workspaceDir.createDirectory(toRelativeWorkspacePath(path))
-  }
-
-  fun writeFile(path: String, fileData: FileContent) {
-    if(stat(path) == null) {
-      workspaceDir.createFile(toRelativeWorkspacePath(path))
+    fun readFile(path: String): BinaryResponse? {
+        try {
+            val file = getRelativeFile(path)
+            return BinaryResponse(FileContent(file.contentsToByteArray()))
+        } catch (e: FileNotFoundException) {
+            return null
+        }
     }
 
-    val file = getRelativeFile(path)
-    file.writeBytes(fileData.content)
-  }
+    fun readDir(path: String): Map<String, FileType> {
+        try {
+            val file = getRelativeFile(path)
 
-  fun delete(path: String) {
-    getRelativeFile(path).deleteRecursively()
-  }
+            val files = HashMap<String, FileType>()
+            if (!file.isDirectory) {
+                return files
+            }
 
-  fun rename(path: String, newName: String) {
-    getRelativeFile(path).rename("externalUser", newName)
-  }
-
-  fun change() {
-
-  }
-
-
-  private fun getFileType(file: VirtualFile): FileType {
-    if(file.isRecursiveOrCircularSymlink) {
-      return FileType.SymbolicLink
-    } else if(file.isDirectory) {
-      return FileType.Directory
-    } else if (file.isFile) {
-      return FileType.File
-    } else {
-      return FileType.Unknown
+            file.children.forEach {
+                files[it.name] = getFileType(it)
+            }
+            return files
+        } catch (e: FileNotFoundException) {
+            return mapOf()
+        }
     }
-  }
 
-  private fun getRelativeFile(path: String): VirtualFile {
-    val relativePath = toRelativeWorkspacePath(path)
-    val file = workspaceDir.findFileByRelativePath(relativePath)
-      ?: throw FileNotFoundException("could not find workspace file with path: $path")
-    return file
-  }
+    fun mkdir(path: String) {
+        workspaceDir.createDirectory(toRelativeWorkspacePath(path))
+    }
 
-  private fun toRelativeWorkspacePath(path: String): String {
-    return if(path.startsWith(workspaceDir.name)) path.substring(workspaceDir.name.length) else path
-  }
+    fun writeFile(path: String, fileData: FileContent) {
+        if (stat(path) == null) {
+            workspaceDir.createFile(toRelativeWorkspacePath(path))
+        }
+
+        val file = getRelativeFile(path)
+        file.writeBytes(fileData.content)
+    }
+
+    fun delete(path: String) {
+        getRelativeFile(path).deleteRecursively()
+    }
+
+    fun rename(path: String, newName: String) {
+        getRelativeFile(path).rename("externalUser", newName)
+    }
+
+    fun change() {
+
+    }
+
+
+    private fun getFileType(file: VirtualFile): FileType {
+        if (file.isRecursiveOrCircularSymlink) {
+            return FileType.SymbolicLink
+        } else if (file.isDirectory) {
+            return FileType.Directory
+        } else if (file.isFile) {
+            return FileType.File
+        } else {
+            return FileType.Unknown
+        }
+    }
+
+    private fun getRelativeFile(path: String): VirtualFile {
+        val relativePath = toRelativeWorkspacePath(path)
+        val file = workspaceDir.findFileByRelativePath(relativePath)
+            ?: throw FileNotFoundException("could not find workspace file with path: $path")
+        return file
+    }
+
+    private fun toRelativeWorkspacePath(path: String): String {
+        return if (path.startsWith(workspaceDir.name)) path.substring(workspaceDir.name.length) else path
+    }
 
 }
 
 enum class FileType {
-  Unknown,
-  File,
-  Directory,
-  SymbolicLink
+    Unknown,
+    File,
+    Directory,
+    SymbolicLink
 }
 
 data class FileSystemStat(
-  val type: FileType,
-  val mtime: Long,
-  val ctime: Long,
-  val size: Long,
+    val type: FileType,
+    val mtime: Long,
+    val ctime: Long,
+    val size: Long,
 )
