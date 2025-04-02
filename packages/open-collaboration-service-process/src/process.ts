@@ -27,6 +27,7 @@ const connectionProvider = new ConnectionProvider({
     fetch: fetch,
     authenticationHandler: async (token, metadata) => {
         communicationHandler.sendNotification(Authentication, token, metadata);
+        return true;
     },
     transports: [SocketIoTransportProvider],
     url: args.serverAddress  ?? '',

@@ -23,7 +23,7 @@ export type MonacoCollabOptions = {
     callbacks: MonacoCollabCallbacks;
     userToken?: string;
     roomToken?: string;
-    loginPageOpener?: (token: string, authenticationMetadata: types.AuthMetadata) => void;
+    loginPageOpener?: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
 };
 
 export type OtherUserData = {peer: types.Peer, color: string};
@@ -44,7 +44,10 @@ export type MonacoCollabApi = {
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
     connectionProvider = new ConnectionProvider({
         url: options.serverUrl,
-        authenticationHandler: options.loginPageOpener ?? ((_token, metaData) => window.open(metaData.loginPageUrl, '_blank')),
+        authenticationHandler: options.loginPageOpener ?? (async (_token, metaData) => {
+            // If this returns null, it means the window could not be opened and the authentication failed
+            return window.open(metaData.loginPageUrl, '_blank') !== null;
+        }),
         transports: [SocketIoTransportProvider],
         userToken: options.userToken,
         fetch: async (url, options) => {
