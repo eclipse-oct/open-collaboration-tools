@@ -21,6 +21,15 @@ export interface ConnectionProviderOptions {
     client?: string;
     protocolVersion?: string;
     fetch: Fetch;
+    /**
+     * Client specific handler function to handle authentication.
+     *
+     * @param token The token supplied by the server to identify the authentication process.
+     * @param authenticationMetadata The authentication metadata supplied by the server.
+     * @returns Whether or not the authentication was successfully started.
+     * `false` can be returned in case the browser fails to open the URL or the user does not supply a user name.
+     * In that case the authentication process will be cancelled.
+     */
     authenticationHandler: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
     transports: MessageTransportProvider[];
 }
@@ -123,7 +132,7 @@ export class ConnectionProvider {
             loginPageUrl: fullUrl,
         }).then(success => {
             if (!success) {
-                // If we failed to start the authentication process, abort the polling
+                // If we failed to run the authentication process, abort the polling
                 // This could be due to failing to open the URL or invalid login data
                 authController.abort();
             }

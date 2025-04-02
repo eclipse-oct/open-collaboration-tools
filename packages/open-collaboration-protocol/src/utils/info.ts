@@ -40,7 +40,7 @@ export namespace Info {
         export const EmailLabel = 'EmailLabel';
         export const EmailPlaceholder = 'EmailPlaceholder';
         export const ThirdParty = 'ThirdParty';
-        export const GithubLabel = 'GithubLabel';
+        export const GitHubLabel = 'GitHubLabel';
         export const GoogleLabel = 'GoogleLabel';
     }
 }

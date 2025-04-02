@@ -145,8 +145,8 @@ export class GitHubOAuthEndpoint extends OAuthEndpoint {
             name: 'github',
             endpoint: this.path,
             label: {
-                code: Info.Codes.GithubLabel,
-                message: 'Github',
+                code: Info.Codes.GitHubLabel,
+                message: 'GitHub',
                 params: []
             },
             group: ThirdParty
