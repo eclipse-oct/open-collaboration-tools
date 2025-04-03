@@ -5,7 +5,6 @@
 // ******************************************************************************
 
 import * as Y from 'yjs';
-import { TextDocument, TextEdit } from 'vscode-languageserver-textdocument';
 
 export interface YTextChange {
     start: number;
@@ -22,7 +21,8 @@ export interface YTextChangeDelta {
 
 interface ChangeSet {
     changes: YTextChange[];
-    document: TextDocument;
+    document: string;
+    after: string;
 }
 
 export class YTextChangeTracker {
@@ -58,8 +58,9 @@ export class YTextChangeTracker {
 
     async applyChanges(changes: YTextChange[], document: string, apply: (changes: YTextChange[]) => Promise<void>): Promise<void> {
         const changeSet: ChangeSet = {
-            changes: changes,
-            document: TextDocument.create('', '', 0, document)
+            changes,
+            document,
+            after: this.applyTextChanges(document, changes)
         };
         this.changeSets.push(changeSet);
         await apply(changes);
@@ -70,29 +71,36 @@ export class YTextChangeTracker {
         }
     }
 
-    private toTextEdits(document: TextDocument, changes: YTextChange[]): TextEdit[] {
-        return changes.map(change => ({
-            newText: change.text,
-            range: {
-                start: document.positionAt(change.start),
-                end: document.positionAt(change.end)
-            }
-        }));
-    }
-
     shouldApply(changes: YTextChange[]): boolean {
         for (const changeSet of this.changeSets) {
-            // We use TextDocument.applyEdits for convenience here to check whether the changes lead to the same result
+            // We use applyTextChanges for convenience here to check whether the changes lead to the same result
             // We cannot simply compare the changes themselves, as they are merged together by the editor (in an unpredictable way)
-            const afterNewChange = TextDocument.applyEdits(changeSet.document, this.toTextEdits(changeSet.document, changes));
-            const afterExistingChanges = TextDocument.applyEdits(changeSet.document, this.toTextEdits(changeSet.document, changeSet.changes));
-            if (afterNewChange === afterExistingChanges) {
+            if (this.applyTextChanges(changeSet.document, changes) === changeSet.after) {
                 // If the changes lead to the same result, we can ignore them
                 // This is usually the case when we have found a change in the client that originates from the collaboration session
                 return false;
             }
         }
         return true;
+    }
+
+    private applyTextChanges(text: string, changes: YTextChange[]): string {
+        let lastModifiedOffset = 0;
+        const spans = [];
+        for (const change of changes) {
+            const startOffset = change.start;
+            if (startOffset < lastModifiedOffset) {
+                throw new Error('Overlapping edit');
+            } else if (startOffset > lastModifiedOffset) {
+                spans.push(text.substring(lastModifiedOffset, startOffset));
+            }
+            if (change.text.length > 0) {
+                spans.push(change.text);
+            }
+            lastModifiedOffset = change.end;
+        }
+        spans.push(text.substring(lastModifiedOffset));
+        return spans.join('');
     }
 
 }
