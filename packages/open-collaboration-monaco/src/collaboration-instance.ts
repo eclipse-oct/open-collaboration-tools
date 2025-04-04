@@ -209,14 +209,14 @@ export class CollaborationInstance implements Disposable {
                 }
             }
             if (userState) {
-                if (types.ClientTextSelection.is(userState.selection)) {
-                    this.followSelection(userState.selection);
+                if (types.ClientTextState.is(userState.state)) {
+                    this.followSelection(userState.state);
                 }
             }
         }
     }
 
-    protected async followSelection(selection: types.ClientTextSelection): Promise<void> {
+    protected async followSelection(selection: types.ClientTextState): Promise<void> {
         if (!this.options.editor) {
             return;
         }
@@ -263,7 +263,8 @@ export class CollaborationInstance implements Disposable {
                 };
                 textSelections.push(editorSelection);
             }
-            const textSelection: types.ClientTextSelection = {
+            const textSelection: types.ClientTextState = {
+                kind: 'text',
                 path,
                 textSelections,
                 visibleRanges: editor.getVisibleRanges().map(range => ({
@@ -401,20 +402,20 @@ export class CollaborationInstance implements Disposable {
 
     protected rerenderPresence() {
         const states = this.yjsAwareness.getStates() as Map<number, types.ClientAwareness>;
-        for (const [clientID, state] of states.entries()) {
+        for (const [clientID, awareness] of states.entries()) {
             if (clientID === this.yjs.clientID) {
                 // Ignore own awareness state
                 continue;
             }
-            const peerId = state.peer;
+            const peerId = awareness.peer;
             const peer = this.peers.get(peerId);
-            if (!state.selection || !peer) {
+            if (!awareness.state || !peer) {
                 continue;
             }
-            if (!types.ClientTextSelection.is(state.selection)) {
+            if (!types.ClientTextState.is(awareness.state)) {
                 continue;
             }
-            const { path, textSelections } = state.selection;
+            const { path, textSelections } = awareness.state;
             const selection = textSelections[0];
             if (!selection) {
                 continue;
@@ -464,8 +465,8 @@ export class CollaborationInstance implements Disposable {
         }
     }
 
-    protected setSharedSelection(selection?: types.ClientSelection): void {
-        this.yjsAwareness.setLocalStateField('selection', selection);
+    protected setSharedSelection(selection?: types.ClientState): void {
+        this.yjsAwareness.setLocalStateField('state', selection);
     }
 
     protected createSelectionFromRelative(selection: types.RelativeTextSelection, model: monaco.editor.ITextModel): monaco.Selection | undefined {

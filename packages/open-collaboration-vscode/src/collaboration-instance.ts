@@ -10,7 +10,7 @@ import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
 import { CollaborationFileSystemProvider } from './collaboration-file-system';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YTextChangeTracker, YTextChange } from 'open-collaboration-yjs';
+import { OpenCollaborationYjsProvider, YTextChangeTracker, YTextChange } from 'open-collaboration-yjs';
 import debounce from 'lodash/debounce';
 import throttle from 'lodash/throttle';
 import { inject, injectable, postConstruct } from 'inversify';
@@ -18,6 +18,7 @@ import { removeWorkspaceFolders } from './utils/workspace';
 import { Mutex } from 'async-mutex';
 import { CollaborationUri } from './utils/uri';
 import { userColors } from './utils/package';
+import { YjsEditorService } from 'open-collaboration-yjs/src/yjs-editor-service';
 
 export interface PeerWithColor extends types.Peer {
     color?: string;
@@ -27,34 +28,11 @@ export class DisposablePeer implements vscode.Disposable {
 
     readonly peer: types.Peer;
     private disposables: vscode.Disposable[] = [];
-    private yjsAwareness: awarenessProtocol.Awareness;
 
     readonly decoration: ClientTextEditorDecorationType;
 
-    get clientId(): number | undefined {
-        const states = this.yjsAwareness.getStates() as Map<number, types.ClientAwareness>;
-        for (const [clientID, state] of states.entries()) {
-            if (state.peer === this.peer.id) {
-                return clientID;
-            }
-        }
-        return undefined;
-    }
-
-    get lastUpdated(): number | undefined {
-        const clientId = this.clientId;
-        if (clientId !== undefined) {
-            const meta = this.yjsAwareness.meta.get(clientId);
-            if (meta) {
-                return meta.lastUpdated;
-            }
-        }
-        return undefined;
-    }
-
-    constructor(yAwareness: awarenessProtocol.Awareness, peer: types.Peer) {
+    constructor(peer: types.Peer) {
         this.peer = peer;
-        this.yjsAwareness = yAwareness;
         this.decoration = this.createDecorationType();
         this.disposables.push(this.decoration);
     }
@@ -169,6 +147,7 @@ export class CollaborationInstance implements vscode.Disposable {
 
     private yjs: Y.Doc = new Y.Doc();
     private yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
+    private yjsService = new YjsEditorService(this.yjs, this.yjsAwareness);
     private identity = new Deferred<types.Peer>();
     private toDispose = new DisposableCollection();
     protected yjsProvider: OpenCollaborationYjsProvider;
@@ -301,7 +280,7 @@ export class CollaborationInstance implements vscode.Disposable {
                 };
                 connection.peer.init(peer.id, initData);
             }
-            this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
+            this.peers.set(peer.id, new DisposablePeer(peer));
             this.onDidUsersChangeEmitter.fire();
         });
         connection.room.onLeave(async (_, peer) => {
@@ -321,11 +300,10 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.peer.onInfo((_, peer) => {
-            this.yjsAwareness.setLocalStateField('peer', peer.id);
+            this.yjsService.setClientAwarenessField('peer', peer.id);
             this.identity.resolve(peer);
             this.onDidUsersChangeEmitter.fire();
         });
-
         this.registerFileEvents();
         this.registerEditorEvents();
     }
@@ -527,12 +505,10 @@ export class CollaborationInstance implements vscode.Disposable {
             this.rerenderPresence();
         }, 2000);
 
-        this.yjsAwareness.on('change', async (_: any, origin: string) => {
-            if (origin !== LOCAL_ORIGIN) {
-                this.updateFollow();
-                this.rerenderPresence();
-                awarenessDebounce();
-            }
+        this.yjsService.onDidChangeAwareness(() => {
+            this.updateFollow();
+            this.rerenderPresence();
+            awarenessDebounce();
         });
     }
 
@@ -585,14 +561,14 @@ export class CollaborationInstance implements vscode.Disposable {
                 }
             }
             if (userState) {
-                if (types.ClientTextSelection.is(userState.selection)) {
-                    this.followSelection(userState.selection);
+                if (types.ClientTextState.is(userState.state)) {
+                    this.followSelection(userState.state);
                 }
             }
         }
     }
 
-    private async followSelection(selection: types.ClientTextSelection): Promise<void> {
+    private async followSelection(selection: types.ClientTextState): Promise<void> {
         const uri = CollaborationUri.getResourceUri(selection.path);
         if (uri && selection.visibleRanges && selection.visibleRanges.length > 0) {
             let editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === uri.toString());
@@ -608,13 +584,13 @@ export class CollaborationInstance implements vscode.Disposable {
 
     private updateTextSelection(editor?: vscode.TextEditor): void {
         if (!editor) {
-            this.setSharedSelection(undefined);
+            this.yjsService.setClientAwarenessField('state', undefined);
             return;
         }
         const uri = editor.document.uri;
         const path = CollaborationUri.getProtocolPath(uri);
         if (path) {
-            const ytext = this.yjs.getText(path);
+            const ytext = this.yjsService.getEditorText(path);
             const selections: types.RelativeTextSelection[] = [];
             for (const selection of editor.selections) {
                 const start = editor.document.offsetAt(selection.start);
@@ -629,7 +605,8 @@ export class CollaborationInstance implements vscode.Disposable {
                 };
                 selections.push(editorSelection);
             }
-            const textSelection: types.ClientTextSelection = {
+            const textSelection: types.ClientTextState = {
+                kind: 'text',
                 path,
                 textSelections: selections,
                 visibleRanges: editor.visibleRanges.map(range => ({
@@ -643,9 +620,9 @@ export class CollaborationInstance implements vscode.Disposable {
                     }
                 }))
             };
-            this.setSharedSelection(textSelection);
+            this.yjsService.setClientAwarenessField('state', textSelection);
         } else {
-            this.setSharedSelection(undefined);
+            this.yjsService.setClientAwarenessField('state', undefined);
         }
     }
 
@@ -655,7 +632,7 @@ export class CollaborationInstance implements vscode.Disposable {
         if (path) {
             const asyncTracker = this.getAsyncTracker(uri);
             const text = document.getText();
-            const yjsText = this.yjs.getText(path);
+            const yjsText = this.yjsService.getEditorText(path);
             const throttle = this.getOrCreateThrottle(path);
             if (this.host) {
                 this.yjs.transact(() => {
@@ -665,18 +642,17 @@ export class CollaborationInstance implements vscode.Disposable {
             } else {
                 this.options.connection.editor.open(this.options.hostId, path);
             }
-            const observer = async (textEvent: Y.YTextEvent) => {
-                const document = this.findDocument(uri);
-                if (textEvent.transaction.local || !document) {
-                    // Ignore own events or if the document is already in sync
+            const observer = this.yjsService.addTextObserver(yjsText, async changes => {
+                const currentDocument = this.findDocument(uri);
+                if (!currentDocument) {
                     return;
                 }
-                await asyncTracker.applyDelta(textEvent.delta, document.getText(), async (changes) => {
+                await asyncTracker.applyChanges(changes, currentDocument.getText(), async () => {
                     await this.applyEdit(changes, localChanges => {
                         const edit = new vscode.WorkspaceEdit();
                         for (const change of localChanges) {
-                            const start = document.positionAt(change.start);
-                            const end = document.positionAt(change.end);
+                            const start = currentDocument.positionAt(change.start);
+                            const end = currentDocument.positionAt(change.end);
                             if (change.text.length === 0) {
                                 edit.delete(uri, new vscode.Range(start, end));
                             } else {
@@ -687,9 +663,8 @@ export class CollaborationInstance implements vscode.Disposable {
                     });
                 });
                 throttle();
-            };
-            yjsText.observe(observer);
-            this.pushDocumentDisposable(path, { dispose: () => yjsText.unobserve(observer) });
+            });
+            this.pushDocumentDisposable(path, observer);
         }
     }
 
@@ -731,7 +706,7 @@ export class CollaborationInstance implements vscode.Disposable {
                 // The changes most likely came from the Yjs document, so we don't need to apply them again
                 return;
             }
-            const ytext = this.yjs.getText(path);
+            const ytext = this.yjsService.getEditorText(path);
             this.yjs.transact(() => {
                 for (const change of changes) {
                     ytext.delete(change.start, change.end - change.start);
@@ -753,7 +728,7 @@ export class CollaborationInstance implements vscode.Disposable {
                 this.yjsMutex.runExclusive(async () => {
                     const document = this.findDocument(uri);
                     if (document) {
-                        const yjsText = this.yjs.getText(path);
+                        const yjsText = this.yjsService.getEditorText(path);
                         const newContent = yjsText.toString();
                         if (newContent !== document.getText()) {
                             this.resyncing.add(path);
@@ -822,17 +797,18 @@ export class CollaborationInstance implements vscode.Disposable {
             }
             const peerId = state.peer;
             const peer = this.peers.get(peerId);
-            if (!state.selection || !peer) {
+            if (!state.state || !peer) {
                 continue;
             }
-            if (types.ClientTextSelection.is(state.selection)) {
-                this.renderTextPresence(peer, state.selection);
+            if (types.ClientTextState.is(state.state)) {
+                this.renderTextPresence(peer, state.state);
             }
         }
     }
 
-    private renderTextPresence(peer: DisposablePeer, selection: types.ClientTextSelection): void {
-        const nameTagVisible = peer.lastUpdated !== undefined && Date.now() - peer.lastUpdated < 1900;
+    private renderTextPresence(peer: DisposablePeer, selection: types.ClientTextState): void {
+        const peerState = this.yjsService.getClientState(peer.peer.id);
+        const nameTagVisible = peerState !== undefined && Date.now() - peerState.lastUpdated < 1900;
         const { path, textSelections } = selection;
         const uri = CollaborationUri.getResourceUri(path);
         const editorsToRemove = new Set(vscode.window.visibleTextEditors);
@@ -885,10 +861,6 @@ export class CollaborationInstance implements vscode.Disposable {
         }
     }
 
-    private setSharedSelection(selection?: types.ClientSelection): void {
-        this.yjsAwareness.setLocalStateField('selection', selection);
-    }
-
     protected createSelectionFromRelative(selection: types.RelativeTextSelection, model: vscode.TextDocument): vscode.Selection | undefined {
         const start = Y.createAbsolutePositionFromRelativePosition(selection.start, this.yjs);
         const end = Y.createAbsolutePositionFromRelativePosition(selection.end, this.yjs);
@@ -915,7 +887,7 @@ export class CollaborationInstance implements vscode.Disposable {
 
     async initialize(data: types.InitData): Promise<void> {
         for (const peer of [data.host, ...data.guests]) {
-            this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
+            this.peers.set(peer.id, new DisposablePeer(peer));
         }
         this.fileSystem = new CollaborationFileSystemProvider(this.options.connection, this.yjs, data.host);
         this.toDispose.push(vscode.workspace.registerFileSystemProvider('oct', this.fileSystem));

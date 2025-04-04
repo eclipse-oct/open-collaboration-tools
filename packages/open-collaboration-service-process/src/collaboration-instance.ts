@@ -177,8 +177,8 @@ export class CollaborationInstance implements types.Disposable{
         const currentSelections: Map<string, ClientTextSelection[]> = new Map();
 
         for (const [clientID, state] of states.entries()) {
-            if (types.ClientTextSelection.is(state.selection)) {
-                const selections = state.selection.textSelections.map(s => ({
+            if (types.ClientTextState.is(state.state)) {
+                const selections = state.state.textSelections.map(s => ({
                     peer: state.peer,
                     start: s.start.assoc,
                     end: s.end.assoc,
@@ -219,7 +219,8 @@ export class CollaborationInstance implements types.Disposable{
                     end: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.end)
                 });
             }
-            const textSelection: types.ClientTextSelection = {
+            const textSelection: types.ClientTextState = {
+                kind: 'text',
                 path: documentPath,
                 textSelections: selections
             };
@@ -230,8 +231,8 @@ export class CollaborationInstance implements types.Disposable{
 
     }
 
-    private setSharedSelection(selection?: types.ClientSelection): void {
-        this.yjsAwareness.setLocalStateField('selection', selection);
+    private setSharedSelection(state?: types.ClientState): void {
+        this.yjsAwareness.setLocalStateField('state', state);
     }
 
     dispose(): void {

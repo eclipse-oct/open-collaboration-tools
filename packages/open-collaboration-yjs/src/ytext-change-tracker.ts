@@ -12,24 +12,8 @@ export interface YTextChange {
     text: string;
 }
 
-export interface YTextChangeDelta {
-    insert?: string | object | Y.AbstractType<any>;
-    delete?: number;
-    retain?: number;
-    attributes?: Record<string, any>;
-}
-
-interface ChangeSet {
-    changes: YTextChange[];
-    document: string;
-    after: string;
-}
-
-export class YTextChangeTracker {
-
-    private changeSets: ChangeSet[] = [];
-
-    async applyDelta(delta: YTextChangeDelta[], document: string, apply: (changes: YTextChange[]) => Promise<void>): Promise<void> {
+export namespace YTextChange {
+    export function fromDelta(delta: YTextChangeDelta[]): YTextChange[] {
         const changes: YTextChange[] = [];
         let index = 0;
         for (const op of delta) {
@@ -53,21 +37,48 @@ export class YTextChangeTracker {
                 index += op.delete;
             }
         }
-        await this.applyChanges(changes, document, apply);
+        return changes;
     }
+}
 
-    async applyChanges(changes: YTextChange[], document: string, apply: (changes: YTextChange[]) => Promise<void>): Promise<void> {
+export interface YTextChangeDelta {
+    insert?: string | object | Y.AbstractType<any>;
+    delete?: number;
+    retain?: number;
+    attributes?: Record<string, any>;
+}
+
+interface ChangeSet {
+    changes: YTextChange[];
+    document: string;
+    after: string;
+}
+
+export class YTextChangeTracker {
+
+    private changeSets: ChangeSet[] = [];
+
+    applyChanges(changes: YTextChange[], document: string, apply: (changes: YTextChange[]) => Promise<void>): Promise<void>;
+    applyChanges(changes: YTextChange[], document: string, apply: (changes: YTextChange[]) => void): void;
+    applyChanges(changes: YTextChange[], document: string, apply: (changes: YTextChange[]) => Promise<void> | void): Promise<void> | void {
         const changeSet: ChangeSet = {
             changes,
             document,
             after: this.applyTextChanges(document, changes)
         };
         this.changeSets.push(changeSet);
-        await apply(changes);
-        // Remove the change set from the list of pending changes, as it has been fully applied
-        const index = this.changeSets.indexOf(changeSet);
-        if (index !== -1) {
-            this.changeSets.splice(index, 1);
+        const result = apply(changes);
+        const remove = () => {
+            // Remove the change set from the list of pending changes, as it has been fully applied
+            const index = this.changeSets.indexOf(changeSet);
+            if (index !== -1) {
+                this.changeSets.splice(index, 1);
+            }
+        };
+        if (result instanceof Promise) {
+            return result.then(remove);
+        } else {
+            remove();
         }
     }
 
