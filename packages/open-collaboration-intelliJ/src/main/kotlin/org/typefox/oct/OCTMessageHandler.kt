@@ -1,15 +1,21 @@
 package org.typefox.oct
 
+import com.google.gson.Gson
+import com.google.gson.TypeAdapter
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.openapi.components.service
 import com.jetbrains.rd.util.printlnError
 import org.eclipse.lsp4j.jsonrpc.Endpoint
+import org.eclipse.lsp4j.jsonrpc.json.ResponseJsonAdapter
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.typefox.oct.actions.JoinRequestAction
 import java.util.concurrent.CompletableFuture
+import com.google.gson.TypeAdapterFactory
+import com.google.gson.reflect.TypeToken
+
 
 class OCTMessageHandler() : Endpoint {
 
@@ -30,11 +36,13 @@ class OCTMessageHandler() : Endpoint {
         fun updateDocument(url: String, updates: Array<TextDocumentInsert>)
 
         @JsonRequest
-        fun request(message: OCPMessage): CompletableFuture<OCPMessage>
+        @ResponseJsonAdapter(OCPRequestResponseAdapter::class)
+        fun <T> request(message: OCPMessage): CompletableFuture<T>
         @JsonNotification
         fun notification(message: OCPMessage)
         @JsonNotification
         fun broadcast(message: OCPMessage)
+
     }
 
     var collaborationInstance: CollaborationInstance? = null
@@ -82,7 +90,7 @@ class OCTMessageHandler() : Endpoint {
     //peer init
     @JsonNotification
     fun init(initData: InitData) {
-        println(initData)
+        collaborationInstance?.initPeers(initData)
     }
 
     @JsonNotification(value = "awareness/updateTextSelection")
@@ -115,7 +123,7 @@ class OCTMessageHandler() : Endpoint {
                 message.params[1] as String
             )
 
-            "fileSystem/change" -> collaborationInstance.workspaceFileSystem.change()
+            "fileSystem/change" -> collaborationInstance.onFileChange()
             else -> throw RuntimeException("no handler found for method ${message.method}")
         }
 
@@ -133,3 +141,11 @@ class OCTMessageHandler() : Endpoint {
     }
 }
 
+
+class OCPRequestResponseAdapter: TypeAdapterFactory {
+    override fun <T : Any?> create(p0: Gson?, p1: TypeToken<T>?): TypeAdapter<T> {
+        println("adapter executed")
+        println(p1?.type?.typeName)
+        return BinaryOCPMessageTypeAdapter() as TypeAdapter<T>
+    }
+}
