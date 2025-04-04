@@ -14,7 +14,7 @@ A public instance of the collaboration server is available at [open-collab.tools
 
 [TypeFox](https://www.typefox.io/) offers this service with the intent to demonstrate the capabilities of the project and to support open source communities with it. However, we recommend all companies who wish to adopt this technology to deploy their own instance of it, secured with their existing access restrictions.
 
-Usage of the public instance is bound to its [Terms of Use](https://www.open-collab.tools/tos/). Please read them carefully and use our [Discussions](https://github.com/TypeFox/open-collaboration-tools/discussions) for any questions.
+Usage of the public instance is bound to its [Terms of Use](https://www.open-collab.tools/tos/). Please read them carefully and use our [Discussions](https://github.com/eclipse-oct/open-collaboration-tools/discussions) for any questions.
 
 ## IDE Extensions
 
@@ -44,7 +44,7 @@ npm run start
 
 ## Deployment
 
-A container image named [oct-server](https://github.com/TypeFox/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server) is available for simple deployment. It does not require any additional infrastructure services. However, the server uses WebSocket connections and holds session data in memory, so horizontal scaling is not yet supported.
+A container image named [oct-server](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server) is available for simple deployment. It does not require any additional infrastructure services. However, the server uses WebSocket connections and holds session data in memory, so horizontal scaling is not yet supported.
 
 Build the container image:
 

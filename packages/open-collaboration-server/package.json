@@ -1,6 +1,7 @@
 {
   "name": "open-collaboration-server",
   "version": "0.2.0",
+  "license": "MIT",
   "description": "Open Collaboration Server implementation, part of the Open Collaboration Tools project",
   "files": [
     "bin",
@@ -46,14 +47,13 @@
     "live-share",
     "server"
   ],
-  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TypeFox/open-collaboration-tools",
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools",
     "directory": "packages/open-collaboration-server"
   },
   "bugs": {
-    "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools/issues"
   },
   "homepage": "https://www.open-collab.tools/",
   "author": {

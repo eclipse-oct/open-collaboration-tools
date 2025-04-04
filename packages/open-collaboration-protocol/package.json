@@ -1,6 +1,7 @@
 {
   "name": "open-collaboration-protocol",
   "version": "0.2.1",
+  "license": "MIT",
   "description": "Open Collaboration Protocol implementation, part of the Open Collaboration Tools project",
   "files": [
     "lib",
@@ -12,6 +13,9 @@
     "types": "./lib/index.d.ts",
     "browser": "./lib/index-browser.js",
     "node": "./lib/index-node.js"
+  },
+  "scripts": {
+    "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
   },
   "dependencies": {
     "base64-js": "^1.5.1",
@@ -28,14 +32,13 @@
     "live-share",
     "protocol"
   ],
-  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TypeFox/open-collaboration-tools",
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools",
     "directory": "packages/open-collaboration-protocol"
   },
   "bugs": {
-    "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools/issues"
   },
   "homepage": "https://www.open-collab.tools/",
   "author": {
@@ -45,8 +48,5 @@
   "volta": {
     "node": "22.14.0",
     "npm": "10.9.2"
-  },
-  "scripts": {
-    "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
   }
 }

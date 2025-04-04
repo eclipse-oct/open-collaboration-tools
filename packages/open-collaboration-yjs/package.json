@@ -1,6 +1,7 @@
 {
   "name": "open-collaboration-yjs",
   "version": "0.2.0",
+  "license": "MIT",
   "description": "Open Collaboration Yjs integration, part of the Open Collaboration Tools project",
   "files": [
     "lib",
@@ -8,6 +9,9 @@
   ],
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
+  "scripts": {
+    "build": "echo 'open-collaboration-yjs: Nothing extra to build.'"
+  },
   "dependencies": {
     "lib0": "^0.2.94",
     "open-collaboration-protocol": "0.2.1",
@@ -21,14 +25,13 @@
     "live-share",
     "yjs"
   ],
-  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TypeFox/open-collaboration-tools",
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools",
     "directory": "packages/open-collaboration-yjs"
   },
   "bugs": {
-    "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools/issues"
   },
   "homepage": "https://www.open-collab.tools/",
   "author": {
@@ -38,8 +41,5 @@
   "volta": {
     "node": "22.14.0",
     "npm": "10.9.2"
-  },
-  "scripts": {
-    "build": "echo 'open-collaboration-yjs: Nothing extra to build.'"
   }
 }

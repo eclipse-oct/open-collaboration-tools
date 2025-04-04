@@ -1,8 +1,9 @@
 {
   "name": "open-collaboration-tools",
   "displayName": "Open Collaboration Tools",
-  "description": "Connect with others and live-share your code in real-time collaboration sessions",
   "version": "0.2.4",
+  "license": "MIT",
+  "description": "Connect with others and live-share your code in real-time collaboration sessions",
   "publisher": "typefox",
   "categories": [
     "Other"
@@ -16,7 +17,6 @@
     "co-edit",
     "pair-programming"
   ],
-  "license": "MIT",
   "icon": "data/oct-logo.png",
   "galleryBanner": {
     "color": "#031021",
@@ -24,11 +24,11 @@
   },
   "homepage": "https://www.open-collab.tools/",
   "bugs": {
-    "url": "https://github.com/TypeFox/open-collaboration-tools/issues"
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TypeFox/open-collaboration-tools",
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools",
     "directory": "packages/open-collaboration-vscode"
   },
   "author": {
