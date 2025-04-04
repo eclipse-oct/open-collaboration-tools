@@ -72,19 +72,27 @@ data class InitData(
 
 
 // filesystem
-enum class FileType {
-    Unknown,
-    File,
-    Directory,
-    SymbolicLink
+enum class FileType(private val value: Int) {
+    Unknown(0),
+    File(1),
+    Directory(2),
+    SymbolicLink(64);
+
+    override fun toString(): String {
+        return value.toString()
+    }
+
+    companion object {
+        fun fromInt(value: Int) = FileType.values().first { it.value == value }
+    }
 }
 
 data class FileSystemStat(
     val type: FileType,
-    val mtime: Int,
-    val ctime: Int,
-    val size: Int,
-    val permissions: Int?
+    val mtime: Long,
+    val ctime: Long,
+    val size: Long,
+    val permissions: Long? = null
 )
 
 data class FileContent(val content: ByteArray)

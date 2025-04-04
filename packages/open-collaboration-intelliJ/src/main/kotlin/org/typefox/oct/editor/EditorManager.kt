@@ -57,6 +57,9 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     }
 
     private fun registerEditor(editor: Editor) {
+        if(editor.virtualFile == null) {
+            return;
+        }
         val path = octPathFromEditor(editor)
 
         editors[path] = editor
@@ -69,13 +72,13 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     }
 
     fun updateTextSelection(path: String, selections: Array<ClientTextSelection>) {
-        val editor = editors[path]
+        val editor = editors[path] ?: return
 
         SwingUtilities.invokeAndWait {
             cursorDisposables[path]?.forEach { Disposer.dispose(it) }
             cursorDisposables[path] = Array(selections.size) { idx ->
                 val selection = selections[idx]
-                createPeerCursor(selection, editor!!)
+                createPeerCursor(selection, editor)
             }
         }
     }
@@ -103,26 +106,23 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     }
 
     fun updateDocument(path: String, updates: Array<TextDocumentInsert>) {
-        val editor = editors[path]
-        if (editor != null) {
-            WriteCommandAction.runWriteCommandAction(
-                editor.project
-            ) {
-                documentListeners[path]?.sendUpdates = false
-                for (update in updates) {
-                    editor.document.replaceString(
-                        update.startOffset,
-                        update.endOffset ?: update.startOffset,
-                        update.text
-                    )
-                }
-                documentListeners[path]?.sendUpdates = true
-
+        val editor = editors[path] ?: return
+        WriteCommandAction.runWriteCommandAction(
+            editor.project
+        ) {
+            documentListeners[path]?.sendUpdates = false
+            for (update in updates) {
+                editor.document.replaceString(
+                    update.startOffset,
+                    update.endOffset ?: update.startOffset,
+                    update.text
+                )
             }
+            documentListeners[path]?.sendUpdates = true
+
         }
+
     }
-
-
 
     private fun octPathFromEditor(editor: Editor): String {
         return editor.virtualFile.path.replace(

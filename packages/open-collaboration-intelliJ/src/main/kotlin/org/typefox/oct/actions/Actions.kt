@@ -27,6 +27,14 @@ class HostSessionAction : AnAction() {
       rootUris?.toArray(Array(size = rootUris.size, init = { "" })) ?: emptyArray()
     ), e.project!!)
   }
+
+    override fun update(e: AnActionEvent) {
+        e.presentation.isEnabled = e.project != null && !e.project!!.isDefault
+    }
+
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.EDT
+    }
 }
 
 class JoinSessionAction : AnAction() {
@@ -47,7 +55,8 @@ class JoinSessionAction : AnAction() {
 
 class CloseSessionAction: AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
-        service<OCTSessionService>().closeCurrentSession()
+        service<OCTSessionService>().closeCurrentSession(e.project ?:
+            throw IllegalStateException("Can not close non-existing session"))
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread {
@@ -55,7 +64,7 @@ class CloseSessionAction: AnAction() {
     }
 
     override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = service<OCTSessionService>().currentCollaborationInstance != null
+        e.presentation.isEnabled = e.project != null && service<OCTSessionService>().currentCollaborationInstances.contains(e.project)
     }
 }
 
