@@ -7,13 +7,13 @@ import org.typefox.oct.editor.EditorManager
 import org.typefox.oct.fileSystem.WorkspaceFileSystemService
 
 
-class CollaborationInstance(octService: OCTMessageHandler.OCTService, project: Project) : Disposable {
+class CollaborationInstance(val octService: OCTMessageHandler.OCTService, val project: Project, private val isHost: Boolean) : Disposable {
 
     val workspaceFileSystem: WorkspaceFileSystemService = project.getService(WorkspaceFileSystemService::class.java)
     private val editorManager: EditorManager = EditorManager(octService, project)
 
     private val guests: ArrayList<Peer> = ArrayList()
-    private var host: Peer? = null
+    var host: Peer? = null
 
     init {
         EditorFactory.getInstance().addEditorFactoryListener(editorManager, this)
@@ -31,6 +31,14 @@ class CollaborationInstance(octService: OCTMessageHandler.OCTService, project: P
     fun initPeers(initData: InitData) {
         guests.addAll(initData.guests)
         host = initData.host
+    }
+
+    fun onFileChange() {
+        if (isHost) {
+            workspaceFileSystem.change()
+        } else {
+
+        }
     }
 
     override fun dispose() {
