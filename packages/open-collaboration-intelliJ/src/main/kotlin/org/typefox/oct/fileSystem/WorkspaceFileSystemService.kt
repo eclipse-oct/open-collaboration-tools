@@ -9,6 +9,8 @@ import com.intellij.testFramework.utils.vfs.createFile
 import com.intellij.testFramework.utils.vfs.deleteRecursively
 import org.typefox.oct.BinaryResponse
 import org.typefox.oct.FileContent
+import org.typefox.oct.FileSystemStat
+import org.typefox.oct.FileType
 import java.io.FileNotFoundException
 import kotlin.io.path.Path
 
@@ -29,7 +31,8 @@ class WorkspaceFileSystemService(private val project: Project) {
                 getFileType(file),
                 file.modificationStamp,
                 file.timeStamp,
-                file.length
+                file.length,
+                null
             )
         } catch (e: FileNotFoundException) {
             return null;
@@ -113,17 +116,3 @@ class WorkspaceFileSystemService(private val project: Project) {
     }
 
 }
-
-enum class FileType {
-    Unknown,
-    File,
-    Directory,
-    SymbolicLink
-}
-
-data class FileSystemStat(
-    val type: FileType,
-    val mtime: Long,
-    val ctime: Long,
-    val size: Long,
-)

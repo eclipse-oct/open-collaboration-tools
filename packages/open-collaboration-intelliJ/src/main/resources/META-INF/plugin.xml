@@ -48,7 +48,7 @@
                        />
 
     <virtualFileSystem id="Oct-Virtual-File-System"
-                       key="com.intellij.virtualFileSystem"
+                       key="oct"
                        physical="false"
                        implementationClass="org.typefox.oct.fileSystem.OCTSessionFileSystem"/>
 
@@ -60,5 +60,9 @@
 
     <applicationService serviceImplementation="org.typefox.oct.settings.OCTSettings" />
   </extensions>
+
+  <projectListeners>
+    <listener class="org.typefox.oct.ProjectListener" topic="com.intellij.openapi.project.ProjectManagerListener" />
+  </projectListeners>
 
 </idea-plugin>
