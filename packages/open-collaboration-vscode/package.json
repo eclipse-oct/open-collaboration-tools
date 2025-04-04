@@ -218,7 +218,6 @@
     "l10n-translate": "tsx ./scripts/translate.ts"
   },
   "dependencies": {
-    "async-mutex": "^0.5.0",
     "inversify": "^6.0.2",
     "reflect-metadata": "^0.2.2",
     "open-collaboration-yjs": "0.2.0",

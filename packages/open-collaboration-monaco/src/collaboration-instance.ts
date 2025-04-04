@@ -9,8 +9,7 @@ import * as Y from 'yjs';
 import * as monaco from 'monaco-editor';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
-import { createMutex } from 'lib0/mutex';
+import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsEditorService } from 'open-collaboration-yjs';
 import { debounce } from 'lodash';
 import { MonacoCollabCallbacks } from './monaco-api.js';
 import { DisposablePeer } from './collaboration-peer.js';
@@ -34,7 +33,7 @@ export class CollaborationInstance implements Disposable {
     protected yjs: Y.Doc = new Y.Doc();
     protected yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
     protected yjsProvider: OpenCollaborationYjsProvider;
-    protected yjsMutex = createMutex();
+    protected yjsService = new YjsEditorService(this.yjs, this.yjsAwareness);
 
     protected identity = new Deferred<types.Peer>();
     protected updates = new Set<string>();
@@ -112,7 +111,7 @@ export class CollaborationInstance implements Disposable {
             this.rerenderPresence();
         });
         connection.peer.onInfo((_, peer) => {
-            this.yjsAwareness.setLocalStateField('peer', peer.id);
+            this.yjsService.setClientAwarenessField('peer', peer.id);
             this.identity.resolve(peer);
         });
         connection.peer.onInit(async (_, initData) => {
@@ -209,14 +208,14 @@ export class CollaborationInstance implements Disposable {
                 }
             }
             if (userState) {
-                if (types.ClientTextSelection.is(userState.selection)) {
-                    this.followSelection(userState.selection);
+                if (types.ClientTextState.is(userState.state)) {
+                    this.followSelection(userState.state);
                 }
             }
         }
     }
 
-    protected async followSelection(selection: types.ClientTextSelection): Promise<void> {
+    protected async followSelection(selection: types.ClientTextState): Promise<void> {
         if (!this.options.editor) {
             return;
         }
@@ -263,7 +262,8 @@ export class CollaborationInstance implements Disposable {
                 };
                 textSelections.push(editorSelection);
             }
-            const textSelection: types.ClientTextSelection = {
+            const textSelection: types.ClientTextState = {
+                kind: 'text',
                 path,
                 textSelections,
                 visibleRanges: editor.getVisibleRanges().map(range => ({
@@ -277,7 +277,7 @@ export class CollaborationInstance implements Disposable {
                     }
                 }))
             };
-            this.setSharedSelection(textSelection);
+            this.yjsService.setClientAwarenessField('state', textSelection);
         }
     }
 
@@ -313,44 +313,27 @@ export class CollaborationInstance implements Disposable {
         }
 
         const resyncThrottle = this.getOrCreateThrottle(path, document);
-        const observer = (textEvent: Y.YTextEvent) => {
-            this.yjsMutex(async () => {
-                if (this.options.editor) {
-                    this.updates.add(path);
-                    let index = 0;
-                    const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-                    textEvent.delta.forEach(delta => {
-                        if (delta.retain !== undefined) {
-                            index += delta.retain;
-                        } else if (delta.insert !== undefined) {
-                            const pos = document.getPositionAt(index);
-                            const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
-                            const insert = delta.insert as string;
-                            edits.push({
-                                range,
-                                text: insert,
-                                forceMoveMarkers: true
-                            });
-                            index += insert.length;
-                        } else if (delta.delete !== undefined) {
-                            const pos = document.getPositionAt(index);
-                            const endPos = document.getPositionAt(index + delta.delete);
-                            const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
-                            edits.push({
-                                range,
-                                text: '',
-                                forceMoveMarkers: true
-                            });
-                        }
-                    });
-                    this.options.editor.executeEdits(document.id, edits);
-                    this.updates.delete(path);
-                    resyncThrottle();
-                }
-            });
-        };
-        yjsText.observe(observer);
-        this.pushDocumentDisposable('textObserver', { dispose: () => yjsText.unobserve(observer) });
+        const disposable = this.yjsService.addTextObserver(yjsText, changes => {
+            if (!this.options.editor) {
+                return;
+            }
+            this.updates.add(path);
+            const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
+            for (const change of changes) {
+                const start = document.getPositionAt(change.start);
+                const end = document.getPositionAt(change.end);
+                const range = new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column);
+                edits.push({
+                    range,
+                    text: change.text,
+                    forceMoveMarkers: true
+                });
+            }
+            this.options.editor.executeEdits(document.id, edits);
+            this.updates.delete(path);
+            resyncThrottle();
+        });
+        this.pushDocumentDisposable('textObserver', disposable);
     }
 
     protected updateTextDocument(event: monaco.editor.IModelContentChangedEvent, document: monaco.editor.ITextModel): void {
@@ -360,15 +343,13 @@ export class CollaborationInstance implements Disposable {
                 return;
             }
             const ytext = this.yjs.getText(path);
-            this.yjsMutex(() => {
-                this.yjs.transact(() => {
-                    for (const change of event.changes) {
-                        ytext.delete(change.rangeOffset, change.rangeLength);
-                        ytext.insert(change.rangeOffset, change.text);
-                    }
-                });
-                this.getOrCreateThrottle(path, document)();
+            this.yjs.transact(() => {
+                for (const change of event.changes) {
+                    ytext.delete(change.rangeOffset, change.rangeLength);
+                    ytext.insert(change.rangeOffset, change.text);
+                }
             });
+            this.getOrCreateThrottle(path, document)();
         }
     }
 
@@ -376,20 +357,18 @@ export class CollaborationInstance implements Disposable {
         let value = this.throttles.get(path);
         if (!value) {
             value = debounce(() => {
-                this.yjsMutex(async () => {
-                    const yjsText = this.yjs.getText(path);
-                    const newContent = yjsText.toString();
-                    if (newContent !== document.getValue()) {
-                        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-                        edits.push({
-                            range: new monaco.Range(0, 0, document.getLineCount(), 0),
-                            text: newContent
-                        });
-                        this.updates.add(path);
-                        this.options.editor && this.options.editor.executeEdits(document.id, edits);
-                        this.updates.delete(path);
-                    }
-                });
+                const yjsText = this.yjs.getText(path);
+                const newContent = yjsText.toString();
+                if (newContent !== document.getValue()) {
+                    const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
+                    edits.push({
+                        range: new monaco.Range(0, 0, document.getLineCount(), 0),
+                        text: newContent
+                    });
+                    this.updates.add(path);
+                    this.options.editor && this.options.editor.executeEdits(document.id, edits);
+                    this.updates.delete(path);
+                }
             }, 200, {
                 leading: false,
                 trailing: true
@@ -400,21 +379,16 @@ export class CollaborationInstance implements Disposable {
     }
 
     protected rerenderPresence() {
-        const states = this.yjsAwareness.getStates() as Map<number, types.ClientAwareness>;
-        for (const [clientID, state] of states.entries()) {
-            if (clientID === this.yjs.clientID) {
-                // Ignore own awareness state
-                continue;
-            }
-            const peerId = state.peer;
+        for (const state of this.yjsService.getClientStates(true)) {
+            const peerId = state.awareness.peer;
             const peer = this.peers.get(peerId);
-            if (!state.selection || !peer) {
+            if (!state.awareness.state || !peer) {
                 continue;
             }
-            if (!types.ClientTextSelection.is(state.selection)) {
+            if (!types.ClientTextState.is(state.awareness.state)) {
                 continue;
             }
-            const { path, textSelections } = state.selection;
+            const { path, textSelections } = state.awareness.state;
             const selection = textSelections[0];
             if (!selection) {
                 continue;
@@ -462,10 +436,6 @@ export class CollaborationInstance implements Disposable {
         } else {
             this.options.editor &&this.decorations.set(peer, this.options.editor.createDecorationsCollection(decorations));
         }
-    }
-
-    protected setSharedSelection(selection?: types.ClientSelection): void {
-        this.yjsAwareness.setLocalStateField('selection', selection);
     }
 
     protected createSelectionFromRelative(selection: types.RelativeTextSelection, model: monaco.editor.ITextModel): monaco.Selection | undefined {

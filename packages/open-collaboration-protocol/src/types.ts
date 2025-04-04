@@ -293,28 +293,40 @@ export interface ClientAwareness {
      */
     peer: string;
     /**
-     * The client's current editor selection.
+     * The client's current state.
      */
-    selection?: ClientSelection;
+    state?: ClientState;
 }
 
-export interface ClientSelection {
+export type ClientState = ClientTextState | ClientChatState | object & { kind: string };
+
+export namespace ClientState {
+    export function is<T extends { kind: string }>(arg: any, kind: T['kind']): arg is T {
+        return typeof arg === 'object' && arg !== null && arg.kind === kind;
+    }
+    export function isFn<T extends { kind: string }>(kind: T['kind']): (arg: any) => arg is T {
+        return (arg) => is(arg, kind);
+    }
+}
+
+export interface ClientChatState {
+    kind: 'chat';
+    writing: boolean;
+}
+
+export namespace ClientChatState {
+    export const is = ClientState.isFn<ClientChatState>('chat');
+}
+
+export interface ClientTextState {
+    kind: 'text';
     path: Path;
-}
-
-export interface ClientTextSelection extends ClientSelection {
     visibleRanges?: Range[];
     textSelections: RelativeTextSelection[];
 }
 
-export namespace ClientTextSelection {
-    export function is(selection?: ClientSelection): selection is ClientTextSelection {
-        if (!selection) {
-            return false;
-        }
-        const textSelection = selection as ClientTextSelection;
-        return Array.isArray(textSelection.textSelections);
-    }
+export namespace ClientTextState {
+    export const is = ClientState.isFn<ClientTextState>('text');
 }
 
 export namespace SelectionDirection {
