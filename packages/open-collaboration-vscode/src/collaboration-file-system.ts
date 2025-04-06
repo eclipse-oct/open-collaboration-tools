@@ -4,24 +4,59 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { ProtocolBroadcastConnection, Peer } from 'open-collaboration-protocol';
+import { ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import * as vscode from 'vscode';
 import * as Y from 'yjs';
+import { CollaborationUri } from './utils/uri';
+
+export class FileSystemManager implements vscode.Disposable {
+
+    private providerRegistration?: vscode.Disposable;
+    private fileSystemProvider: CollaborationFileSystemProvider;
+    private readOnly = false;
+
+    constructor(connection: ProtocolBroadcastConnection, yjs: Y.Doc, hostId: string) {
+        this.fileSystemProvider = new CollaborationFileSystemProvider(connection, yjs, hostId);
+    }
+
+    registerFileSystemProvider(readOnly: boolean): void {
+        if (this.providerRegistration) {
+            if (this.readOnly === readOnly) {
+                return;
+            }
+            // If we find that the readonly mode has changed, simply unregister the provider
+            this.providerRegistration.dispose();
+        }
+        this.readOnly = readOnly;
+        // Register the provider with the new readonly mode
+        // Note that this is only called by guests, as the host is always using his native file system
+        this.providerRegistration = vscode.workspace.registerFileSystemProvider(CollaborationUri.SCHEME, this.fileSystemProvider, { isReadonly: readOnly });
+    }
+
+    triggerChangeEvent(changes: vscode.FileChangeEvent[]): void {
+        this.fileSystemProvider.triggerChangeEvent(changes);
+    }
+
+    dispose() {
+        this.providerRegistration?.dispose();
+    }
+
+}
 
 export class CollaborationFileSystemProvider implements vscode.FileSystemProvider {
 
     private connection: ProtocolBroadcastConnection;
     private yjs: Y.Doc;
-    private host: Peer;
+    private hostId: string;
 
     private encoder = new TextEncoder();
 
     private onDidChangeFileEmitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
 
-    constructor(connection: ProtocolBroadcastConnection, yjs: Y.Doc, host: Peer) {
+    constructor(connection: ProtocolBroadcastConnection, yjs: Y.Doc, hostId: string) {
         this.connection = connection;
         this.yjs = yjs;
-        this.host = host;
+        this.hostId = hostId;
     }
 
     onDidChangeFile = this.onDidChangeFileEmitter.event;
@@ -30,17 +65,17 @@ export class CollaborationFileSystemProvider implements vscode.FileSystemProvide
     }
     async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
         const path = this.getHostPath(uri);
-        const stat = await this.connection.fs.stat(this.host.id, path);
+        const stat = await this.connection.fs.stat(this.hostId, path);
         return stat;
     }
     async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
         const path = this.getHostPath(uri);
-        const record = await this.connection.fs.readdir(this.host.id, path);
+        const record = await this.connection.fs.readdir(this.hostId, path);
         return Object.entries(record);
     }
     createDirectory(uri: vscode.Uri): Promise<void> {
         const path = this.getHostPath(uri);
-        return this.connection.fs.mkdir(this.host.id, path);
+        return this.connection.fs.mkdir(this.hostId, path);
     }
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
         const path = this.getHostPath(uri);
@@ -48,22 +83,22 @@ export class CollaborationFileSystemProvider implements vscode.FileSystemProvide
             const stringValue = this.yjs.getText(path);
             return this.encoder.encode(stringValue.toString());
         } else {
-            const file = await this.connection.fs.readFile(this.host.id, path);
+            const file = await this.connection.fs.readFile(this.hostId, path);
             return file.content;
         }
     }
     writeFile(uri: vscode.Uri, content: Uint8Array, _options: { readonly create: boolean; readonly overwrite: boolean; }): void {
         const path = this.getHostPath(uri);
-        this.connection.fs.writeFile(this.host.id, path, { content });
+        this.connection.fs.writeFile(this.hostId, path, { content });
     }
     delete(uri: vscode.Uri, _options: { readonly recursive: boolean; }): Promise<void> {
-        return this.connection.fs.delete(this.host.id, this.getHostPath(uri));
+        return this.connection.fs.delete(this.hostId, this.getHostPath(uri));
     }
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, _options: { readonly overwrite: boolean; }): Promise<void> {
-        return this.connection.fs.rename(this.host.id, this.getHostPath(oldUri), this.getHostPath(newUri));
+        return this.connection.fs.rename(this.hostId, this.getHostPath(oldUri), this.getHostPath(newUri));
     }
 
-    triggerEvent(changes: vscode.FileChangeEvent[]): void {
+    triggerChangeEvent(changes: vscode.FileChangeEvent[]): void {
         this.onDidChangeFileEmitter.fire(changes);
     }
 

@@ -16,6 +16,7 @@ import { Settings } from './utils/settings';
 import { RoomData, SecretStorage } from './secret-storage';
 import { storeWorkspace } from './utils/workspace';
 import { ExtensionContext } from './inversify';
+import { CodeCommands } from './commands-list';
 
 @injectable()
 export class CollaborationRoomService {
@@ -153,7 +154,7 @@ export class CollaborationRoomService {
                         if (uri) {
                             // We were able to store the workspace folders in a file
                             // We now attempt to load that workspace file
-                            await vscode.commands.executeCommand('vscode.openFolder', uri, {
+                            await vscode.commands.executeCommand(CodeCommands.OpenFolder, uri, {
                                 forceNewWindow: false,
                                 forceReuseWindow: true,
                                 noRecentEntry: true
@@ -220,7 +221,7 @@ export class CollaborationRoomService {
         const openSettings = vscode.l10n.t('Open Settings');
         vscode.window.showInformationMessage(message, openSettings).then((selection) => {
             if (selection === openSettings) {
-                vscode.commands.executeCommand('workbench.action.openSettings', Settings.SERVER_URL);
+                vscode.commands.executeCommand(CodeCommands.OpenSettings, Settings.SERVER_URL);
             }
         });
     }

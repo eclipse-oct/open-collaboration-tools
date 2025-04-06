@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
-import { CollaborationFileSystemProvider } from './collaboration-file-system';
+import { FileSystemManager } from './collaboration-file-system';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YTextChangeTracker, YTextChange } from 'open-collaboration-yjs';
 import debounce from 'lodash/debounce';
 import throttle from 'lodash/throttle';
@@ -177,8 +177,12 @@ export class CollaborationInstance implements vscode.Disposable {
     private documentDisposables = new Map<string, DisposableCollection>();
     private peers = new Map<string, DisposablePeer>();
     private throttles = new Map<string, () => void>();
-    private fileSystem?: CollaborationFileSystemProvider;
     private asyncTrackers = new Map<string, YTextChangeTracker>();
+    private _permissions: types.Permissions = { readonly: false };
+
+    get permissions(): types.Permissions {
+        return this._permissions;
+    }
 
     private _following?: string;
     get following(): string | undefined {
@@ -230,6 +234,8 @@ export class CollaborationInstance implements vscode.Disposable {
     @inject(CollaborationInstanceOptions)
     private readonly options: CollaborationInstanceOptions;
 
+    private fileSystemManager?: FileSystemManager;
+
     @postConstruct()
     protected init(): void {
         if (this.options.host) {
@@ -241,6 +247,10 @@ export class CollaborationInstance implements vscode.Disposable {
         this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness, {
             resyncTimer: 10_000 // resync every 10 seconds
         });
+        if (this.options.hostId) {
+            this.fileSystemManager = new FileSystemManager(connection, this.yjs, this.options.hostId);
+            this.toDispose.push(this.fileSystemManager);
+        }
         this.yjsProvider.connect();
         this.toDispose.push(connection);
         this.toDispose.push(connection.onDisconnect(() => {
@@ -293,7 +303,7 @@ export class CollaborationInstance implements vscode.Disposable {
                     host: await this.identity.promise,
                     guests: Array.from(this.peers.values()).map(e => e.peer),
                     capabilities: {},
-                    permissions: { readonly: false },
+                    permissions: this._permissions,
                     workspace: {
                         name: vscode.workspace.name ?? 'Collaboration',
                         folders: roots.map(e => e.name)
@@ -319,6 +329,10 @@ export class CollaborationInstance implements vscode.Disposable {
                 removeWorkspaceFolders();
                 this.dispose();
             }
+        });
+        connection.room.onPermissions((_, permissions) => {
+            this._permissions = permissions;
+            this.fileSystemManager?.registerFileSystemProvider(permissions.readonly);
         });
         connection.peer.onInfo((_, peer) => {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
@@ -392,7 +406,7 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.fs.onChange(async (_, changes) => {
-            if (this.fileSystem) {
+            if (this.fileSystemManager) {
                 const vscodeChanges: vscode.FileChangeEvent[] = [];
                 for (const change of changes.changes) {
                     const uri = CollaborationUri.getResourceUri(change.path);
@@ -403,7 +417,7 @@ export class CollaborationInstance implements vscode.Disposable {
                         });
                     }
                 }
-                this.fileSystem.triggerEvent(vscodeChanges);
+                this.fileSystemManager.triggerChangeEvent(vscodeChanges);
             }
         });
         connection.fs.onWriteFile(async (_, path, content) => {
@@ -440,6 +454,11 @@ export class CollaborationInstance implements vscode.Disposable {
             case types.FileChangeEventType.Update:
                 return vscode.FileChangeType.Changed;
         }
+    }
+
+    setPermissions(permissions: types.Permissions): void {
+        this._permissions = permissions;
+        this.connection.room.updatePermissions(this._permissions);
     }
 
     async leave(): Promise<void> {
@@ -669,6 +688,11 @@ export class CollaborationInstance implements vscode.Disposable {
                 const document = this.findDocument(uri);
                 if (textEvent.transaction.local || !document) {
                     // Ignore own events or if the document is already in sync
+                    return;
+                }
+                if (this.host && this.permissions.readonly) {
+                    // Don't allow changes if the document is readonly
+                    console.warn('Received changes from guest, but the workspace is readonly! Ignoring changes.');
                     return;
                 }
                 await asyncTracker.applyDelta(textEvent.delta, document.getText(), async (changes) => {
@@ -914,11 +938,14 @@ export class CollaborationInstance implements vscode.Disposable {
     }
 
     async initialize(data: types.InitData): Promise<void> {
+        if (!this.fileSystemManager) {
+            throw new Error('File system manager not initialized');
+        }
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
-        this.fileSystem = new CollaborationFileSystemProvider(this.options.connection, this.yjs, data.host);
-        this.toDispose.push(vscode.workspace.registerFileSystemProvider('oct', this.fileSystem));
+        this._permissions = data.permissions;
+        this.fileSystemManager.registerFileSystemProvider(data.permissions.readonly);
         this.onDidUsersChangeEmitter.fire();
         this._ready.resolve();
     }
