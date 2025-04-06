@@ -28,6 +28,11 @@ export namespace Messages {
         export const Close = new BroadcastType<[types.Path]>('editor/close');
     }
 
+    export namespace Chat {
+        export const Message = new BroadcastType<[types.ChatMessage]>('chat/message');
+        export const History = new RequestType<[types.Timestamp], types.ChatMessage[]>('chat/history');
+    }
+
     export namespace Sync {
         export const DataUpdate = new BroadcastType<[types.Binary]>('sync/dataUpdate');
         export const DataNotify = new NotificationType<[types.Binary]>('sync/dataNotify');

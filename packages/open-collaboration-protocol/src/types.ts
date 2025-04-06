@@ -11,6 +11,7 @@ export type Path = string;
 export type Token = string;
 export type Id = string;
 export type Binary = Uint8Array;
+export type Timestamp = number;
 
 // HTTP API
 
@@ -285,6 +286,12 @@ export enum FileChangeEventType {
     Create = 0,
     Update = 1,
     Delete = 2
+}
+
+export interface ChatMessage {
+    timestamp: Timestamp;
+    user: User;
+    content: string;
 }
 
 export interface ClientAwareness {
