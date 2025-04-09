@@ -53,7 +53,10 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     }
 
     override fun editorReleased(event: EditorFactoryEvent) {
-        editors.remove(octPathFromEditor(event.editor))
+        val path = octPathFromEditor(event.editor)
+        editors.remove(path)
+        event.editor.document.removeDocumentListener(documentListeners.remove(path)!!)
+
     }
 
     private fun registerEditor(editor: Editor) {
