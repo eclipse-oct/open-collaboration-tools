@@ -1,8 +1,11 @@
 package org.typefox.oct
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.google.gson.Gson
 import com.google.gson.TypeAdapter
+import com.google.gson.TypeAdapterFactory
+import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
 import com.intellij.ide.plugins.PluginManager
@@ -10,10 +13,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.extensions.PluginId
 import org.eclipse.lsp4j.jsonrpc.Launcher
-import org.eclipse.lsp4j.jsonrpc.MessageConsumer
-import org.eclipse.lsp4j.jsonrpc.messages.Message
 import org.msgpack.jackson.dataformat.MessagePackFactory
-import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.Base64
 
@@ -62,7 +62,6 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMe
                 .setRemoteInterface(OCTMessageHandler.OCTService::class.java)
                 .setInput(currentProcess?.inputStream)
                 .setOutput(currentProcess?.outputStream)
-                // .traceMessages(PrintWriter(System.out))
                 .configureGson {
                     it.registerTypeAdapter(OCPMessage::class.java, BinaryOCPMessageTypeAdapter())
                     it.registerTypeAdapter(BinaryResponse::class.java, BinaryResponseTypeAdapter())
@@ -81,8 +80,11 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMe
 }
 
 class BinaryOCPMessageTypeAdapter : TypeAdapter<OCPMessage>() {
-
     private val msgPackObjectMapper = ObjectMapper(MessagePackFactory())
+
+    init {
+        msgPackObjectMapper.registerKotlinModule()
+    }
 
     override fun write(writer: JsonWriter, value: OCPMessage?) {
         val encoded = msgPackObjectMapper.writeValueAsBytes(value)
@@ -100,10 +102,19 @@ class BinaryOCPMessageTypeAdapter : TypeAdapter<OCPMessage>() {
     }
 }
 
-class BinaryResponseTypeAdapter : TypeAdapter<BinaryResponse>() {
+class BinaryResponseTypeAdapter : TypeAdapter<BinaryResponse<*>>(), TypeAdapterFactory {
     private val msgPackObjectMapper = ObjectMapper(MessagePackFactory())
 
-    override fun write(writer: JsonWriter, response: BinaryResponse) {
+    init {
+        msgPackObjectMapper.registerKotlinModule()
+    }
+
+    override fun <T : Any?> create(p0: Gson?, p1: TypeToken<T>?): TypeAdapter<T> {
+        return this as TypeAdapter<T>
+    }
+
+
+    override fun write(writer: JsonWriter, response: BinaryResponse<*>) {
         val encoded = msgPackObjectMapper.writeValueAsBytes(response.data)
         val base64 = Base64.getEncoder().encodeToString(encoded)
         writer
@@ -113,8 +124,31 @@ class BinaryResponseTypeAdapter : TypeAdapter<BinaryResponse>() {
             .endObject()
     }
 
-    override fun read(p0: JsonReader?): BinaryResponse {
-        throw NotImplementedError("received a Binary Response which should not happen")
+    override fun read(reader: JsonReader?): BinaryResponse<*> {
+        var method: String? = null
+        var data: String? = null
+
+        reader?.beginObject()
+        while (reader?.hasNext() == true) {
+            val name = reader.nextName()
+            when (name) {
+                "method" -> method = reader.nextString()
+                "data" -> data = reader.nextString()
+                else -> reader.skipValue()
+            }
+        }
+        reader?.endObject()
+
+        if(method == null || data == null) {
+            throw RuntimeException("Invalid Binary response with method '$method' and data '$data'")
+        }
+
+        val decoded =  Base64.getDecoder().decode(data)
+        val type = MESSAGE_RESPONSE_TYPES[method]
+        val response = msgPackObjectMapper.readValue(decoded, type)
+
+        return BinaryResponse(response)
+
     }
 
 }

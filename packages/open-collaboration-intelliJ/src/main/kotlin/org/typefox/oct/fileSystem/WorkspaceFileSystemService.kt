@@ -39,7 +39,7 @@ class WorkspaceFileSystemService(private val project: Project) {
         }
     }
 
-    fun readFile(path: String): BinaryResponse? {
+    fun readFile(path: String): BinaryResponse<FileContent>? {
         try {
             val file = getRelativeFile(path)
             return BinaryResponse(FileContent(file.contentsToByteArray()))
