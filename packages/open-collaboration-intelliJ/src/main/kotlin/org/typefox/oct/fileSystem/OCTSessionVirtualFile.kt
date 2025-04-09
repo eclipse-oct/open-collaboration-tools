@@ -1,18 +1,14 @@
 package org.typefox.oct.fileSystem
 
-import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.VirtualFileSystem
-import org.typefox.oct.FileSystemStat
-import org.typefox.oct.OCPMessage
+import org.typefox.oct.*
 import java.io.InputStream
 import java.io.OutputStream
-import java.nio.file.FileSystemException
 import java.nio.file.Path
 import kotlin.io.path.name
-import org.typefox.oct.FileType
-import java.util.concurrent.ExecutionException
 import kotlin.io.path.Path
 
 open class OCTSessionVirtualFile(
@@ -23,12 +19,15 @@ open class OCTSessionVirtualFile(
     protected var stat: FileSystemStat? = null
 ) : VirtualFile() {
 
+    private var cachedChildren: Array<VirtualFile>? = null
+
     private fun retrieveStat(): FileSystemStat? {
         if (stat != null) {
             return stat
         }
 
-        return fileSystem.stat(path)?.get()
+        stat = fileSystem.stat(path)?.get()
+        return stat
     }
 
     override fun getName(): String {
@@ -40,7 +39,7 @@ open class OCTSessionVirtualFile(
     }
 
     override fun getPath(): String {
-        return path.toString()
+        return path.toString().replace("\\", "/")
     }
 
     override fun isWritable(): Boolean {
@@ -64,34 +63,20 @@ open class OCTSessionVirtualFile(
             return null
         }
 
-
-        val collab = fileSystem.rootFromPath(path)
-
-        val content: Map<String, Number>?
-        try {
-            content = collab?.octService?.request<Map<String, Number>>(
-                OCPMessage(
-                    "fileSystem/readDir", arrayOf(toOctPath(path)), collab.host?.id ?: ""
-                )
-            )?.get()
-        } catch (exception: ExecutionException) {
-            println("Error reading directory ${path.name}")
-            return emptyArray()
+        if(cachedChildren != null) {
+            return cachedChildren
         }
 
-        if (content == null) {
-            return emptyArray()
-        }
+        val content = fileSystem.readDir(path)?.get() ?: return emptyArray()
 
-        return content.map {
+        cachedChildren = content.map {
             OCTSessionVirtualFile(
                 path.resolve(it.key),
                 FileType.fromInt(it.value.toInt()),
                 this,
-                fileSystem,
-
-                )
+                fileSystem)
         }.toTypedArray()
+        return cachedChildren
     }
 
     override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long): OutputStream {
@@ -99,26 +84,25 @@ open class OCTSessionVirtualFile(
     }
 
     override fun contentsToByteArray(): ByteArray {
-        //val resp = fileSystem.readFile(path)?.get()
-        //println(resp)
-        return "test".toByteArray()
+        val resp = fileSystem.readFile(path)?.get()
+        return resp?.content ?: ByteArray(0)
     }
 
     override fun getModificationStamp(): Long {
-        return 0
+        return retrieveStat()?.mtime ?: 0
     }
 
     override fun getTimeStamp(): Long {
-        return 1231233
+        return retrieveStat()?.ctime ?: 0
     }
 
     override fun getLength(): Long {
-        return 121
+        return retrieveStat()?.size ?: 0
     }
 
     override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) {
-        println("refresh ${path.name}")
-        TODO("Not yet implemented")
+        this.stat = null
+        this.cachedChildren = null
     }
 
     override fun getInputStream(): InputStream {
@@ -129,11 +113,12 @@ open class OCTSessionVirtualFile(
 class OCTSessionRootFile(
     name: String,
     fileSystem: OCTSessionFileSystem,
-    private val project: Project
+    private val project: Project,
+    val collaborationInstance: CollaborationInstance,
 ) :
     OCTSessionVirtualFile(Path.of(name), FileType.Directory, null, fileSystem) {
 
-    override fun getParent(): VirtualFile {
-        return project.getBaseDirectories().first();
+    override fun getParent(): VirtualFile? {
+        return VirtualFileManager.getInstance().findFileByNioPath(Path(project.basePath!!))
     }
 }

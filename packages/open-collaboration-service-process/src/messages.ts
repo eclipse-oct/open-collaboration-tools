@@ -27,7 +27,7 @@ export function fromEncodedOCPMessage(encoded: string): OCPMessage {
     return Encoding.decode(Uint8Array.from(Buffer.from(encoded, 'base64'))) as OCPMessage;
 }
 
-export function toEncodedOCPMessage(message: OCPMessage): string {
+export function toEncodedOCPMessage(message: unknown): string {
     return Buffer.from(Encoding.encode(message)).toString('base64');
 }
 
@@ -139,5 +139,6 @@ export namespace BinaryResponse {
 
 export interface BinaryResponse {
     type: 'binaryResponse'
+    method?: string
     data: string
 }

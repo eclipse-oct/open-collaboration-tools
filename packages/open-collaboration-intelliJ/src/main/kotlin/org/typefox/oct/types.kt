@@ -3,14 +3,14 @@ package org.typefox.oct
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class OCPMessage(
-    @JsonProperty("method") val method: String,
-    @JsonProperty("params") val params: Array<Any>,
-    @JsonProperty("target") val target: String?
+    val method: String,
+    val params: Array<Any>,
+    val target: String?
 ) {
 
 }
 
-data class BinaryResponse(val data: Any) {
+data class BinaryResponse<T>(val data: T) {
     val type = "binaryResponse"
 }
 
@@ -86,6 +86,7 @@ enum class FileType(private val value: Int) {
         fun fromInt(value: Int) = FileType.values().first { it.value == value }
     }
 }
+
 
 data class FileSystemStat(
     val type: FileType,
