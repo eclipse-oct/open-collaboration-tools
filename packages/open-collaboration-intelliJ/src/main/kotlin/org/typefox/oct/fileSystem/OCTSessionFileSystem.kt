@@ -1,5 +1,7 @@
 package org.typefox.oct.fileSystem
 
+import com.google.gson.Gson
+import com.google.gson.internal.LinkedTreeMap
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileListener
@@ -13,14 +15,20 @@ import kotlin.io.path.name
 
 class OCTSessionFileSystem() : VirtualFileSystem() {
 
-    protected val roots: MutableMap<String, CollaborationInstance> = mutableMapOf()
+    protected val roots: MutableMap<String, OCTSessionRootFile> = mutableMapOf()
 
     fun registerRoots(roots: Array<String>, collaborationInstance: CollaborationInstance) {
         for (root in roots) {
             if (this.roots.containsKey(root)) {
                 throw IllegalArgumentException("Root already registered: $root")
             }
-            this.roots[root] = collaborationInstance
+            this.roots[root] = OCTSessionRootFile(
+                root,
+                this,
+                collaborationInstance.project,
+                collaborationInstance
+            )
+
         }
         Disposer.register(collaborationInstance) {
             for (root in roots) {
@@ -33,16 +41,23 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
         return "oct"
     }
 
-    override fun findFileByPath(path: String): VirtualFile? {
-        if(roots.containsKey(path)) {
-            val root = roots[path]!!
-            return OCTSessionRootFile(path, this, root.project)
+    override fun findFileByPath(pathString: String): VirtualFile? {
+        val path = Path(pathString)
+        if (!roots.contains(path.getName(0).name)) {
+            return null
         }
 
+        var current: VirtualFile? = null
+        for (segment in path.iterator()) {
+            current = if (current == null) {
+                roots[segment.name]
+            } else {
+                current.findChild(segment.name) ?: return null
+            }
+        }
 
-        val stat = this.stat(Path(path))?.get() ?: return null
+        return current
 
-        return OCTSessionVirtualFile(Path(path), stat.type, null, this, stat)
     }
 
     override fun refresh(asynchronous: Boolean) {
@@ -95,21 +110,35 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
     }
 
     fun stat(path: Path): CompletableFuture<FileSystemStat>? {
-        val collab = rootFromPath(path)
-        return collab?.octService?.request(
-            OCPMessage("fileSystem/stat", arrayOf(toOctPath(path)), collab.host?.id ?: ""))
-
+        val collab = getCollaborationInstance(path)
+        return collab?.octService?.request<FileSystemStat>(
+            OCPMessage("fileSystem/stat", arrayOf(toOctPath(path)), collab.host?.id ?: "")
+        )?.thenApply {
+                it.data
+            }
     }
 
     fun readFile(path: Path): CompletableFuture<FileContent>? {
-        val collab = rootFromPath(path)
-        return collab?.octService?.request(
-            OCPMessage("fileSystem/readFile", arrayOf(toOctPath(path)), collab.host?.id ?: ""))
+        val collab = getCollaborationInstance(path)
+        return collab?.octService?.request<FileContent>(
+            OCPMessage("fileSystem/readFile", arrayOf(toOctPath(path)), collab.host?.id ?: "")
+        )?.thenApply {
+                it.data
+            }
+    }
+
+    fun readDir(path: Path): CompletableFuture<Map<String, Number>>? {
+        val collab = getCollaborationInstance(path)
+        return collab?.octService?.request<Map<String, Number>>(
+            OCPMessage("fileSystem/readDir", arrayOf(toOctPath(path)), collab.host?.id ?: "")
+        )?.thenApply {
+            it.data
+        }
     }
 
 
-    fun rootFromPath(path: Path): CollaborationInstance? {
-        return roots[path.getName(0).name]
+    private fun getCollaborationInstance(path: Path): CollaborationInstance? {
+        return roots[path.getName(0).name]?.collaborationInstance
     }
 }
 

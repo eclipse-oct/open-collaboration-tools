@@ -88,25 +88,6 @@ class OCTSessionService() {
                 ?: throw IllegalStateException("Could not create project for session")
             currentProcesses[newProject] = currentProcess
             sessionCreated(sessionData, serverUrl, newProject, false)
-            (VirtualFileManager.getInstance().getFileSystem("oct") as OCTSessionFileSystem)
-                .registerRoots(sessionData.workspace.folders, currentCollaborationInstances[newProject]!!)
-
-            try {
-                val module: Module = WriteAction.computeAndWait<Module, Throwable> {
-                    ModuleManager.getInstance(newProject)
-                        .newModule(projectDir.resolve("${sessionData.workspace.name}.iml"), EmptyModuleType.EMPTY_MODULE)
-                }
-                ModuleRootModificationUtil.updateModel(module) {
-                    for (entry in sessionData.workspace.folders) {
-                        val root = VirtualFileManager.getInstance().findFileByUrl("oct://${entry}")
-                            ?: throw IllegalStateException("Could not find shared root for entry $entry")
-                        it.addContentEntry(root)
-                    }
-                }
-            } catch (e: Throwable) {
-                currentProcess.dispose()
-                e.printStackTrace()
-            }
         }
     }
 
@@ -123,12 +104,8 @@ class OCTSessionService() {
             service<AuthenticationService>().onAuthenticated(sessionData.authToken, serverUrl)
         }
 
-        createCollaborationInstance(project, isHost)
-    }
-
-    private fun createCollaborationInstance(project: Project, isHost: Boolean) {
-        val currentProcess = currentProcesses[project]
-        val collaborationInstance = CollaborationInstance(currentProcess!!.octService!!, project, isHost)
+        val currentProcess = currentProcesses[project] ?: throw IllegalStateException("No current process found for project")
+        val collaborationInstance = CollaborationInstance(currentProcess.octService!!, project, sessionData, isHost)
         this.currentCollaborationInstances[project] = collaborationInstance
         currentProcess.messageHandler.collaborationInstance = this.currentCollaborationInstances[project]
     }

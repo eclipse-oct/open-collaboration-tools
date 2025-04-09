@@ -1,7 +1,5 @@
 package org.typefox.oct
 
-import com.google.gson.Gson
-import com.google.gson.TypeAdapter
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
@@ -13,9 +11,16 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.typefox.oct.actions.JoinRequestAction
 import java.util.concurrent.CompletableFuture
-import com.google.gson.TypeAdapterFactory
-import com.google.gson.reflect.TypeToken
 
+val MESSAGE_RESPONSE_TYPES = mapOf(
+    "fileSystem/stat" to FileSystemStat::class.java,
+    "fileSystem/readFile" to FileContent::class.java,
+    "fileSystem/readDir" to Map::class.java,
+    "fileSystem/mkdir" to Void::class.java,
+    "fileSystem/writeFile" to Void::class.java,
+    "fileSystem/delete" to Void::class.java,
+    "fileSystem/rename" to Void::class.java
+)
 
 class OCTMessageHandler() : Endpoint {
 
@@ -36,8 +41,7 @@ class OCTMessageHandler() : Endpoint {
         fun updateDocument(url: String, updates: Array<TextDocumentInsert>)
 
         @JsonRequest
-        @ResponseJsonAdapter(OCPRequestResponseAdapter::class)
-        fun <T> request(message: OCPMessage): CompletableFuture<T>
+        fun <T> request(message: OCPMessage): CompletableFuture<BinaryResponse<T>>
         @JsonNotification
         fun notification(message: OCPMessage)
         @JsonNotification
@@ -104,6 +108,7 @@ class OCTMessageHandler() : Endpoint {
     }
 
     @JsonRequest
+    @ResponseJsonAdapter(BinaryResponseTypeAdapter::class)
     fun request(message: OCPMessage): CompletableFuture<*> {
         val collaborationInstance = this.collaborationInstance ?: throw RuntimeException("No open collaboration session found")
 
@@ -141,11 +146,3 @@ class OCTMessageHandler() : Endpoint {
     }
 }
 
-
-class OCPRequestResponseAdapter: TypeAdapterFactory {
-    override fun <T : Any?> create(p0: Gson?, p1: TypeToken<T>?): TypeAdapter<T> {
-        println("adapter executed")
-        println(p1?.type?.typeName)
-        return BinaryOCPMessageTypeAdapter() as TypeAdapter<T>
-    }
-}

@@ -5,9 +5,9 @@
 // ******************************************************************************
 
 import type * as types from 'open-collaboration-protocol';
-import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest,
+import { BinaryResponse, CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest,
     LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument,
-    SessionData, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+    SessionData, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { CollaborationInstance } from './collaboration-instance.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
@@ -27,9 +27,15 @@ export class MessageHandler {
         communicationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
         communicationHandler.onError(([error]) => communicationHandler.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
-        communicationHandler.onRequest(OCPRequest, (rawMessage) => {
+        communicationHandler.onRequest(OCPRequest, async (rawMessage) => {
             const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            return this.currentCollaborationInstance?.currentConnection.sendRequest(message.method, message.target, ...message.params);
+            const result = await this.currentCollaborationInstance?.currentConnection.sendRequest(message.method, message.target, ...message.params);
+
+            return {
+                type: 'binaryResponse',
+                method: message.method,
+                data: toEncodedOCPMessage(result),
+            } as BinaryResponse;
         });
         communicationHandler.onNotification(OCPNotification, async (rawMessage) => {
             const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
