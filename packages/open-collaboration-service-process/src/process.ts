@@ -5,10 +5,10 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider }from 'open-collaboration-protocol';
-import { MessageHandler } from './message-handler';
+import { MessageHandler } from './message-handler.js';
 import { program } from 'commander';
-import {createMessageConnection, StreamMessageReader, StreamMessageWriter} from 'vscode-jsonrpc/node';
-import { Authentication } from './messages';
+import {createMessageConnection, StreamMessageReader, StreamMessageWriter} from 'vscode-jsonrpc/node.js';
+import { Authentication } from './messages.js';
 
 program
     .option('--server-address <server-address>', 'The address of the server to connect to')

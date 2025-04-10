@@ -4,14 +4,14 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { Encryption } from './messaging';
-import { MessageTransportProvider } from './transport';
-import { ProtocolBroadcastConnection, createConnection } from './connection';
+import { Encryption } from './messaging/encryption.js';
+import { MessageTransportProvider } from './transport/transport.js';
+import { ProtocolBroadcastConnection, createConnection } from './connection.js';
 import * as semver from 'semver';
-import * as types from './types';
-import { SEM_VERSION, compatibleVersions } from './utils/version';
-import { ServerError } from './utils';
-import { Info } from './utils/info';
+import * as types from './types.js';
+import { SEM_VERSION, compatibleVersions } from './utils/version.js';
+import { ServerError } from './utils/errors.js';
+import { Info } from './utils/info.js';
 
 export type Fetch = (url: string, options?: FetchRequestOptions) => Promise<FetchResponse>;
 

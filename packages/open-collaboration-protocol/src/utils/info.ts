@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { isObject } from './types';
+import { isObject } from './types.js';
 
 export interface Info {
     code: string;

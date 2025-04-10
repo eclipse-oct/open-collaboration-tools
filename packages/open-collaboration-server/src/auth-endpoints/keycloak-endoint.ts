@@ -6,7 +6,7 @@
 
 import { AuthProvider } from 'open-collaboration-protocol';
 import { Strategy } from 'passport';
-import { OAuthEndpoint, ThirdParty } from './oauth-endpoint';
+import { OAuthEndpoint, ThirdParty } from './oauth-endpoint.js';
 import OAuth2Strategy, { VerifyCallback } from 'passport-oauth2';
 import { injectable, postConstruct } from 'inversify';
 

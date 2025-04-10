@@ -5,9 +5,9 @@
 // ******************************************************************************
 
 import * as vscode from 'vscode';
-import { CollaborationUri } from './uri';
+import { CollaborationUri } from './uri.js';
 import { nanoid } from 'nanoid';
-import { isWeb } from './system';
+import { isWeb } from './system.js';
 
 export function removeWorkspaceFolders() {
     const workspaceFolders = vscode.workspace.workspaceFolders ?? [];

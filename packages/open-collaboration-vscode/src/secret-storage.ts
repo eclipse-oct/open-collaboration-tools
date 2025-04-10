@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
-import { ExtensionContext } from './inversify';
+import { ExtensionContext } from './inversify.js';
 import type { Peer } from 'open-collaboration-protocol';
 
 export interface UserTokens {

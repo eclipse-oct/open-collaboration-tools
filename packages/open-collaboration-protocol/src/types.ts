@@ -4,8 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import type { CompressionAlgorithm } from './messaging';
-import { isObject } from './utils';
+import type { CompressionAlgorithm } from './messaging/messages.js';
+import { isObject } from './utils/types.js';
 
 export type Path = string;
 export type Token = string;

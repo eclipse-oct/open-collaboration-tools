@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "references": [
+    {
+      "path": "../open-collaboration-protocol/tsconfig.json"
+    },
+    {
+      "path": "../open-collaboration-yjs/tsconfig.json"
+    }
+  ],
+  "include": [
+    "src/**/*.ts",
+  ]
+}

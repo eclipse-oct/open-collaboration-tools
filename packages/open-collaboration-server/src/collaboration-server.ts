@@ -5,23 +5,28 @@
 // ******************************************************************************
 
 import { inject, injectable, multiInject } from 'inversify';
-import * as http from 'http';
-import * as path from 'path';
+import * as http from 'node:http';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
-// import * as ws from 'ws';
 import express from 'express';
-import { SocketIoChannel, TransportChannel } from './channel';
-import { PeerFactory } from './peer';
-import { RoomJoinInfo, RoomManager, isRoomClaim } from './room-manager';
-import { UserManager } from './user-manager';
-import { CredentialsManager } from './credentials-manager';
-import { User } from './types';
-import * as types from 'open-collaboration-protocol';
-import { AuthEndpoint } from './auth-endpoints/auth-endpoint';
-import { Logger, LoggerSymbol } from './utils/logging';
+import { SocketIoChannel, TransportChannel } from './channel.js';
+import { PeerFactory } from './peer.js';
+import { RoomJoinInfo, RoomManager, isRoomClaim } from './room-manager.js';
+import { UserManager } from './user-manager.js';
+import { CredentialsManager } from './credentials-manager.js';
+import { User } from './types.js';
+import { CreateRoomResponse, InfoMessage, JoinRoomInitialResponse, JoinRoomPollResponse, JoinRoomResponse, ProtocolServerMetaData, LoginInitialResponse, LoginValidateResponse, LoginPollResponse } from 'open-collaboration-protocol';
+import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
+import { Logger, LoggerSymbol } from './utils/logging.js';
 import { VERSION } from 'open-collaboration-protocol';
-import { Configuration } from './utils/configuration';
-import { PeerManager } from './peer-manager';
+import { Configuration } from './utils/configuration.js';
+import { PeerManager } from './peer-manager.js';
+
+const getLocalDirectory = (referenceUrl: string | URL) => {
+    const __filename = fileURLToPath(referenceUrl);
+    return path.dirname(__filename);
+};
 
 @injectable()
 export class CollaborationServer {
@@ -173,7 +178,7 @@ export class CollaborationServer {
                 next();
             }
         });
-        app.use(express.static(path.resolve(__dirname, '../src/static')));
+        app.use(express.static(path.resolve(getLocalDirectory(import.meta.url), '../src/static')));
         const loginPageUrlConfig = this.configuration.getValue('oct-login-page-url') ?? '';
         app.post('/api/login/initial', async (req, res) => {
             try {
@@ -188,7 +193,7 @@ export class CollaborationServer {
                 }
                 // Ensure that we don't send inactive auth providers to the client
                 const activeAuthProviders = this.authEndpoints.filter(e => e.shouldActivate());
-                const result: types.LoginInitialResponse = {
+                const result: LoginInitialResponse = {
                     pollToken: token,
                     auth: {
                         loginPageUrl: loginPage,
@@ -206,7 +211,7 @@ export class CollaborationServer {
         });
         app.post('/api/login/validate', async (req, res) => {
             const user = await this.getUserFromAuth(req);
-            const result: types.LoginValidateResponse = {
+            const result: LoginValidateResponse = {
                 valid: !!user
             };
             res.status(200);
@@ -214,7 +219,7 @@ export class CollaborationServer {
         });
         app.post('/api/login/poll/:token', async (req, res) => {
             try {
-                const authTimeoutResponse: types.InfoMessage = {
+                const authTimeoutResponse: InfoMessage = {
                     code: 'AuthTimeout',
                     params: [],
                     message: 'Authentication timed out'
@@ -228,7 +233,7 @@ export class CollaborationServer {
                 }
 
                 if (delayedAuth.jwt) {
-                    const result: types.LoginPollResponse = {
+                    const result: LoginPollResponse = {
                         loginToken: delayedAuth.jwt
                     };
                     res.send(result);
@@ -244,7 +249,7 @@ export class CollaborationServer {
                             res.status(204);
                             res.send({});
                         } else if (typeof value === 'string') {
-                            const result: types.LoginPollResponse = {
+                            const result: LoginPollResponse = {
                                 loginToken: value
                             };
                             res.status(200);
@@ -272,7 +277,7 @@ export class CollaborationServer {
             }
         });
         app.get('/api/meta', async (_, res) => {
-            const data: types.ProtocolServerMetaData = {
+            const data: ProtocolServerMetaData = {
                 owner: this.configuration.getValue('oct-server-owner') ?? 'Unknown',
                 version: VERSION,
                 transports: [
@@ -290,7 +295,7 @@ export class CollaborationServer {
                 if (!room) {
                     this.logger.warn(`User tried joining non-existing room with id '${roomId}'`);
                     res.status(404);
-                    const roomNotFound: types.InfoMessage = {
+                    const roomNotFound: InfoMessage = {
                         code: 'RoomNotFound',
                         params: [],
                         message: 'Room not found'
@@ -300,7 +305,7 @@ export class CollaborationServer {
                 }
                 const result = await this.roomManager.requestJoin(room, user!);
                 res.status(200);
-                const response: types.JoinRoomInitialResponse = {
+                const response: JoinRoomInitialResponse = {
                     pollToken: result,
                     roomId: roomId
                 };
@@ -317,7 +322,7 @@ export class CollaborationServer {
                 const poll = this.roomManager.pollJoin(joinToken);
                 if (!poll) {
                     res.status(404);
-                    const joinNotFound: types.InfoMessage = {
+                    const joinNotFound: InfoMessage = {
                         code: 'JoinRequestNotFound',
                         params: [],
                         message: 'Join request not found'
@@ -329,7 +334,7 @@ export class CollaborationServer {
                 if (poll.result) {
                     res.status(200);
                     res.send(poll.result);
-                    if (types.JoinRoomPollResponse.is(poll.result)) {
+                    if (JoinRoomPollResponse.is(poll.result)) {
                         poll.result = undefined;
                     }
                     // Don't dispose the result here, as it might be used for polling
@@ -337,7 +342,7 @@ export class CollaborationServer {
                     return;
                 }
 
-                const end = async (value?: types.JoinRoomResponse | RoomJoinInfo) => {
+                const end = async (value?: JoinRoomResponse | RoomJoinInfo) => {
                     clearTimeout(timeout);
                     update.dispose();
                     if (value === undefined) {
@@ -366,7 +371,7 @@ export class CollaborationServer {
             try {
                 const user = await this.getUserFromAuth(req);
                 const room = await this.roomManager.prepareRoom(user!);
-                const response: types.CreateRoomResponse = {
+                const response: CreateRoomResponse = {
                     roomId: room.id,
                     roomToken: room.jwt
                 };

@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { fromBase64, toBase64 } from './base64';
+import { fromBase64, toBase64 } from './base64.js';
 
 export interface KeyPair {
     publicKey: string;
@@ -31,22 +31,13 @@ export interface CryptoLib {
 }
 
 export type CryptoModule = typeof self.crypto | typeof import('node:crypto').webcrypto;
+let cryptoModule: CryptoModule | undefined;
 
-let cryptoModule: CryptoModule | undefined = undefined;
-
-export function setCryptoModule(module: CryptoModule): void {
-    cryptoModule = module;
-}
-
-export function getCryptoLib(): CryptoLib {
-    if (!cryptoModule) {
-        throw new Error('Crypto module not set. Please set the crypto module using setCryptoModule().');
+export const getCryptoLib = async (): Promise<CryptoLib> => {
+    if (cryptoModule === undefined) {
+        cryptoModule = (globalThis.crypto === undefined) ? (await import('node:crypto')).webcrypto : globalThis.crypto;
     }
-    return fromCryptoModule(cryptoModule);
-}
-
-function fromCryptoModule(crypto: CryptoModule): CryptoLib {
-    const subtle = crypto.subtle;
+    const subtle = cryptoModule.subtle;
     return {
         async generateKeyPair() {
             const pair = await subtle.generateKey({
@@ -117,5 +108,5 @@ function fromCryptoModule(crypto: CryptoModule): CryptoLib {
             return new Uint8Array(decrypted);
         }
     };
-}
+};
 

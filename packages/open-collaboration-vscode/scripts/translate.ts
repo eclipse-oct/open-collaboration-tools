@@ -5,8 +5,15 @@
 // ******************************************************************************
 
 import * as deepl from 'deepl-node';
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import { writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
+const getLocalDirectory = (referenceUrl: string | URL) => {
+    const __filename = fileURLToPath(referenceUrl);
+    return path.dirname(__filename);
+};
+
 
 const authKey = process.env.DEEPL_AUTH_KEY;
 if (!authKey) {
@@ -31,8 +38,8 @@ const supportedLanguages = {
 };
 
 const paths = [
-    path.resolve(__dirname, '..', 'package.nls.json'),
-    path.resolve(__dirname, '..', 'l10n', 'bundle.l10n.json'),
+    path.resolve(getLocalDirectory(import.meta.url), '..', 'package.nls.json'),
+    path.resolve(getLocalDirectory(import.meta.url), '..', 'l10n', 'bundle.l10n.json'),
 ];
 
 async function translateFile(filePath: string): Promise<void> {
@@ -74,13 +81,13 @@ async function translateFile(filePath: string): Promise<void> {
         }
         const entries = Object.entries(existingContent).sort(([a], [b]) => contentKeys.indexOf(a) - contentKeys.indexOf(b));
         const translatedContent = Object.fromEntries(entries);
-        await fs.promises.writeFile(targetPath, JSON.stringify(translatedContent, undefined, 2));
+        await writeFile(targetPath, JSON.stringify(translatedContent, undefined, 2));
     }
 }
 
 async function readJson(filePath: string): Promise<any> {
     try {
-        return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+        return JSON.parse(await readFile(filePath, 'utf8'));
     } catch {
         return {};
     }

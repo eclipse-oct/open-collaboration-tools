@@ -5,11 +5,11 @@
 // ******************************************************************************
 
 import { inject, injectable } from 'inversify';
-import { CredentialsManager } from './credentials-manager';
-import { MessageRelay } from './message-relay';
-import { Peer, Room, User, isUser } from './types';
+import { CredentialsManager } from './credentials-manager.js';
+import { MessageRelay } from './message-relay.js';
+import { Peer, Room, User, isUser } from './types.js';
 import { Messages, BroadcastMessage, NotificationMessage, RequestMessage, ResponseMessage, isObject, Info, Event, Disposable, Emitter, JoinRoomResponse, JoinRoomPollResponse, JoinResponse } from 'open-collaboration-protocol';
-import { Logger, LoggerSymbol } from './utils/logging';
+import { Logger, LoggerSymbol } from './utils/logging.js';
 
 export interface PreparedRoom {
     id: string;

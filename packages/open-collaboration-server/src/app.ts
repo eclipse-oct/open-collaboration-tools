@@ -7,10 +7,10 @@
 import 'reflect-metadata';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import serverModule from './container';
+import serverModule from './container.js';
 import { Container } from 'inversify';
-import { CollaborationServer } from './collaboration-server';
-import { LogLevelSymbol, checkLogLevel } from './utils/logging';
+import { CollaborationServer } from './collaboration-server.js';
+import { LogLevelSymbol, checkLogLevel } from './utils/logging.js';
 
 const container = new Container();
 container.load(serverModule);

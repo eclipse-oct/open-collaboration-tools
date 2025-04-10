@@ -1,7 +1,7 @@
 {
   "name": "open-collaboration-tools",
   "displayName": "Open Collaboration Tools",
-  "version": "0.2.4",
+  "version": "0.3.0-next.0",
   "license": "MIT",
   "description": "Connect with others and live-share your code in real-time collaboration sessions",
   "publisher": "typefox",
@@ -39,7 +39,9 @@
   "browser": "./dist/extension.web.js",
   "l10n": "./l10n",
   "engines": {
-    "vscode": "^1.73.0"
+    "vscode": "^1.73.0",
+    "node": ">=20.10.0",
+    "npm": ">=10.2.3"
   },
   "activationEvents": [
     "onStartupFinished",
@@ -221,8 +223,8 @@
     "async-mutex": "^0.5.0",
     "inversify": "^6.0.2",
     "reflect-metadata": "^0.2.2",
-    "open-collaboration-yjs": "0.2.0",
-    "open-collaboration-protocol": "0.2.1",
+    "open-collaboration-yjs": "0.3.0-next.0",
+    "open-collaboration-protocol": "0.3.0-next.0",
     "lodash": "^4.17.21",
     "nanoid": "^5.1.4",
     "node-fetch": "^2.0.0"
@@ -233,7 +235,8 @@
     "@types/vscode": "^1.73.0",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/vsce": "^3.0.0",
-    "deepl-node": "^1.13.1"
+    "deepl-node": "^1.13.1",
+    "esbuild-plugins-node-modules-polyfill": "~1.7.0"
   },
   "volta": {
     "node": "22.14.0",

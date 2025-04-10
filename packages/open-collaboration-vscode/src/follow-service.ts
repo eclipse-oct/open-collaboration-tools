@@ -5,10 +5,10 @@
 // ******************************************************************************
 
 import { inject, injectable } from 'inversify';
-import { CollaborationInstance } from './collaboration-instance';
-import { showQuickPick } from './utils/quick-pick';
-import { CollaborationStatusViewDataProvider } from './collaboration-status-view';
-import { ContextKeyService } from './context-key-service';
+import { CollaborationInstance } from './collaboration-instance.js';
+import { showQuickPick } from './utils/quick-pick.js';
+import { CollaborationStatusViewDataProvider } from './collaboration-status-view.js';
+import { ContextKeyService } from './context-key-service.js';
 
 @injectable()
 export class FollowService {

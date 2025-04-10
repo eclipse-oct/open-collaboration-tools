@@ -6,16 +6,16 @@
 
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
-import { FollowService } from './follow-service';
-import { CollaborationInstance, PeerWithColor } from './collaboration-instance';
-import { ExtensionContext } from './inversify';
-import { QuickPickItem, showQuickPick } from './utils/quick-pick';
-import { ContextKeyService } from './context-key-service';
-import { CollaborationRoomService } from './collaboration-room-service';
-import { CollaborationStatusService } from './collaboration-status-service';
-import { SecretStorage } from './secret-storage';
-import { RoomUri } from './utils/uri';
-import { CodeCommands, OctCommands } from './commands-list';
+import { FollowService } from './follow-service.js';
+import { CollaborationInstance, PeerWithColor } from './collaboration-instance.js';
+import { ExtensionContext } from './inversify.js';
+import { QuickPickItem, showQuickPick } from './utils/quick-pick.js';
+import { ContextKeyService } from './context-key-service.js';
+import { CollaborationRoomService } from './collaboration-room-service.js';
+import { CollaborationStatusService } from './collaboration-status-service.js';
+import { SecretStorage } from './secret-storage.js';
+import { RoomUri } from './utils/uri.js';
+import { CodeCommands, OctCommands } from './commands-list.js';
 
 @injectable()
 export class Commands {

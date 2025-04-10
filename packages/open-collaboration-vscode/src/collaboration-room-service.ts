@@ -6,17 +6,17 @@
 
 import * as vscode from 'vscode';
 import { ConnectionProvider, stringifyError } from 'open-collaboration-protocol';
-import { CollaborationInstance, CollaborationInstanceFactory } from './collaboration-instance';
-import { CollaborationUri, RoomUri } from './utils/uri';
+import { CollaborationInstance, CollaborationInstanceFactory } from './collaboration-instance.js';
+import { CollaborationUri, RoomUri } from './utils/uri.js';
 import { inject, injectable } from 'inversify';
-import { CollaborationConnectionProvider } from './collaboration-connection-provider';
-import { localizeInfo } from './utils/l10n';
-import { isWeb } from './utils/system';
-import { Settings } from './utils/settings';
-import { RoomData, SecretStorage } from './secret-storage';
-import { storeWorkspace } from './utils/workspace';
-import { ExtensionContext } from './inversify';
-import { CodeCommands } from './commands-list';
+import { CollaborationConnectionProvider } from './collaboration-connection-provider.js';
+import { localizeInfo } from './utils/l10n.js';
+import { isWeb } from './utils/system.js';
+import { Settings } from './utils/settings.js';
+import { RoomData, SecretStorage } from './secret-storage.js';
+import { storeWorkspace } from './utils/workspace.js';
+import { ExtensionContext } from './inversify.js';
+import { CodeCommands } from './commands-list.js';
 
 @injectable()
 export class CollaborationRoomService {

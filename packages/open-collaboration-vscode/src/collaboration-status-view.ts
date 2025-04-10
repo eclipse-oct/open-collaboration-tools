@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import * as vscode from 'vscode';
-import { CollaborationInstance, PeerWithColor } from './collaboration-instance';
+import { CollaborationInstance, PeerWithColor } from './collaboration-instance.js';
 import { injectable } from 'inversify';
 
 @injectable()

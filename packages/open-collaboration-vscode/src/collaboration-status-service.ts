@@ -6,12 +6,12 @@
 
 import * as vscode from 'vscode';
 import { inject, injectable, postConstruct } from 'inversify';
-import { CollaborationRoomService } from './collaboration-room-service';
-import { CollaborationStatusViewDataProvider } from './collaboration-status-view';
-import { ExtensionContext } from './inversify';
-import { ContextKeyService } from './context-key-service';
-import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
-import { isWeb } from './utils/system';
+import { CollaborationRoomService } from './collaboration-room-service.js';
+import { CollaborationStatusViewDataProvider } from './collaboration-status-view.js';
+import { ExtensionContext } from './inversify.js';
+import { ContextKeyService } from './context-key-service.js';
+import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js';
+import { isWeb } from './utils/system.js';
 
 export enum StatusBarState {
     Idle,

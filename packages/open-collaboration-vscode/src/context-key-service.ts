@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { injectable } from 'inversify';
-import { CollaborationInstance } from './collaboration-instance';
+import { CollaborationInstance } from './collaboration-instance.js';
 
 @injectable()
 export class ContextKeyService {

@@ -1,18 +1,27 @@
 {
   "name": "open-collaboration-protocol",
-  "version": "0.2.1",
+  "version": "0.3.0-next.0",
   "license": "MIT",
   "description": "Open Collaboration Protocol implementation, part of the Open Collaboration Tools project",
   "files": [
     "lib",
     "src"
   ],
-  "main": "./lib/index-node.js",
-  "types": "./lib/index.d.ts",
+  "type": "module",
+  "main": "./lib/index.js",
+  "module": "./lib/index.js",
   "exports": {
-    "types": "./lib/index.d.ts",
-    "browser": "./lib/index-browser.js",
-    "node": "./lib/index-node.js"
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "lib/index.d.ts"
+      ]
+    }
   },
   "scripts": {
     "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
@@ -48,5 +57,9 @@
   "volta": {
     "node": "22.14.0",
     "npm": "10.9.2"
+  },
+  "engines": {
+    "node": ">=20.10.0",
+    "npm": ">=10.2.3"
   }
 }

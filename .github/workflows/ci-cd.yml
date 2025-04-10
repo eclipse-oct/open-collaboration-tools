@@ -17,48 +17,49 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@v4
 
-      - name: Use Node.js 18.x
-        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
+      - name: Volta
+        uses: volta-cli/action@v4
         with:
-          node-version: 18.x
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 20.10.0
+          npm-version: 10.2.3
 
       - name: Install
         shell: bash
         run: |
-          npm install
+          npm ci
 
       - name: Lint
         run: |
           npm run lint
 
   build:
-    name: Build (${{ matrix.os }}, node-18)
 
     strategy:
       fail-fast: false
       matrix:
+        node-version: [20.10.0]
+        npm-version: [10.2.3]
         os: [windows-latest, ubuntu-latest]
 
+    name: Build (${{ matrix.os }}, 'node ${{ matrix.node-version }}', 'npm ${{ matrix.npm-version }}')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
     steps:
       - name: Checkout
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@v4
 
-      - name: Use Node.js 18.x
-        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
+      - name: Volta
+        uses: volta-cli/action@v4
         with:
-          node-version: 18.x
-          registry-url: 'https://registry.npmjs.org'
+          node-version: ${{ matrix.node-version }}
 
       - name: Install
         shell: bash
         run: |
-          npm install
+          npm ci
 
       - name: Build
         shell: bash

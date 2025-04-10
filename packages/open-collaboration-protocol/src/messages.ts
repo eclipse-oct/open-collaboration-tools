@@ -4,8 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import * as types from './types';
-import { BroadcastType, RequestType, NotificationType } from './messaging';
+import * as types from './types.js';
+import { BroadcastType, RequestType, NotificationType } from './messaging/messages.js';
 
 export namespace Messages {
 

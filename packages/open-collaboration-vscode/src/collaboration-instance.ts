@@ -9,15 +9,15 @@ import * as vscode from 'vscode';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
-import { FileSystemManager } from './collaboration-file-system';
+import { FileSystemManager } from './collaboration-file-system.js';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YTextChangeTracker, YTextChange } from 'open-collaboration-yjs';
-import debounce from 'lodash/debounce';
-import throttle from 'lodash/throttle';
+import debounce from 'lodash/debounce.js';
+import throttle from 'lodash/throttle.js';
 import { inject, injectable, postConstruct } from 'inversify';
-import { removeWorkspaceFolders } from './utils/workspace';
+import { removeWorkspaceFolders } from './utils/workspace.js';
 import { Mutex } from 'async-mutex';
-import { CollaborationUri } from './utils/uri';
-import { userColors } from './utils/package';
+import { CollaborationUri } from './utils/uri.js';
+import { userColors } from './utils/package.js';
 
 export interface PeerWithColor extends types.Peer {
     color?: string;

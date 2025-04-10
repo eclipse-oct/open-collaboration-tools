@@ -5,14 +5,14 @@
 // ******************************************************************************
 
 import { inject, injectable, postConstruct } from 'inversify';
-import { User, isUser } from './types';
-import { UserManager } from './user-manager';
-import jose = require('jose');
+import { User, isUser } from './types.js';
+import { UserManager } from './user-manager.js';
+import * as jose from 'jose';
 import { nanoid, customAlphabet } from 'nanoid';
 import { Disposable, Emitter, Event } from 'open-collaboration-protocol';
-import { Logger, LoggerSymbol } from './utils/logging';
-import { UserInfo } from './auth-endpoints/auth-endpoint';
-import { Configuration } from './utils/configuration';
+import { Logger, LoggerSymbol } from './utils/logging.js';
+import { UserInfo } from './auth-endpoints/auth-endpoint.js';
+import { Configuration } from './utils/configuration.js';
 
 export interface DelayedAuth extends Disposable {
     update(jwt: string): void;

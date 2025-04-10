@@ -4,10 +4,12 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { NotificationMessage, EncryptedNotificationMessage, RequestMessage, EncryptedRequestMessage, ErrorMessage, ResponseErrorMessage, EncryptedResponseErrorMessage, BroadcastMessage, EncryptedBroadcastMessage, BinaryErrorMessage, ResponseMessage, EncryptedResponseMessage, Message, MessageContentKey, CompressionAlgorithm } from './messages';
-import { Encoding } from './encoding';
-import { Compression } from './compression';
-import { MaybePromise, fromBase64, toBase64, getCryptoLib } from '../utils';
+import { NotificationMessage, EncryptedNotificationMessage, RequestMessage, EncryptedRequestMessage, ErrorMessage, ResponseErrorMessage, EncryptedResponseErrorMessage, BroadcastMessage, EncryptedBroadcastMessage, BinaryErrorMessage, ResponseMessage, EncryptedResponseMessage, Message, MessageContentKey, CompressionAlgorithm } from './messages.js';
+import { Encoding } from './encoding.js';
+import { Compression } from './compression.js';
+import { getCryptoLib } from '../utils/crypto.js';
+import { fromBase64, toBase64 } from '../utils/base64.js';
+import { MaybePromise } from '../utils/promise.js';
 
 export namespace Encryption {
 
@@ -32,28 +34,26 @@ export namespace Encryption {
         cache?: Record<string, string>;
     }
 
-    const crypto = getCryptoLib();
-
     export async function generateKeyPair(): Promise<KeyPair> {
-        return crypto.generateKeyPair();
+        return (await getCryptoLib()).generateKeyPair();
     }
     export async function generateSymKey(): Promise<string> {
-        return crypto.generateSymKey();
+        return (await getCryptoLib()).generateSymKey();
     }
     export async function symEncrypt(data: Uint8Array, key: string, iv: string): Promise<Uint8Array> {
-        return crypto.symEncrypt(data, key, iv);
+        return (await getCryptoLib()).symEncrypt(data, key, iv);
     }
     export async function symDecrypt(data: Uint8Array, key: string, iv: string): Promise<Uint8Array> {
-        return crypto.symDecrypt(data, key, iv);
+        return (await getCryptoLib()).symDecrypt(data, key, iv);
     }
     export async function publicEncrypt(data: Uint8Array, key: string): Promise<Uint8Array> {
-        return crypto.publicEncrypt(data, key);
+        return (await getCryptoLib()).publicEncrypt(data, key);
     }
     export async function privateDecrypt(data: Uint8Array, key: string): Promise<Uint8Array> {
-        return crypto.privateDecrypt(data, key);
+        return (await getCryptoLib()).privateDecrypt(data, key);
     }
     export async function generateIV(): Promise<string> {
-        return crypto.generateIV();
+        return (await getCryptoLib()).generateIV();
     }
     export async function encrypt(message: NotificationMessage, symKey: EncryptionKey, ...keys: AsymmetricKey[]): Promise<EncryptedNotificationMessage>;
     export async function encrypt(message: RequestMessage, symKey: EncryptionKey, ...keys: AsymmetricKey[]): Promise<EncryptedRequestMessage>;
@@ -69,12 +69,12 @@ export namespace Encryption {
         const encoded = Encoding.encode(content);
         const compressionAlgo = Compression.bestFit(keys.map(key => key.supportedCompression));
         const compressed = await Compression.compress(encoded, compressionAlgo);
-        const iv = await crypto.generateIV();
-        const encrypted = await crypto.symEncrypt(compressed, key, iv);
+        const iv = await (await getCryptoLib()).generateIV();
+        const encrypted = await (await getCryptoLib()).symEncrypt(compressed, key, iv);
         const encryptedKeys = await Promise.all(keys.map(async key => {
             let cachedKey = symKey.cache?.[key.peerId];
             if (!cachedKey) {
-                cachedKey = toBase64(await crypto.publicEncrypt(keyBuffer, key.publicKey));
+                cachedKey = toBase64(await (await getCryptoLib()).publicEncrypt(keyBuffer, key.publicKey));
                 if (symKey.cache) {
                     symKey.cache[key.peerId] = cachedKey;
                 }
@@ -117,12 +117,12 @@ export namespace Encryption {
         const key = message.metadata.encryption.keys[0];
         let decryptedKey = privateKey.cache?.[key.key];
         if (!decryptedKey) {
-            decryptedKey = toBase64(await crypto.privateDecrypt(fromBase64(key.key), privateKey.privateKey));
+            decryptedKey = toBase64(await (await getCryptoLib()).privateDecrypt(fromBase64(key.key), privateKey.privateKey));
             if (privateKey.cache) {
                 privateKey.cache[key.key] = decryptedKey;
             }
         }
-        const decrypted = await crypto.symDecrypt(message.content, decryptedKey, key.iv);
+        const decrypted = await (await getCryptoLib()).symDecrypt(message.content, decryptedKey, key.iv);
         const decompressed = await Compression.decompress(decrypted, message.metadata.compression.algorithm);
         const decoded = Encoding.decode(decompressed);
         return {
