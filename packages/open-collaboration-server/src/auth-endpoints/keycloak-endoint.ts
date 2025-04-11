@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { AuthProviderMetadata } from 'open-collaboration-protocol';
+import { AuthProviderMetadata } from 'open-collaboration-protocol/lib/types';
 import { Strategy } from 'passport';
 import { OAuthEndpoint } from './oauth-endpoint';
 import OAuth2Strategy, { VerifyCallback } from 'passport-oauth2';
@@ -41,7 +41,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
         this.keycloakBaseUrl = `${this.host}/realms/${this.realm}`;
     }
 
-    override getMetadata(): AuthProviderMetadata {
+    getMetadata(): AuthProviderMetadata {
         return {
             endpoint: this.path,
             label: this.label ?? 'Keycloak',
@@ -49,11 +49,11 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
         };
     }
 
-    override shouldActivate(): boolean {
+    shouldActivate(): boolean {
         return !!this.host && !!this.realm && !!this.clientID;
     }
 
-    override getStrategy(host: string, port: number): Strategy {
+    getStrategy(host: string, port: number): Strategy {
         return new KeycloakStrategy({
             authorizationURL: `${this.keycloakBaseUrl}/protocol/openid-connect/auth`,
             tokenURL: `${this.keycloakBaseUrl}/protocol/openid-connect/token`,
