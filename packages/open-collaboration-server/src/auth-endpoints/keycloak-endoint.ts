@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { AuthProviderMetadata } from 'open-collaboration-protocol/lib/types';
+import { AuthProviderMetadata } from 'open-collaboration-protocol';
 import { Strategy } from 'passport';
 import { OAuthEndpoint } from './oauth-endpoint';
 import OAuth2Strategy, { VerifyCallback } from 'passport-oauth2';
