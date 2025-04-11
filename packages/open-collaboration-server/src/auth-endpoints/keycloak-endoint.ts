@@ -19,6 +19,8 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
 
     protected override redirectPath: string = '/api/login/keycloak-callback';
 
+    protected label?: string;
+
     protected host?: string;
     protected realm?: string;
     protected clientID?: string;
@@ -34,6 +36,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
         this.clientID = this.configuration.getValue('keycloak-client-id');
         this.clientSecret = this.configuration.getValue('keycloak-client-secret');
         this.userNameClaim = this.configuration.getValue('keycloak-username-claim');
+        this.label = this.configuration.getValue('keycloak-label');
 
         this.keycloakBaseUrl = `${this.host}/realms/${this.realm}`;
     }
@@ -41,7 +44,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
     override getMetadata(): AuthProviderMetadata {
         return {
             endpoint: this.path,
-            label: 'Keycloak',
+            label: this.label ?? 'Keycloak',
             type: 'oauth',
         };
     }
@@ -63,7 +66,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
             const userInfo = {
                 name: profile[this.userNameClaim ?? 'preferred_username'],
                 email: profile.email,
-                authProvider: 'Keycloak',
+                authProvider: this.label ?? 'Keycloak',
             };
             done(undefined, userInfo);
         });
