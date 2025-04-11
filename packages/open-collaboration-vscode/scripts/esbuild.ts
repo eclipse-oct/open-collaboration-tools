@@ -36,7 +36,7 @@ const main = async () => {
 		external: ['vscode'],
 		logLevel: 'silent',
 		plugins: [
-			esbuildProblemMatcherPlugin('web', buildType)
+			esbuildProblemMatcherPlugin('web', buildType),
 		],
          // Node.js global to browser globalThis
         define: {

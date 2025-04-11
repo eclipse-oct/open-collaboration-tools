@@ -6,9 +6,9 @@
 
 import { inject, injectable } from 'inversify';
 import { Deferred, EncryptedBroadcastMessage, BroadcastMessage, Message, UnknownRequestMessage, UnknownResponseMessage, UnknownResponseErrorMessage, UnknownNotificationMessage, UnknownBroadcastMessage } from 'open-collaboration-protocol';
-import { Peer } from './types';
+import { Peer } from './types.js';
 import { nanoid } from 'nanoid';
-import { Logger, LoggerSymbol } from './utils/logging';
+import { Logger, LoggerSymbol } from './utils/logging.js';
 
 export interface RelayedRequest {
     id: string | number;

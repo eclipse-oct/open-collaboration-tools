@@ -48,9 +48,9 @@ export interface QuickPickOptions<T> {
     keepScrollPosition?: boolean;
 }
 
-export function showQuickPick<T>(quickPick: QuickPickItem<T>[], options?: QuickPickOptions<T>): Promise<T | undefined>;
+export function showQuickPick<T>(quickPick: Array<QuickPickItem<T>>, options?: QuickPickOptions<T>): Promise<T | undefined>;
 export function showQuickPick<T>(quickPick: vscode.QuickPick<QuickPickItem<T>>): Promise<T | undefined>;
-export function showQuickPick<T>(quickPick: vscode.QuickPick<QuickPickItem<T>> | QuickPickItem<T>[], options?: QuickPickOptions<T>): Promise<T | undefined> {
+export function showQuickPick<T>(quickPick: vscode.QuickPick<QuickPickItem<T>> | Array<QuickPickItem<T>>, options?: QuickPickOptions<T>): Promise<T | undefined> {
     if (Array.isArray(quickPick)) {
         const items = quickPick;
         quickPick = vscode.window.createQuickPick<QuickPickItem<T>>();

@@ -4,8 +4,12 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-export * from './abstract-connection';
-export * from './compression';
-export * from './encoding';
-export * from './encryption';
-export * from './messages';
+import { CryptoModule, setCryptoModule } from './utils/crypto.js';
+
+export type InitializationConfig = {
+    cryptoModule: CryptoModule
+};
+
+export const initializeProtocol = (config: InitializationConfig) => {
+    setCryptoModule(config.cryptoModule);
+};

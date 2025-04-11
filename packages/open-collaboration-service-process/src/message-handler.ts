@@ -7,8 +7,8 @@
 import type * as types from 'open-collaboration-protocol';
 import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest,
     LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument,
-    SessionData, UpdateDocumentContent, UpdateTextSelection } from './messages';
-import { CollaborationInstance } from './collaboration-instance';
+    SessionData, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import { CollaborationInstance } from './collaboration-instance.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
 export class MessageHandler {

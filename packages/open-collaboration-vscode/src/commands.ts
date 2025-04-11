@@ -6,16 +6,16 @@
 
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
-import { FollowService } from './follow-service';
-import { CollaborationInstance, PeerWithColor } from './collaboration-instance';
-import { ExtensionContext } from './inversify';
-import { QuickPickItem, showQuickPick } from './utils/quick-pick';
-import { ContextKeyService } from './context-key-service';
-import { CollaborationRoomService } from './collaboration-room-service';
-import { CollaborationStatusService } from './collaboration-status-service';
-import { SecretStorage } from './secret-storage';
-import { RoomUri } from './utils/uri';
-import { CodeCommands, OctCommands } from './commands-list';
+import { FollowService } from './follow-service.js';
+import { CollaborationInstance, PeerWithColor } from './collaboration-instance.js';
+import { ExtensionContext } from './inversify.js';
+import { QuickPickItem, showQuickPick } from './utils/quick-pick.js';
+import { ContextKeyService } from './context-key-service.js';
+import { CollaborationRoomService } from './collaboration-room-service.js';
+import { CollaborationStatusService } from './collaboration-status-service.js';
+import { SecretStorage } from './secret-storage.js';
+import { RoomUri } from './utils/uri.js';
+import { CodeCommands, OctCommands } from './commands-list.js';
 
 @injectable()
 export class Commands {
@@ -104,7 +104,7 @@ export class Commands {
     }
 
     private async openMainQuickpickOutsideSession(): Promise<void> {
-        const items: QuickPickItem<'join' | 'create'>[] = [
+        const items: Array<QuickPickItem<'join' | 'create'>> = [
             {
                 key: 'join',
                 label: '$(vm-connect) ' + vscode.l10n.t('Join Collaboration Session'),
@@ -129,7 +129,7 @@ export class Commands {
     }
 
     private async openMainQuickpickInSession(instance: CollaborationInstance): Promise<void> {
-        const items: QuickPickItem<'invite' | 'stop' | 'update'>[] = [
+        const items: Array<QuickPickItem<'invite' | 'stop' | 'update'>> = [
             {
                 key: 'invite',
                 label: '$(clippy) ' + vscode.l10n.t('Invite Others (Copy Code)'),
@@ -180,7 +180,7 @@ export class Commands {
     }
 
     async updatePermissions(instance: CollaborationInstance): Promise<void> {
-        const permissions: QuickPickItem<'readonly' | 'readwrite'>[] = [];
+        const permissions: Array<QuickPickItem<'readonly' | 'readwrite'>> = [];
         if (instance.permissions.readonly) {
             permissions.push({
                 key: 'readwrite',

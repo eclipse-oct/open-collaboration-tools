@@ -5,20 +5,20 @@
 // ******************************************************************************
 
 import { Container, ContainerModule } from 'inversify';
-import { CollaborationServer } from './collaboration-server';
-import { CredentialsManager } from './credentials-manager';
-import { MessageRelay } from './message-relay';
-import { PeerFactory, PeerImpl } from './peer';
-import { RoomManager } from './room-manager';
-import { PeerInfo } from './types';
-import { UserManager } from './user-manager';
-import { ConsoleLogger, LogLevel, LogLevelSymbol, LoggerSymbol } from './utils/logging';
-import { SimpleLoginEndpoint } from './auth-endpoints/simple-login-endpoint';
-import { AuthEndpoint } from './auth-endpoints/auth-endpoint';
-import { GitHubOAuthEndpoint, GoogleOAuthEndpoint  } from './auth-endpoints/oauth-endpoint';
-import { Configuration, DefaultConfiguration } from './utils/configuration';
-import { PeerManager } from './peer-manager';
-import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endoint';
+import { CollaborationServer } from './collaboration-server.js';
+import { CredentialsManager } from './credentials-manager.js';
+import { MessageRelay } from './message-relay.js';
+import { PeerFactory, PeerImpl } from './peer.js';
+import { RoomManager } from './room-manager.js';
+import { PeerInfo } from './types.js';
+import { UserManager } from './user-manager.js';
+import { ConsoleLogger, LogLevel, LogLevelSymbol, LoggerSymbol } from './utils/logging.js';
+import { SimpleLoginEndpoint } from './auth-endpoints/simple-login-endpoint.js';
+import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
+import { GitHubOAuthEndpoint, GoogleOAuthEndpoint  } from './auth-endpoints/oauth-endpoint.js';
+import { Configuration, DefaultConfiguration } from './utils/configuration.js';
+import { PeerManager } from './peer-manager.js';
+import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endoint.js';
 
 export default new ContainerModule(bind => {
     bind(LoggerSymbol).to(ConsoleLogger).inSingletonScope();

@@ -4,12 +4,12 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import * as msg from './messages';
-import { MessageTransport } from '../transport/transport';
-import { Emitter, Event } from '../utils/event';
-import { Deferred } from '../utils/promise';
-import { Encryption } from './encryption';
-import { Encoding } from './encoding';
+import * as msg from './messages.js';
+import { MessageTransport } from '../transport/transport.js';
+import { Emitter, Event } from '../utils/event.js';
+import { Deferred } from '../utils/promise.js';
+import { Encryption } from './encryption.js';
+import { Encoding } from './encoding.js';
 
 export type Handler<P extends unknown[], R = void> = (origin: string, ...parameters: P) => (R | Promise<R>);
 export type UnhandledMessageHandler = (origin: string, method: string, ...parameters: unknown[]) => any | Promise<any>;

@@ -4,10 +4,12 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import type * as types from './types';
-import { AbstractBroadcastConnection, BroadcastConnection, Handler, MessageTarget, Encryption } from './messaging';
-import { Messages } from './messages';
-import { MessageTransport } from './transport';
+import type * as types from './types.js';
+import { Encryption } from './messaging/encryption.js';
+import { AbstractBroadcastConnection, BroadcastConnection, Handler } from './messaging/abstract-connection.js';
+import { MessageTarget } from './messaging/messages.js';
+import { Messages } from './messages.js';
+import { MessageTransport } from './transport/transport.js';
 
 export interface RoomHandler {
     onJoin(handler: Handler<[types.Peer]>): void;

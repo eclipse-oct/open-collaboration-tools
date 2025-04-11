@@ -7,11 +7,11 @@
 import { inject, injectable, postConstruct } from 'inversify';
 import { nanoid } from 'nanoid';
 import * as protocol from 'open-collaboration-protocol';
-import { Channel } from './channel';
-import { MessageRelay } from './message-relay';
-import { RoomManager } from './room-manager';
-import { Peer, PeerInfo, Room, User } from './types';
-import { Logger, LoggerSymbol } from './utils/logging';
+import { Channel } from './channel.js';
+import { MessageRelay } from './message-relay.js';
+import { RoomManager } from './room-manager.js';
+import { Peer, PeerInfo, Room, User } from './types.js';
+import { Logger, LoggerSymbol } from './utils/logging.js';
 import { parse } from 'semver';
 
 export const PeerFactory = Symbol('PeerFactory');
@@ -111,7 +111,7 @@ export class PeerImpl implements Peer {
                 // Adjust the response to the original message id
                 response.id = message.id;
                 this.channel.sendMessage(response);
-            } catch (err) {
+            } catch (_error) {
                 const errorResponseMessage = protocol.ResponseErrorMessage.create(message.id, 'Failed to retrieve the requested data.');
                 this.channel.sendMessage(errorResponseMessage);
             }
@@ -126,7 +126,7 @@ export class PeerImpl implements Peer {
             }
             try {
                 this.messageRelay.sendNotification(this.getTargetPeer(message.target), message);
-            } catch (error) {
+            } catch (_error) {
                 this.logger.error(`Failed sending notification to: ${message.target || '<empty>'}`);
             }
         } else if (protocol.BroadcastMessage.isAny(message)) {

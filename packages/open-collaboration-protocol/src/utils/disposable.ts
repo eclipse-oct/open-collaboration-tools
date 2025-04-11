@@ -4,8 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { Event, Emitter } from './event';
-import { isObject } from './types';
+import { Event, Emitter } from './event.js';
+import { isObject } from './types.js';
 
 export interface Disposable {
     /**
