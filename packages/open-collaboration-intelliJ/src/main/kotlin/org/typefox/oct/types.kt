@@ -1,6 +1,6 @@
 package org.typefox.oct
 
-import com.fasterxml.jackson.annotation.JsonProperty
+import com.google.api.Endpoint
 
 data class OCPMessage(
     val method: String,
@@ -20,15 +20,32 @@ data class Workspace(
 )
 
 data class AuthMetadata(
-    val providers: Array<AuthProviderMetadata>,
+    val providers: Array<AuthProvider>,
     val loginPageUrl: String?,
     val defaultSuccessUrl: String?
 )
 
-data class AuthProviderMetadata(
-    val label: String,
+data class AuthProvider(
+    val name: String,
+    val group: InfoMessage,
+    val label: InfoMessage,
+    val details: InfoMessage?,
     val type: String,
     val endpoint: String,
+    val fields: Array<FormAuthProviderField>?
+)
+
+data class FormAuthProviderField(
+    val name: String,
+    val required: Boolean,
+    val label: InfoMessage,
+    val placeHolder: InfoMessage?
+)
+
+data class InfoMessage(
+    val code: String,
+    val params: Array<String>,
+    val message: String
 )
 
 
