@@ -99,7 +99,7 @@ export class DisposablePeer {
 }
 
 let colorIndex = 0;
-const defaultColors: ([number, number, number] | string)[] = [
+const defaultColors: Array<[number, number, number] | string> = [
     'yellow', // Yellow
     'green', // Green
     'magenta', // Magenta

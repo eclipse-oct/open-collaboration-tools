@@ -111,7 +111,7 @@ export class PeerImpl implements Peer {
                 // Adjust the response to the original message id
                 response.id = message.id;
                 this.channel.sendMessage(response);
-            } catch (err) {
+            } catch (_error) {
                 const errorResponseMessage = protocol.ResponseErrorMessage.create(message.id, 'Failed to retrieve the requested data.');
                 this.channel.sendMessage(errorResponseMessage);
             }
@@ -126,7 +126,7 @@ export class PeerImpl implements Peer {
             }
             try {
                 this.messageRelay.sendNotification(this.getTargetPeer(message.target), message);
-            } catch (error) {
+            } catch (_error) {
                 this.logger.error(`Failed sending notification to: ${message.target || '<empty>'}`);
             }
         } else if (protocol.BroadcastMessage.isAny(message)) {

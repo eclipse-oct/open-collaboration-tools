@@ -226,6 +226,7 @@ export interface Workspace {
     folders: string[]
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Capabilities {
 
 }

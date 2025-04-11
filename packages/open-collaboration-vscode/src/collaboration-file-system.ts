@@ -68,7 +68,7 @@ export class CollaborationFileSystemProvider implements vscode.FileSystemProvide
         const stat = await this.connection.fs.stat(this.hostId, path);
         return stat;
     }
-    async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
+    async readDirectory(uri: vscode.Uri): Promise<Array<[string, vscode.FileType]>> {
         const path = this.getHostPath(uri);
         const record = await this.connection.fs.readdir(this.hostId, path);
         return Object.entries(record);

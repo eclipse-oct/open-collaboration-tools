@@ -146,7 +146,6 @@ export class ConnectionProvider {
     }
 
     private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string> {
-        // eslint-disable-next-line
         while (true) {
             const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}`), {
                 signal: options.abortSignal,
@@ -279,7 +278,6 @@ export class ConnectionProvider {
     }
 
     async pollJoin(joinToken: string, options: JoinRoomOptions): Promise<types.JoinRoomResponse> {
-        // eslint-disable-next-line
         while (true) {
             const response = await this.fetch(this.getUrl(`/api/session/poll/${joinToken}`), {
                 method: 'POST',
@@ -327,7 +325,7 @@ export class ConnectionProvider {
             } catch {
                 return new Error(text);
             }
-        } catch (error) {
+        } catch (_error) {
             return new Error('Unknown error');
         }
     }
@@ -371,7 +369,7 @@ export class ConnectionProvider {
         return -1;
     }
 
-    private mergeAbortSignals(...signals: (AbortSignal | undefined)[]): AbortSignal {
+    private mergeAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal {
         const controller = new AbortController();
         for (const signal of signals) {
             if (signal) {

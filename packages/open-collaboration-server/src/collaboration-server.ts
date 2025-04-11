@@ -193,7 +193,7 @@ export class CollaborationServer {
                     const loginPageURL = new URL(loginPageUrlConfig);
                     loginPageURL.searchParams.set('token', token);
                     loginPage = loginPageURL.toString();
-                } catch (error) {
+                } catch (_error) {
                     loginPage = `/login.html?token=${encodeURIComponent(token)}`;
                 }
                 // Ensure that we don't send inactive auth providers to the client

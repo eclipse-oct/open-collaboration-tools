@@ -91,25 +91,25 @@ export namespace Event {
     /**
      * Given a collection of events, returns a single event which emits whenever any of the provided events emit.
      */
-    export function any<T>(...events: Event<T>[]): Event<T>;
-    export function any(...events: Event<any>[]): Event<void>;
-    export function any<T>(...events: Event<T>[]): Event<T> {
+    export function any<T>(...events: Array<Event<T>>): Event<T>;
+    export function any(...events: Array<Event<any>>): Event<void>;
+    export function any<T>(...events: Array<Event<T>>): Event<T> {
         return (listener, thisArgs = undefined, disposables?: Disposable[]) =>
             new DisposableCollection(...events.map(event => event(e => listener.call(thisArgs, e), undefined, disposables)));
     }
 }
 
-type Callback = (...args: any[]) => any;
-class CallbackList implements Iterable<Callback> {
+type Callback<T> = (...args: Array<(e: T) => any>) => any;
+class CallbackList<T> implements Iterable<Callback<T>> {
 
-    private _callbacks: Function[] | undefined;
+    private _callbacks: Array<(...args: any[]) => any> | undefined;
     private _contexts: any[] | undefined;
 
     get length(): number {
         return this._callbacks && this._callbacks.length || 0;
     }
 
-    public add(callback: Function, context: any = undefined, bucket?: Disposable[]): void {
+    public add(callback: (...args: any[]) => any, context: any = undefined, bucket?: Disposable[]): void {
         if (!this._callbacks) {
             this._callbacks = [];
             this._contexts = [];
@@ -122,7 +122,7 @@ class CallbackList implements Iterable<Callback> {
         }
     }
 
-    public remove(callback: Function, context: any = undefined): void {
+    public remove(callback: (...args: any[]) => any, context: any = undefined): void {
         if (!this._callbacks) {
             return;
         }
@@ -182,8 +182,8 @@ class CallbackList implements Iterable<Callback> {
 }
 
 export interface EmitterOptions {
-    onFirstListenerAdd?: Function;
-    onLastListenerRemove?: Function;
+    onFirstListenerAdd?: (emitter: Emitter<any>) => void;
+    onLastListenerRemove?: (emitter: Emitter<any>) => void;
 }
 
 export class Emitter<T = any> {
@@ -193,7 +193,7 @@ export class Emitter<T = any> {
     private static _noop = function(): void { };
 
     private _event: Event<T>;
-    protected _callbacks: CallbackList | undefined;
+    protected _callbacks: CallbackList<T> | undefined;
     private _disposed = false;
 
     private _leakingStacks: Map<string, number> | undefined;
@@ -274,7 +274,6 @@ export class Emitter<T = any> {
                 }
             });
 
-            // eslint-disable-next-line max-len
             console.warn(`Possible Emitter memory leak detected. ${listenerCount} listeners added. Use event.maxListeners to increase the limit (${maxListeners}). MOST frequent listener (${topCount}):`);
             console.warn(topStack!);
         }
