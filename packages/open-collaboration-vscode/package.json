@@ -220,22 +220,21 @@
     "l10n-translate": "tsx ./scripts/translate.ts"
   },
   "dependencies": {
-    "async-mutex": "^0.5.0",
-    "inversify": "^6.0.2",
-    "reflect-metadata": "^0.2.2",
-    "open-collaboration-yjs": "0.3.0-next.0",
-    "open-collaboration-protocol": "0.3.0-next.0",
-    "lodash": "^4.17.21",
-    "nanoid": "^5.1.4",
-    "node-fetch": "^2.0.0"
+    "async-mutex": "~0.5.0",
+    "inversify": "~6.2.2",
+    "reflect-metadata": "~0.2.2",
+    "open-collaboration-yjs": "~0.3.0-next.0",
+    "open-collaboration-protocol": "~0.3.0-next.0",
+    "lodash": "~4.17.21",
+    "nanoid": "~5.1.5",
+    "node-fetch": "~3.3.2"
   },
   "devDependencies": {
-    "@types/lodash": "^4.17.7",
-    "@types/node-fetch": "^2.0.0",
+    "@types/node-fetch": "~2.6.12",
     "@types/vscode": "^1.73.0",
-    "@vscode/l10n-dev": "^0.0.35",
+    "@vscode/l10n-dev": "~0.0.35",
     "@vscode/vsce": "^3.0.0",
-    "deepl-node": "^1.13.1"
+    "deepl-node": "~1.17.3"
   },
   "volta": {
     "node": "22.14.0",

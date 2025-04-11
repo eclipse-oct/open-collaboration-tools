@@ -104,7 +104,7 @@ export class Commands {
     }
 
     private async openMainQuickpickOutsideSession(): Promise<void> {
-        const items: QuickPickItem<'join' | 'create'>[] = [
+        const items: Array<QuickPickItem<'join' | 'create'>> = [
             {
                 key: 'join',
                 label: '$(vm-connect) ' + vscode.l10n.t('Join Collaboration Session'),
@@ -129,7 +129,7 @@ export class Commands {
     }
 
     private async openMainQuickpickInSession(instance: CollaborationInstance): Promise<void> {
-        const items: QuickPickItem<'invite' | 'stop' | 'update'>[] = [
+        const items: Array<QuickPickItem<'invite' | 'stop' | 'update'>> = [
             {
                 key: 'invite',
                 label: '$(clippy) ' + vscode.l10n.t('Invite Others (Copy Code)'),
@@ -180,7 +180,7 @@ export class Commands {
     }
 
     async updatePermissions(instance: CollaborationInstance): Promise<void> {
-        const permissions: QuickPickItem<'readonly' | 'readwrite'>[] = [];
+        const permissions: Array<QuickPickItem<'readonly' | 'readwrite'>> = [];
         if (instance.permissions.readonly) {
             permissions.push({
                 key: 'readwrite',
