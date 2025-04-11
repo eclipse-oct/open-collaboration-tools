@@ -48,30 +48,42 @@ export class MessageHandler {
     }
 
     async login(): Promise<string> {
-        const authToken = await this.connectionProvider.login({ });
-        return authToken;
+        try {
+            const authToken = await this.connectionProvider.login({ });
+            return authToken;
+        } catch (error) {
+            throw new Error(`Failed to login: ${error}`);
+        }
     }
 
     async joinRoom(roomId: string): Promise<SessionData> {
-        const resp = await this.connectionProvider.joinRoom({ roomId });
-        this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
-        return {
-            roomId: resp.roomId,
-            roomToken: resp.roomToken,
-            authToken: resp.loginToken ?? this.connectionProvider.authToken,
-            workspace: resp.workspace
-        };
+        try {
+            const resp = await this.connectionProvider.joinRoom({ roomId });
+            this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
+            return {
+                roomId: resp.roomId,
+                roomToken: resp.roomToken,
+                authToken: resp.loginToken ?? this.connectionProvider.authToken,
+                workspace: resp.workspace
+            };
+        } catch (error) {
+            throw new Error(`Failed to join room: ${error}`);
+        }
     }
 
     async createRoom(workspace: types.Workspace): Promise<SessionData> {
-        const resp = await this.connectionProvider.createRoom({});
-        this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, workspace);
-        return {
-            roomId: resp.roomId,
-            roomToken: resp.roomToken,
-            authToken: resp.loginToken ?? this.connectionProvider.authToken,
-            workspace,
-        };
+        try {
+            const resp = await this.connectionProvider.createRoom({});
+            this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, workspace);
+            return {
+                roomId: resp.roomId,
+                roomToken: resp.roomToken,
+                authToken: resp.loginToken ?? this.connectionProvider.authToken,
+                workspace,
+            };
+        } catch (error) {
+            throw new Error(`Failed to create room: ${error}`);
+        }
     }
 
     onConnection(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
