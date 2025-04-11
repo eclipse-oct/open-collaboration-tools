@@ -4,9 +4,9 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { AuthProviderMetadata } from 'open-collaboration-protocol';
+import { AuthProvider } from 'open-collaboration-protocol';
 import { Strategy } from 'passport';
-import { OAuthEndpoint } from './oauth-endpoint';
+import { OAuthEndpoint, ThirdParty } from './oauth-endpoint';
 import OAuth2Strategy, { VerifyCallback } from 'passport-oauth2';
 import { injectable, postConstruct } from 'inversify';
 
@@ -19,7 +19,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
 
     protected override redirectPath: string = '/api/login/keycloak-callback';
 
-    protected label?: string;
+    protected label: string = 'Keycloak';
 
     protected host?: string;
     protected realm?: string;
@@ -36,16 +36,22 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
         this.clientID = this.configuration.getValue('keycloak-client-id');
         this.clientSecret = this.configuration.getValue('keycloak-client-secret');
         this.userNameClaim = this.configuration.getValue('keycloak-username-claim');
-        this.label = this.configuration.getValue('keycloak-client-label');
+        this.label = this.configuration.getValue('keycloak-client-label') ?? 'Keycloak';
 
         this.keycloakBaseUrl = `${this.host}/realms/${this.realm}`;
     }
 
-    getMetadata(): AuthProviderMetadata {
+    getProtocolProvider(): AuthProvider {
         return {
             endpoint: this.path,
-            label: this.label ?? 'Keycloak',
-            type: 'oauth',
+            name: this.label,
+            type: 'web',
+            label: {
+                code: '',
+                message: this.label,
+                params: []
+            },
+            group: ThirdParty
         };
     }
 
@@ -66,7 +72,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
             const userInfo = {
                 name: profile[this.userNameClaim ?? 'preferred_username'],
                 email: profile.email,
-                authProvider: this.label ?? 'Keycloak',
+                authProvider: this.label,
             };
             done(undefined, userInfo);
         });

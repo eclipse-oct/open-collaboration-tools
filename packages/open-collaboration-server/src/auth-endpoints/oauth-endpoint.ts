@@ -17,7 +17,7 @@ import { URL } from 'url';
 
 export const oauthProviders = Symbol('oauthProviders');
 
-const ThirdParty: Info = {
+export const ThirdParty: Info = {
     code: Info.Codes.ThirdParty,
     message: 'Third-party',
     params: []
