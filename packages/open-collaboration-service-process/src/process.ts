@@ -4,11 +4,16 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { ConnectionProvider, SocketIoTransportProvider }from 'open-collaboration-protocol';
+import * as crypto from 'node:crypto';
+import { ConnectionProvider, initializeProtocol, SocketIoTransportProvider } from 'open-collaboration-protocol';
 import { MessageHandler } from './message-handler.js';
 import { program } from 'commander';
 import {createMessageConnection, StreamMessageReader, StreamMessageWriter} from 'vscode-jsonrpc/node.js';
 import { Authentication } from './messages.js';
+
+initializeProtocol({
+    cryptoModule: crypto.webcrypto
+});
 
 program
     .option('--server-address <server-address>', 'The address of the server to connect to')

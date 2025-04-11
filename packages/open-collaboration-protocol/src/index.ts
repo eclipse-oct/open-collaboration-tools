@@ -24,7 +24,8 @@ export * from './utils/promise.js';
 export * from './utils/types.js';
 export * from './utils/version.js';
 
-export * from './messages.js';
-export * from './types.js';
+export * from './configuration.js';
 export * from './connection.js';
 export * from './connection-provider.js';
+export * from './messages.js';
+export * from './types.js';

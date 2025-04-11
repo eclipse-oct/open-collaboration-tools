@@ -1,9 +1,15 @@
 // ******************************************************************************
-// Copyright 2025 TypeFox GmbH
+// Copyright 2024 TypeFox GmbH
 // This program and the accompanying materials are made available under the
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-export type { Peer } from 'open-collaboration-protocol';
-export type { User } from 'open-collaboration-protocol';
-export type { AuthMetadata } from 'open-collaboration-protocol';
+import { CryptoModule, setCryptoModule } from './utils/crypto.js';
+
+export type InitializationConfig = {
+    cryptoModule: CryptoModule
+};
+
+export const initializeProtocol = (config: InitializationConfig) => {
+    setCryptoModule(config.cryptoModule);
+};

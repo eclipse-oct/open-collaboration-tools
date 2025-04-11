@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Volta
-        uses: volta-cli/action@v4
+        uses: volta-cli/action@5c175f92dea6f48441c436471e6479dbc192e194 # v4.2.1
         with:
           node-version: 20.10.0
           npm-version: 10.2.3
@@ -49,10 +49,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Volta
-        uses: volta-cli/action@v4
+        uses: volta-cli/action@5c175f92dea6f48441c436471e6479dbc192e194 # v4.2.1
         with:
           node-version: ${{ matrix.node-version }}
 

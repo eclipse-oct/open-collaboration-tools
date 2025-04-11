@@ -1,5 +1,4 @@
 import esbuild from "esbuild";
-import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
 import { esbuildProblemMatcherPlugin } from "../../../scripts/esbuild";
 
 const production = process.argv.includes('--production');
@@ -38,9 +37,6 @@ const main = async () => {
 		logLevel: 'silent',
 		plugins: [
 			esbuildProblemMatcherPlugin('web', buildType),
-            nodeModulesPolyfillPlugin({
-                modules: ['crypto']
-            })
 		],
          // Node.js global to browser globalThis
         define: {

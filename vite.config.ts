@@ -9,13 +9,7 @@ export default defineConfig(() => {
                 input: {
                     index: path.resolve(__dirname, 'index.html'),
                 }
-            },
-            commonjsOptions: {
-                include: [/open-collaboration-protocol/, /open-collaboration-yjs/],
             }
-        },
-        optimizeDeps: {
-            include: ['open-collaboration-protocol', 'open-collaboration-yjs'],
         }
     };
     return config;

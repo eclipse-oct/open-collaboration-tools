@@ -9,12 +9,15 @@ import * as path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const getLocalDirectory = (referenceUrl: string | URL) => {
-    const __filename = fileURLToPath(referenceUrl);
-    return path.dirname(__filename);
+// resolves __filename
+export const getLocalFilename = (referenceUrl: string | URL) => {
+    return fileURLToPath(referenceUrl);
 };
 
-
+// resolves __dirname
+export const getLocalDirectory = (referenceUrl: string | URL) => {
+    return path.dirname(getLocalFilename(referenceUrl));
+};
 const authKey = process.env.DEEPL_AUTH_KEY;
 if (!authKey) {
     throw new Error('DEEPL_AUTH_KEY environment variable is not set');

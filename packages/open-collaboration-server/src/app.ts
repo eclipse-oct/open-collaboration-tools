@@ -5,12 +5,18 @@
 // ******************************************************************************
 
 import 'reflect-metadata';
+import * as crypto from 'node:crypto';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import serverModule from './container.js';
 import { Container } from 'inversify';
+import { initializeProtocol } from 'open-collaboration-protocol';
 import { CollaborationServer } from './collaboration-server.js';
 import { LogLevelSymbol, checkLogLevel } from './utils/logging.js';
+
+initializeProtocol({
+    cryptoModule: crypto.webcrypto
+});
 
 const container = new Container();
 container.load(serverModule);

@@ -33,9 +33,13 @@ export interface CryptoLib {
 export type CryptoModule = typeof self.crypto | typeof import('node:crypto').webcrypto;
 let cryptoModule: CryptoModule | undefined;
 
-export const getCryptoLib = async (): Promise<CryptoLib> => {
+export const setCryptoModule = (cm: CryptoModule): void => {
+    cryptoModule = cm;
+};
+
+export const getCryptoLib = (): CryptoLib => {
     if (cryptoModule === undefined) {
-        cryptoModule = (globalThis.crypto === undefined) ? (await import('node:crypto')).webcrypto : globalThis.crypto;
+        throw new Error('Crypto module is not available. Please call initialize() function first.');
     }
     const subtle = cryptoModule.subtle;
     return {

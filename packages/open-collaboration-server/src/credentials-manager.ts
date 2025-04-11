@@ -13,6 +13,7 @@ import { Disposable, Emitter, Event } from 'open-collaboration-protocol';
 import { Logger, LoggerSymbol } from './utils/logging.js';
 import { UserInfo } from './auth-endpoints/auth-endpoint.js';
 import { Configuration } from './utils/configuration.js';
+import { getLocalFilename } from './collaboration-server.js';
 
 export interface DelayedAuth extends Disposable {
     update(jwt: string): void;
@@ -109,7 +110,7 @@ export class CredentialsManager {
     }
 
     protected getJwtPrivateKey(): Uint8Array {
-        const key = this.configuration.getValue('oct-jwt-private-key') ?? __filename;
+        const key = this.configuration.getValue('oct-jwt-private-key') ?? getLocalFilename(import.meta.url);
         return Buffer.from(key);
     }
 

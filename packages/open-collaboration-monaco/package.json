@@ -14,18 +14,29 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./example": {
+      "types": "./lib/example.d.ts",
+      "default": "./lib/example.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "lib/index.d.ts"
+      ],
+      "example": [
+        "lib/example.d.ts"
+      ]
     }
   },
   "scripts": {
-    "dev": "vite",
-    "dev:debug": "vite --debug --force",
     "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
   },
   "dependencies": {
     "lodash": "^4.17.21",
     "monaco-editor": "~0.52.0",
     "node-fetch": "^2.0.0",
-    "vite": "^5.3.1",
     "ws": "^8.17.0",
     "open-collaboration-protocol": "0.3.0-next.0",
     "open-collaboration-yjs": "0.3.0-next.0"

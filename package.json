@@ -18,7 +18,9 @@
     "test": "vitest",
     "test-ui": "vitest --ui",
     "coverage": "vitest run --coverage",
-    "reset:repo": "git clean -f -X -d"
+    "reset:repo": "git clean -f -X -d",
+    "dev": "vite",
+    "dev:debug": "vite --debug --force"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -36,6 +38,7 @@
     "shx": "~0.4.0",
     "tsx": "~4.19.3",
     "typescript": "~5.8.2",
+    "vite": "~6.2.6",
     "vitest": "~3.0.8",
     "postject": "1.0.0-alpha.6"
   },

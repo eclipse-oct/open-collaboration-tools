@@ -66,6 +66,5 @@ async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: 
     connection.onDisconnect(() => {
         instance?.dispose();
     });
-    // await instance.initialize();
     return instance;
 }
