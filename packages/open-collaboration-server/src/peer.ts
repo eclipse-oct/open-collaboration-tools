@@ -7,11 +7,11 @@
 import { inject, injectable, postConstruct } from 'inversify';
 import { nanoid } from 'nanoid';
 import * as protocol from 'open-collaboration-protocol';
-import { Channel } from './channel';
-import { MessageRelay } from './message-relay';
-import { RoomManager } from './room-manager';
-import { Peer, PeerInfo, Room, User } from './types';
-import { Logger, LoggerSymbol } from './utils/logging';
+import { Channel } from './channel.js';
+import { MessageRelay } from './message-relay.js';
+import { RoomManager } from './room-manager.js';
+import { Peer, PeerInfo, Room, User } from './types.js';
+import { Logger, LoggerSymbol } from './utils/logging.js';
 import { parse } from 'semver';
 
 export const PeerFactory = Symbol('PeerFactory');

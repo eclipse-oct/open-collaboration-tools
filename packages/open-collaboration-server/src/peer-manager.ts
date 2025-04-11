@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import { injectable } from 'inversify';
-import { Peer } from './types';
+import { Peer } from './types.js';
 
 @injectable()
 export class PeerManager {

@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Container } from 'inversify';
-import { CollaborationInstance, CollaborationInstanceFactory, CollaborationInstanceOptions } from './collaboration-instance';
+import { CollaborationInstance, CollaborationInstanceFactory, CollaborationInstanceOptions } from './collaboration-instance.js';
 
 export const ExtensionContext = Symbol('ExtensionContext');
 

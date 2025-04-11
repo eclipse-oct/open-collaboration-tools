@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import * as vscode from 'vscode';
-import { RoomUri } from './uri';
+import { RoomUri } from './uri.js';
 
 export namespace Settings {
 

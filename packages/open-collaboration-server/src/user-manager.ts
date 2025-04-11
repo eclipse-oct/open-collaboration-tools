@@ -6,8 +6,8 @@
 
 import { injectable } from 'inversify';
 import { nanoid } from 'nanoid';
-import { User } from './types';
-import { UserInfo } from './auth-endpoints/auth-endpoint';
+import { User } from './types.js';
+import { UserInfo } from './auth-endpoints/auth-endpoint.js';
 
 @injectable()
 export class UserManager {

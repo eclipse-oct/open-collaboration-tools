@@ -7,12 +7,12 @@
 import { inject, injectable, postConstruct } from 'inversify';
 import { type Express } from 'express';
 import { AuthProvider, Emitter, Event, Info } from 'open-collaboration-protocol';
-import { AuthEndpoint, AuthSuccessEvent, UserInfo } from './auth-endpoint';
+import { AuthEndpoint, AuthSuccessEvent, UserInfo } from './auth-endpoint.js';
 import passport from 'passport';
 import { Strategy as GithubStrategy } from 'passport-github';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { Logger, LoggerSymbol } from '../utils/logging';
-import { Configuration } from '../utils/configuration';
+import { Logger, LoggerSymbol } from '../utils/logging.js';
+import { Configuration } from '../utils/configuration.js';
 import { URL } from 'url';
 
 export const oauthProviders = Symbol('oauthProviders');

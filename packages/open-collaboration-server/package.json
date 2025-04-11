@@ -1,6 +1,6 @@
 {
   "name": "open-collaboration-server",
-  "version": "0.2.0",
+  "version": "0.3.0-next.0",
   "license": "MIT",
   "description": "Open Collaboration Server implementation, part of the Open Collaboration Tools project",
   "files": [
@@ -8,6 +8,22 @@
     "lib",
     "src"
   ],
+  "type": "module",
+  "main": "./lib/app.js",
+  "module": "./lib/app.js",
+  "exports": {
+    ".": {
+      "types": "./lib/app.d.ts",
+      "default": "./lib/app.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "lib/app.d.ts"
+      ]
+    }
+  },
   "bin": {
     "oct-server": "./bin/server"
   },
@@ -19,9 +35,9 @@
   "dependencies": {
     "express": "^4.19.2",
     "inversify": "^6.0.2",
-    "jose": "^4.15.5",
+    "jose": "~6.0.10",
     "nanoid": "^3.0.0",
-    "open-collaboration-protocol": "0.2.1",
+    "open-collaboration-protocol": "0.3.0-next.0",
     "passport": "~0.7.0",
     "passport-github": "~1.1.0",
     "passport-google-oauth20": "^2.0.0",
@@ -63,5 +79,9 @@
   "volta": {
     "node": "22.14.0",
     "npm": "10.9.2"
+  },
+  "engines": {
+    "node": ">=20.10.0",
+    "npm": ">=10.2.3"
   }
 }

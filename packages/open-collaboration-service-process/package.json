@@ -1,6 +1,6 @@
 {
   "name": "open-collaboration-service-process",
-  "version": "0.2.0",
+  "version": "0.3.0-next.0",
   "license": "MIT",
   "description": "A service process for integrating non Typescript projects with the Open Collaboration Tools project",
   "files": [
@@ -8,18 +8,34 @@
     "lib",
     "src"
   ],
+  "type": "module",
+  "main": "./lib/messages.js",
+  "module": "./lib/messages.js",
+  "exports": {
+    ".": {
+      "types": "./lib/messages.d.ts",
+      "default": "./lib/messages.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "lib/messages.d.ts"
+      ]
+    }
+  },
   "bin": {
     "oct-daemon-service": "./bin/service"
   },
   "scripts": {
     "start": "node lib/process.js",
-    "build": "tsc",
-    "bundle": "esbuild ./lib/process.js --bundle --platform=node --outfile=lib/bundle.cjs",
-    "create:executable": "npm run build && npm run bundle && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.mjs"
+    "start:direct": "tsx src/process.ts",
+    "build": "esbuild ./lib/process.js --bundle --platform=node --format=esm --outfile=lib/bundle.js",
+    "create:executable": "npm run build && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.mjs"
   },
   "dependencies": {
-    "open-collaboration-yjs": "0.2.0",
-    "open-collaboration-protocol": "0.2.1",
+    "open-collaboration-yjs": "0.3.0-next.0",
+    "open-collaboration-protocol": "0.3.0-next.0",
     "vscode-jsonrpc": "8.2.1",
     "async-mutex": "^0.5.0",
     "commander": "13.1.0"
@@ -40,5 +56,13 @@
   "author": {
     "name": "TypeFox",
     "url": "https://www.typefox.io/"
+  },
+  "volta": {
+    "node": "22.14.0",
+    "npm": "10.9.2"
+  },
+  "engines": {
+    "node": ">=20.10.0",
+    "npm": ">=10.2.3"
   }
 }

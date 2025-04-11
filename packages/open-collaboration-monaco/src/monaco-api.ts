@@ -11,8 +11,11 @@ import { createRoom, joinRoom, login } from './collaboration-connection.js';
 import * as monaco from 'monaco-editor';
 
 let connectionProvider: ConnectionProvider | undefined;
-// let userToken: string | undefined;
 let instance: CollaborationInstance | undefined;
+
+types.initializeProtocol({
+    cryptoModule: globalThis.crypto
+});
 
 export type MonacoCollabCallbacks = {
     onUserRequestsAccess: (user: types.User) => Promise<boolean>;
@@ -159,16 +162,3 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
 export function deactivate() {
     instance?.dispose();
 }
-
-// function removeWorkspaceFolders() {
-//     const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-//     if (workspaceFolders.length > 0) {
-//         const newFolders: vscode.WorkspaceFolder[] = [];
-//         for (const folder of workspaceFolders) {
-//             if (folder.uri.scheme !== CollaborationUri.SCHEME) {
-//                 newFolders.push(folder);
-//             }
-//         }
-//         vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
-//     }
-// }

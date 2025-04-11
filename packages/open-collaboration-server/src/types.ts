@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { Channel, TransportChannel } from './channel';
+import { Channel, TransportChannel } from './channel.js';
 import * as protocol from 'open-collaboration-protocol';
 
 export class Room {

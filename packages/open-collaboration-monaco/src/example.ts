@@ -8,17 +8,37 @@ import * as monaco from 'monaco-editor';
 import { monacoCollab } from './monaco-api.js';
 import { User } from 'open-collaboration-protocol';
 
-const value = '';
+const value = `function sayHello(): string {
+    return "Hello";
+};`;
 
-// /* set from `myEditor.getModel()`: */ `function hello() {
-// 	alert('Hello Blah!');
-// }`;
+export type WorkerLoader = () => Worker
+const workerLoaders: Partial<Record<string, WorkerLoader>> = {
+    editorWorkerService: () =>
+        new Worker(new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url), {
+            type: 'module'
+        }),
+    typescript: () =>
+        new Worker(new URL('monaco-editor/esm/vs/language/typescript/ts.worker.js', import.meta.url), {
+            type: 'module'
+        })
+};
+
+window.MonacoEnvironment = {
+    getWorker: function(moduleId, label) {
+        const workerFactory = workerLoaders[label];
+        if (workerFactory !== undefined && workerFactory !== null) {
+            return workerFactory();
+        }
+        throw new Error(`Unimplemented worker ${label} (${moduleId})`);
+    }
+};
 
 const container = document.getElementById('container');
 if (container) {
     const myEditor = monaco.editor.create(container, {
         value,
-        language: 'javascript'
+        language: 'typescript'
     });
 
     const monacoCollabApi = monacoCollab({

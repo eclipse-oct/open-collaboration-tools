@@ -5,14 +5,20 @@
 // ******************************************************************************
 
 import 'reflect-metadata';
+import * as crypto from 'node:crypto';
 import * as vscode from 'vscode';
-import { CollaborationInstance } from './collaboration-instance';
-import { CollaborationRoomService } from './collaboration-room-service';
-import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
-import { createContainer } from './inversify';
-import { Commands } from './commands';
-import { Fetch } from './collaboration-connection-provider';
+import { initializeProtocol } from 'open-collaboration-protocol';
+import { CollaborationInstance } from './collaboration-instance.js';
+import { CollaborationRoomService } from './collaboration-room-service.js';
+import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js';
+import { createContainer } from './inversify.js';
+import { Commands } from './commands.js';
+import { Fetch } from './collaboration-connection-provider.js';
 import fetch from 'node-fetch';
+
+initializeProtocol({
+    cryptoModule: crypto.webcrypto
+});
 
 export async function activate(context: vscode.ExtensionContext) {
     const container = createContainer(context);

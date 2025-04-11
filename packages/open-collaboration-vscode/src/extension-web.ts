@@ -6,11 +6,16 @@
 
 import * as vscode from 'vscode';
 import 'reflect-metadata';
-import { CollaborationInstance } from './collaboration-instance';
-import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace';
-import { createContainer } from './inversify';
-import { Commands } from './commands';
-import { Fetch } from './collaboration-connection-provider';
+import { initializeProtocol } from 'open-collaboration-protocol';
+import { CollaborationInstance } from './collaboration-instance.js';
+import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js';
+import { createContainer } from './inversify.js';
+import { Commands } from './commands.js';
+import { Fetch } from './collaboration-connection-provider.js';
+
+initializeProtocol({
+    cryptoModule: globalThis.crypto
+});
 
 export async function activate(context: vscode.ExtensionContext) {
     const container = createContainer(context);

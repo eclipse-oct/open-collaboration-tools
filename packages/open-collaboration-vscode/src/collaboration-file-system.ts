@@ -7,7 +7,7 @@
 import { ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import * as vscode from 'vscode';
 import * as Y from 'yjs';
-import { CollaborationUri } from './utils/uri';
+import { CollaborationUri } from './utils/uri.js';
 
 export class FileSystemManager implements vscode.Disposable {
 

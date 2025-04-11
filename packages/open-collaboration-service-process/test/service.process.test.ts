@@ -6,9 +6,9 @@
 
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import * as messages from 'open-collaboration-service-process/src/messages';
+import { Authentication, CreateRoomRequest, fromEncodedOCPMessage, JoinRoomRequest, JoinSessionRequest, OCPRequest, OnInitNotification, OpenDocument, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from 'open-collaboration-service-process';
 import { Deferred } from 'open-collaboration-protocol';
-import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
+import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node.js';
 
 const SERVER_ADDRESS = 'http://localhost:8100';
 class Client {
@@ -72,21 +72,21 @@ describe('Service Process', () => {
         const selectionArived = new Deferred();
         let hostId: string = '';
 
-        host.communicationHandler.onNotification(messages.Authentication, (token) => {
+        host.communicationHandler.onNotification(Authentication, (token) => {
             makeSimpleLoginRequest(token, 'host');
         });
-        host.communicationHandler.onRequest(messages.JoinSessionRequest, () => {
+        host.communicationHandler.onRequest(JoinSessionRequest, () => {
             return true;
         });
-        host.communicationHandler.onNotification(messages.UpdateDocumentContent, () => {
+        host.communicationHandler.onNotification(UpdateDocumentContent, () => {
             updateArived.resolve();
         });
-        host.communicationHandler.onNotification(messages.UpdateTextSelection, () => {
+        host.communicationHandler.onNotification(UpdateTextSelection, () => {
             selectionArived.resolve();
         });
 
-        host.communicationHandler.onRequest(messages.OCPRequest, ((rawMessage) => {
-            const message = typeof rawMessage === 'string' ? messages.fromEncodedOCPMessage(rawMessage) : rawMessage;
+        host.communicationHandler.onRequest(OCPRequest, ((rawMessage) => {
+            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
             if(message.method === 'fileSystem/stat') {
                 return {method: 'fileSystem/stat', params: [{
                     type: 2,
@@ -100,19 +100,19 @@ describe('Service Process', () => {
 
         // Setup guest message handlers
         const initDeferred = new Deferred();
-        guest.communicationHandler.onNotification(messages.Authentication, (token) => {
+        guest.communicationHandler.onNotification(Authentication, (token) => {
             makeSimpleLoginRequest(token, 'guest');
         });
-        guest.communicationHandler.onNotification(messages.OnInitNotification, (initData) => {
+        guest.communicationHandler.onNotification(OnInitNotification, (initData) => {
             hostId = initData.host.id;
             initDeferred.resolve();
         });
 
         // room creation
-        const {roomId} = await host.communicationHandler.sendRequest(messages.CreateRoomRequest, {name: 'test', folders: ['testFolder']});
+        const {roomId} = await host.communicationHandler.sendRequest(CreateRoomRequest, {name: 'test', folders: ['testFolder']});
         expect(roomId).toBeDefined();
 
-        const {roomId: guestRoomId} = await guest.communicationHandler.sendRequest(messages.JoinRoomRequest, roomId);
+        const {roomId: guestRoomId} = await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
         expect(guestRoomId).toEqual(roomId);
 
         // await until guest is initialized
@@ -120,17 +120,17 @@ describe('Service Process', () => {
 
         expect(hostId).toBeTruthy();
 
-        const folderStat = await guest.communicationHandler.sendRequest(messages.OCPRequest, messages.toEncodedOCPMessage({ method: 'fileSystem/stat', params: ['testFolder'], target: hostId }));
+        const folderStat = await guest.communicationHandler.sendRequest(OCPRequest, toEncodedOCPMessage({ method: 'fileSystem/stat', params: ['testFolder'], target: hostId }));
         expect(folderStat).toBeDefined();
 
-        host.communicationHandler.sendNotification(messages.OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
-        guest.communicationHandler.sendNotification(messages.OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
+        host.communicationHandler.sendNotification(OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
+        guest.communicationHandler.sendNotification(OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
 
-        guest.communicationHandler.sendNotification(messages.UpdateTextSelection, 'testFolder/test.txt', [{ start: 0, end: 0, isReversed: false }]);
+        guest.communicationHandler.sendNotification(UpdateTextSelection, 'testFolder/test.txt', [{ start: 0, end: 0, isReversed: false }]);
 
         await selectionArived.promise;
 
-        guest.communicationHandler.sendNotification(messages.UpdateDocumentContent, 'testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]);
+        guest.communicationHandler.sendNotification(UpdateDocumentContent, 'testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]);
 
         await updateArived.promise;
 

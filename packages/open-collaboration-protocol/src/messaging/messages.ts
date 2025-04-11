@@ -4,8 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { isArray, isObject, isString } from '../utils';
-import { VERSION } from '../utils/version';
+import { isArray, isObject, isString } from '../utils/types.js';
+import { VERSION } from '../utils/version.js';
 
 /**
  * A collaboration message

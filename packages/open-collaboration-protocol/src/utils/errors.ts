@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { Info } from './info';
+import { Info } from './info.js';
 
 export class ServerError extends Error {
 

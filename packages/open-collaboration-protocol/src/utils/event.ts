@@ -4,8 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { Disposable, DisposableGroup, DisposableCollection } from './disposable';
-import { MaybePromise } from './promise';
+import { Disposable, DisposableGroup, DisposableCollection } from './disposable.js';
+import { MaybePromise } from './promise.js';
 
 /**
  * Represents a typed event.

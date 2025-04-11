@@ -4,8 +4,9 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { Emitter, Event, Deferred } from '../utils';
-import { MessageTransport, MessageTransportProvider } from './transport';
+import { Emitter, Event } from '../utils/event.js';
+import { Deferred } from '../utils/promise.js';
+import { MessageTransport, MessageTransportProvider } from './transport.js';
 import { io, Socket } from 'socket.io-client';
 
 export const SocketIoTransportProvider: MessageTransportProvider = {

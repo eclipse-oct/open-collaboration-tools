@@ -9,12 +9,12 @@ const main = async () => {
 			'src/app.ts'
 		],
 		bundle: true,
-		format: 'cjs',
+		format: 'esm',
 		minify: production,
 		sourcemap: !production,
         treeShaking: true,
 		platform: 'node',
-        target: 'node18',
+        target: 'node20',
 		outfile: 'bundle/app.js',
 		plugins: [
 			esbuildProblemMatcherPlugin('node', 'build')

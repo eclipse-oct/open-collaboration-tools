@@ -4,5 +4,5 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-export * from './yjs-provider';
-export * from './ytext-change-tracker';
+export * from './yjs-provider.js';
+export * from './ytext-change-tracker.js';

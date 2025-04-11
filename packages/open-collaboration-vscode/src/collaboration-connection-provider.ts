@@ -7,9 +7,9 @@
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
 import { AuthProvider, ConnectionProvider, FormAuthProvider, SocketIoTransportProvider, WebAuthProvider } from 'open-collaboration-protocol';
-import { packageVersion } from './utils/package';
-import { SecretStorage } from './secret-storage';
-import { localizeInfo } from './utils/l10n';
+import { packageVersion } from './utils/package.js';
+import { SecretStorage } from './secret-storage.js';
+import { localizeInfo } from './utils/l10n.js';
 
 export const Fetch = Symbol('Fetch');
 
