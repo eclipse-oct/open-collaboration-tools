@@ -39,7 +39,7 @@ export const setCryptoModule = (cm: CryptoModule): void => {
 
 export const getCryptoLib = (): CryptoLib => {
     if (cryptoModule === undefined) {
-        throw new Error('Crypto module is not available. Please call initialize() function first.');
+        throw new Error('Crypto module is not available. Please call the initializeProtocol() function first.');
     }
     const subtle = cryptoModule.subtle;
     return {
