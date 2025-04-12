@@ -5,67 +5,67 @@
 // ******************************************************************************
 
 import type * as types from './types';
-import { AbstractBroadcastConnection, BroadcastConnection, Handler, MessageTarget, Encryption } from './messaging';
+import { AbstractBroadcastConnection, BroadcastConnection, MessageTarget, Encryption, BroadcastHandler, RequestHandler, NotificationHandler, NotificationBroadcastHandler } from './messaging';
 import { Messages } from './messages';
 import { MessageTransport } from './transport';
 
 export interface RoomHandler {
-    onJoin(handler: Handler<[types.Peer]>): void;
+    onJoin(handler: BroadcastHandler<[types.Peer]>): void;
     leave(): Promise<void>;
-    onLeave(handler: Handler<[types.Peer]>): void;
-    onClose(handler: Handler<[]>): void;
-    onPermissions(handler: Handler<[types.Permissions]>): void;
+    onLeave(handler: BroadcastHandler<[types.Peer]>): void;
+    onClose(handler: BroadcastHandler<[]>): void;
+    onPermissions(handler: BroadcastHandler<[types.Permissions]>): void;
     updatePermissions(permissions: types.Permissions): Promise<void>;
 }
 
 export interface PeerHandler {
-    onJoinRequest(handler: Handler<[types.User], types.JoinResponse | undefined>): void;
-    onInfo(handler: Handler<[types.Peer]>): void;
-    onInit(handler: Handler<[types.InitData]>): void;
+    onJoinRequest(handler: RequestHandler<[types.User], types.JoinResponse | undefined>): void;
+    onInfo(handler: NotificationHandler<[types.Peer]>): void;
+    onInit(handler: NotificationHandler<[types.InitData]>): void;
     init(target: MessageTarget, data: types.InitData): Promise<void>;
 }
 
 export interface EditorHandler {
-    onOpen(handler: Handler<[string]>): void;
+    onOpen(handler: NotificationHandler<[string]>): void;
     open(target: MessageTarget, path: types.Path): Promise<void>;
-    onClose(handler: Handler<[types.Path]>): void;
+    onClose(handler: BroadcastHandler<[types.Path]>): void;
     close(path: types.Path): Promise<void>;
 }
 
 export interface FileSystemHandler {
-    onReadFile(handler: Handler<[types.Path], types.FileData>): void;
+    onReadFile(handler: RequestHandler<[types.Path], types.FileData>): void;
     readFile(target: MessageTarget, path: types.Path): Promise<types.FileData>;
-    onWriteFile(handler: Handler<[types.Path, types.FileData]>): void;
+    onWriteFile(handler: RequestHandler<[types.Path, types.FileData], undefined>): void;
     writeFile(target: MessageTarget, path: types.Path, content: types.FileData): Promise<void>;
-    onStat(handler: Handler<[types.Path], types.FileSystemStat>): void;
+    onStat(handler: RequestHandler<[types.Path], types.FileSystemStat>): void;
     stat(target: MessageTarget, path: types.Path): Promise<types.FileSystemStat>;
-    onMkdir(handler: Handler<[types.Path]>): void;
+    onMkdir(handler: RequestHandler<[types.Path], undefined>): void;
     mkdir(target: MessageTarget, path: types.Path): Promise<void>;
-    onReaddir(handler: Handler<[types.Path], types.FileSystemDirectory>): void;
+    onReaddir(handler: RequestHandler<[types.Path], types.FileSystemDirectory>): void;
     readdir(target: MessageTarget, path: types.Path): Promise<types.FileSystemDirectory>;
-    onDelete(handler: Handler<[types.Path]>): void;
+    onDelete(handler: RequestHandler<[types.Path], undefined>): void;
     delete(target: MessageTarget, path: types.Path): Promise<void>;
-    onRename(handler: Handler<[types.Path, types.Path]>): void;
+    onRename(handler: RequestHandler<[types.Path, types.Path], undefined>): void;
     rename(target: MessageTarget, from: types.Path, to: types.Path): Promise<void>;
-    onChange(handler: Handler<[types.FileChangeEvent]>): void;
+    onChange(handler: BroadcastHandler<[types.FileChangeEvent]>): void;
     change(event: types.FileChangeEvent): Promise<void>;
 }
 
 export interface SyncHandler {
-    onDataUpdate(handler: Handler<[types.Binary]>): void;
+    onDataUpdate(handler: NotificationBroadcastHandler<[types.Binary]>): void;
     dataUpdate(data: types.Binary): Promise<void>;
     dataUpdate(target: MessageTarget, data: types.Binary): Promise<void>;
-    onAwarenessUpdate(handler: Handler<[types.Binary]>): void;
+    onAwarenessUpdate(handler: NotificationBroadcastHandler<[types.Binary]>): void;
     awarenessUpdate(data: types.Binary): Promise<void>;
     awarenessUpdate(target: MessageTarget, data: types.Binary): Promise<void>;
-    onAwarenessQuery(handler: Handler<[]>): void;
+    onAwarenessQuery(handler: BroadcastHandler<[]>): void;
     awarenessQuery(): Promise<void>;
 }
 
 export interface ChatHandler {
-    onMessage(handler: Handler<[types.ChatMessage]>): void;
+    onMessage(handler: BroadcastHandler<[types.ChatMessage]>): void;
     message(message: types.ChatMessage): Promise<void>;
-    onHistory(handler: Handler<[types.Timestamp], types.ChatMessage[]>): void;
+    onHistory(handler: RequestHandler<[types.Timestamp], types.ChatMessage[]>): void;
     history(target: MessageTarget, timestamp: types.Timestamp): Promise<types.ChatMessage[]>;
 }
 

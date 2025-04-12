@@ -289,6 +289,10 @@ export enum FileChangeEventType {
 }
 
 export interface ChatMessage {
+    content: string;
+}
+
+export interface ChatHistoryMessage {
     timestamp: Timestamp;
     user: User;
     content: string;

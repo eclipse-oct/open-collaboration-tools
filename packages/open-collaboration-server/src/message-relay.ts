@@ -48,6 +48,7 @@ export class MessageRelay {
         });
         const targetMessage: UnknownRequestMessage = {
             ...message,
+            timestamp: Date.now(),
             id: key
         };
         target.channel.sendMessage(targetMessage);
@@ -55,6 +56,7 @@ export class MessageRelay {
     }
 
     sendNotification(target: Peer, message: UnknownNotificationMessage): void {
+        message.timestamp = Date.now();
         target.channel.sendMessage(message);
     }
 
@@ -62,6 +64,7 @@ export class MessageRelay {
         try {
             const room = origin.room;
             message.origin = origin.id;
+            message.timestamp = Date.now();
             for (const peer of room.peers) {
                 if (peer !== origin) {
                     // Find the key for the target peer

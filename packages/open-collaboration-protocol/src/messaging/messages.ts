@@ -16,6 +16,7 @@ export interface Message {
      */
     version: string;
     kind: string;
+    timestamp: number;
     metadata: MessageMetadata;
 }
 
@@ -108,6 +109,7 @@ export namespace ErrorMessage {
         return {
             version: VERSION,
             kind: 'error',
+            timestamp: 0,
             metadata: DEFAULT_METADATA,
             content: {
                 message
@@ -173,6 +175,7 @@ export namespace RequestMessage {
     ): RequestMessage {
         return {
             version: VERSION,
+            timestamp: 0,
             id,
             metadata: DEFAULT_METADATA,
             origin,
@@ -223,6 +226,7 @@ export namespace ResponseMessage {
     export function create(id: number | string, response: unknown): ResponseMessage {
         return {
             kind: 'response',
+            timestamp: 0,
             version: VERSION,
             id,
             metadata: DEFAULT_METADATA,
@@ -266,6 +270,7 @@ export namespace ResponseErrorMessage {
         if (typeof message === 'string') {
             return {
                 kind: 'response-error',
+                timestamp: 0,
                 version: VERSION,
                 metadata: DEFAULT_METADATA,
                 id,
@@ -276,6 +281,7 @@ export namespace ResponseErrorMessage {
         } else {
             return {
                 kind: 'response-error',
+                timestamp: 0,
                 version: VERSION,
                 metadata: DEFAULT_METADATA,
                 id,
@@ -327,6 +333,7 @@ export namespace NotificationMessage {
         return {
             version: VERSION,
             kind: 'notification',
+            timestamp: 0,
             metadata: DEFAULT_METADATA,
             target,
             origin,
@@ -371,6 +378,7 @@ export namespace BroadcastMessage {
         return {
             version: VERSION,
             kind: 'broadcast',
+            timestamp: 0,
             metadata: DEFAULT_METADATA,
             origin: origin,
             content: {

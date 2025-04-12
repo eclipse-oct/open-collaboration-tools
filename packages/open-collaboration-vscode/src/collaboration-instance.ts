@@ -178,6 +178,8 @@ export class CollaborationInstance implements vscode.Disposable {
     private peers = new Map<string, DisposablePeer>();
     private throttles = new Map<string, () => void>();
     private fileSystem?: CollaborationFileSystemProvider;
+    // Delta between the server and the client
+    private serverTimeDelta = 0;
     private asyncTrackers = new Map<string, YTextChangeTracker>();
 
     private _following?: string;
@@ -320,7 +322,8 @@ export class CollaborationInstance implements vscode.Disposable {
                 this.dispose();
             }
         });
-        connection.peer.onInfo((_, peer) => {
+        connection.peer.onInfo((msg, peer) => {
+            this.serverTimeDelta = Date.now() - msg.timestamp;
             this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
             this.onDidUsersChangeEmitter.fire();
