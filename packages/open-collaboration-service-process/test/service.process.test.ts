@@ -37,9 +37,9 @@ describe('Service Process', () => {
     let host: Client;
     let guest: Client;
     beforeAll(async () => {
-        //Start the collaboration server
+        // Start the collaboration server
         process.env.OCT_JWT_PRIVATE_KEY = 'some_test_key';
-        server = spawn('node', [`${__dirname}/../../open-collaboration-server/bin/server`, 'start'], {env: { ...process.env, 'OCT_ACTIVATE_SIMPLE_LOGIN': 'true' }});
+        server = spawn('node', [`${__dirname}/../../open-collaboration-server/bin/server`], {env: { ...process.env, 'OCT_ACTIVATE_SIMPLE_LOGIN': 'true' }});
         await new Promise<void>((resolve) => {
             server.stdout.on('data', (data) => {
                 if (data.toString().includes('listening on localhost:8100')) {
