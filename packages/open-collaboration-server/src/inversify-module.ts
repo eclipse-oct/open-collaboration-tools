@@ -12,17 +12,20 @@ import { PeerFactory, PeerImpl } from './peer.js';
 import { RoomManager } from './room-manager.js';
 import { PeerInfo } from './types.js';
 import { UserManager } from './user-manager.js';
-import { ConsoleLogger, LogLevel, LogLevelSymbol, LoggerSymbol } from './utils/logging.js';
+import { ConsoleLogger, Logger } from './utils/logging.js';
 import { SimpleLoginEndpoint } from './auth-endpoints/simple-login-endpoint.js';
 import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
 import { GitHubOAuthEndpoint, GoogleOAuthEndpoint  } from './auth-endpoints/oauth-endpoint.js';
 import { Configuration, DefaultConfiguration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
-import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endoint.js';
+import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endpoint.js';
 
+/**
+ * This is the default dependency injection container module for the Open Collaboration Server.
+ * You can override the default bindings by providing a custom container module for your own server.
+ */
 export default new ContainerModule(bind => {
-    bind(LoggerSymbol).to(ConsoleLogger).inSingletonScope();
-    bind(LogLevelSymbol).toConstantValue(LogLevel.info);
+    bind(Logger).to(ConsoleLogger).inSingletonScope();
     bind(DefaultConfiguration).toSelf().inSingletonScope();
     bind(Configuration).toService(DefaultConfiguration);
     bind(CollaborationServer).toSelf().inSingletonScope();

@@ -11,7 +11,7 @@ import { Channel } from './channel.js';
 import { MessageRelay } from './message-relay.js';
 import { RoomManager } from './room-manager.js';
 import { Peer, PeerInfo, Room, User } from './types.js';
-import { Logger, LoggerSymbol } from './utils/logging.js';
+import { Logger } from './utils/logging.js';
 import { parse } from 'semver';
 
 export const PeerFactory = Symbol('PeerFactory');
@@ -20,7 +20,7 @@ export type PeerFactory = (info: PeerInfo) => Peer;
 @injectable()
 export class PeerImpl implements Peer {
 
-    @inject(LoggerSymbol) protected logger: Logger;
+    @inject(Logger) protected logger: Logger;
 
     readonly id = nanoid(24);
 

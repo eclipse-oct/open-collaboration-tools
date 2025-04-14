@@ -5,16 +5,17 @@
   "description": "Open Collaboration Server implementation, part of the Open Collaboration Tools project",
   "files": [
     "bin",
+    "bundle",
     "lib",
     "src"
   ],
   "type": "module",
-  "main": "./lib/app.js",
+  "main": "./bundle/app.js",
   "module": "./lib/app.js",
   "exports": {
     ".": {
-      "types": "./lib/app.d.ts",
-      "default": "./lib/app.js"
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
     }
   },
   "typesVersions": {
@@ -29,10 +30,11 @@
   },
   "scripts": {
     "build": "tsx scripts/esbuild.ts",
-    "start": "node bundle/app.js start --hostname=0.0.0.0",
-    "start:direct": "tsx src/app.ts start --hostname=0.0.0.0"
+    "start": "node bundle/app.js --hostname=0.0.0.0",
+    "start:direct": "tsx src/app.ts --hostname=0.0.0.0"
   },
   "dependencies": {
+    "commander": "~13.1.0",
     "express": "~5.1.0",
     "inversify": "~6.2.2",
     "jose": "~6.0.10",
@@ -46,7 +48,7 @@
     "semver": "~7.7.1",
     "socket.io": "~4.8.1",
     "ws": "~8.18.1",
-    "yargs": "~17.7.2"
+    "yaml": "^2.7.1"
   },
   "devDependencies": {
     "@types/express": "~5.0.1",

@@ -18,7 +18,7 @@ import { CredentialsManager } from './credentials-manager.js';
 import { User } from './types.js';
 import { CreateRoomResponse, InfoMessage, JoinRoomInitialResponse, JoinRoomPollResponse, JoinRoomResponse, ProtocolServerMetaData, LoginInitialResponse, LoginValidateResponse, LoginPollResponse } from 'open-collaboration-protocol';
 import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
-import { Logger, LoggerSymbol } from './utils/logging.js';
+import { Logger } from './utils/logging.js';
 import { VERSION } from 'open-collaboration-protocol';
 import { Configuration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
@@ -32,6 +32,11 @@ export const getLocalFilename = (referenceUrl: string | URL) => {
 export const getLocalDirectory = (referenceUrl: string | URL) => {
     return path.dirname(getLocalFilename(referenceUrl));
 };
+
+export interface CollaborationServerOptions {
+    port: number;
+    hostname: string;
+}
 
 @injectable()
 export class CollaborationServer {
@@ -51,14 +56,14 @@ export class CollaborationServer {
     @inject(PeerManager)
     protected readonly peerManager: PeerManager;
 
-    @inject(LoggerSymbol) protected logger: Logger;
+    @inject(Logger) protected logger: Logger;
 
     @inject(Configuration) protected configuration: Configuration;
 
     @multiInject(AuthEndpoint)
     protected readonly authEndpoints: AuthEndpoint[];
 
-    startServer(args: Record<string, unknown>): void {
+    startServer(opts: CollaborationServerOptions): void {
         this.logger.debug('Starting Open Collaboration Server ...');
 
         const app = this.setupApiRoute();
@@ -98,11 +103,11 @@ export class CollaborationServer {
                 this.logger.error('Socket IO connection failed', error);
             }
         });
-        httpServer.listen(Number(args.port), String(args.hostname));
+        httpServer.listen(Number(opts.port), String(opts.hostname));
 
         for (const authEndpoint of this.authEndpoints) {
             if (authEndpoint.shouldActivate()) {
-                authEndpoint.onStart(app, String(args.hostname), Number(args.port));
+                authEndpoint.onStart(app, String(opts.hostname), Number(opts.port));
                 authEndpoint.onDidAuthenticate(async event => {
                     try {
                         await this.credentials.confirmUser(event.token, event.userInfo);
@@ -114,7 +119,7 @@ export class CollaborationServer {
             }
         }
 
-        this.logger.info(`Open Collaboration Server listening on ${args.hostname}:${args.port}`);
+        this.logger.info(`Open Collaboration Server listening on ${opts.hostname}:${opts.port}`);
     }
 
     protected async connectChannel(headers: Record<string, string | undefined>, channel: TransportChannel): Promise<void> {

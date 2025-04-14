@@ -4,7 +4,8 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { inject, injectable } from 'inversify';
+import { inject, injectable, postConstruct } from 'inversify';
+import { Configuration } from './configuration.js';
 
 export enum LogLevel {
     none = 0,
@@ -18,7 +19,6 @@ export interface Logger {
 
     logLevel: LogLevel;
 
-    getLogLevel(): LogLevel;
     error(message: string, ...params: unknown[]): void;
     createErrorAndLog(message: string, ...params: unknown[]): Error;
     warn(message: string, ...params: unknown[]): void;
@@ -27,16 +27,47 @@ export interface Logger {
 
 }
 
-export const LogLevelSymbol = Symbol('LogLevel');
-export const LoggerSymbol = Symbol('Logger');
+export const Logger = Symbol('Logger');
 
 @injectable()
 export class ConsoleLogger implements Logger {
 
-    @inject(LogLevelSymbol) public logLevel: LogLevel = LogLevel.info;
+    @inject(Configuration) protected configuration: Configuration;
 
-    getLogLevel() {
-        return this.logLevel;
+    public logLevel: LogLevel = LogLevel.info;
+
+    @postConstruct()
+    protected initialize() {
+        const logLevel = this.checkLogLevel(this.configuration.getValue('log-level'));
+        if (logLevel) {
+            this.logLevel = logLevel;
+        }
+    }
+
+    protected checkLogLevel(logLevel?: string | unknown): LogLevel | undefined {
+        if (!logLevel) {
+            return undefined;
+        }
+        switch (logLevel) {
+            case 'none':
+            case '0':
+                return LogLevel.none;
+            case 'error':
+            case '1':
+                return LogLevel.error;
+            case 'warn':
+            case '2':
+                return LogLevel.warn;
+            case 'info':
+            case '3':
+                return LogLevel.info;
+            case 'debug':
+            case '4':
+                return LogLevel.debug;
+            default:
+                this.warn(`Invalid log level: ${logLevel}`);
+                return undefined;
+        }
     }
 
     error(message: string, ...params: unknown[]) {
@@ -70,25 +101,4 @@ export class ConsoleLogger implements Logger {
         }
     }
 
-}
-
-export function checkLogLevel(logLevel?: string | unknown) {
-    switch (logLevel) {
-        case 'none':
-        case '0':
-            return LogLevel.none;
-        case 'error':
-        case '1':
-            return LogLevel.error;
-        case 'warn':
-        case '2':
-            return LogLevel.warn;
-        case 'debug':
-        case '4':
-            return LogLevel.debug;
-        case 'info':
-        case '3':
-        default:
-            return LogLevel.info;
-    }
 }

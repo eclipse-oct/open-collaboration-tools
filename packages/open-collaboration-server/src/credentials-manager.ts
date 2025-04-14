@@ -10,7 +10,7 @@ import { UserManager } from './user-manager.js';
 import * as jose from 'jose';
 import { nanoid, customAlphabet } from 'nanoid';
 import { Disposable, Emitter, Event } from 'open-collaboration-protocol';
-import { Logger, LoggerSymbol } from './utils/logging.js';
+import { Logger } from './utils/logging.js';
 import { UserInfo } from './auth-endpoints/auth-endpoint.js';
 import { Configuration } from './utils/configuration.js';
 import { getLocalFilename } from './collaboration-server.js';
@@ -28,7 +28,7 @@ export class CredentialsManager {
     @inject(UserManager)
     protected readonly userManager: UserManager;
 
-    @inject(LoggerSymbol) protected logger: Logger;
+    @inject(Logger) protected logger: Logger;
 
     @inject(Configuration) protected configuration: Configuration;
 

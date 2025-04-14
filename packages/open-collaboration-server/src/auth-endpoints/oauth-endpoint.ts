@@ -11,7 +11,7 @@ import { AuthEndpoint, AuthSuccessEvent, UserInfo } from './auth-endpoint.js';
 import passport from 'passport';
 import { Strategy as GithubStrategy } from 'passport-github';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { Logger, LoggerSymbol } from '../utils/logging.js';
+import { Logger } from '../utils/logging.js';
 import { Configuration } from '../utils/configuration.js';
 import { URL } from 'url';
 
@@ -28,7 +28,7 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
 
     protected loginRedirectRequests = new Map<string, string>();
 
-    @inject(LoggerSymbol) protected logger: Logger;
+    @inject(Logger) protected logger: Logger;
 
     @inject(Configuration) protected configuration: Configuration;
 

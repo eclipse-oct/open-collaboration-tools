@@ -9,7 +9,7 @@ import { CredentialsManager } from './credentials-manager.js';
 import { MessageRelay } from './message-relay.js';
 import { Peer, Room, User, isUser } from './types.js';
 import { Messages, BroadcastMessage, NotificationMessage, RequestMessage, ResponseMessage, isObject, Info, Event, Disposable, Emitter, JoinRoomResponse, JoinRoomPollResponse, JoinResponse } from 'open-collaboration-protocol';
-import { Logger, LoggerSymbol } from './utils/logging.js';
+import { Logger } from './utils/logging.js';
 
 export interface PreparedRoom {
     id: string;
@@ -50,7 +50,7 @@ export class RoomManager {
     @inject(CredentialsManager)
     protected readonly credentials: CredentialsManager;
 
-    @inject(LoggerSymbol) protected logger: Logger;
+    @inject(Logger) protected logger: Logger;
 
     async closeRoom(id: string): Promise<void> {
         const room = this.getRoomById(id);
