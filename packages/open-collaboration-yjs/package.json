@@ -27,7 +27,7 @@
     "build": "echo 'open-collaboration-yjs: Nothing extra to build.'"
   },
   "dependencies": {
-    "lib0": "~0.2.103",
+    "lib0": "^0.2.103",
     "open-collaboration-protocol": "~0.3.0-next.0",
     "vscode-languageserver-textdocument": "~1.0.12",
     "y-protocols": "~1.0.6"
