@@ -51,4 +51,15 @@ program
     .option('-c, --config <string>', 'Path to the configuration file')
     .action(startServer);
 
+// Deprecated start command for backwards compatibility
+program.command('start')
+    .option('-p, --port <number>', 'Port to listen on', parseInt, 8100)
+    .option('-h, --hostname <string>', 'Hostname to bind to', 'localhost')
+    .option('-l, --log-level <string>', 'Log level', 'info')
+    .option('-c, --config <string>', 'Path to the configuration file')
+    .action(options => {
+        console.warn("The 'start' command is deprecated. Start the server without any CLI command instead.");
+        startServer(options);
+    });
+
 program.parse();
