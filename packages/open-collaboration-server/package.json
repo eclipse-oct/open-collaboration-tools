@@ -10,8 +10,8 @@
     "src"
   ],
   "type": "module",
-  "main": "./bundle/app.js",
-  "module": "./lib/app.js",
+  "main": "./lib/index.js",
+  "module": "./lib/index.js",
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
