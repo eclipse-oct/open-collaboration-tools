@@ -1,6 +1,6 @@
 {
   "name": "open-collaboration-monaco",
-  "version": "0.3.0-next.0",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Connect a single Monaco Editor to an Open Collaboration Tools session",
   "files": [
@@ -36,8 +36,8 @@
   "dependencies": {
     "lodash": "~4.17.21",
     "monaco-editor": "~0.52.2",
-    "open-collaboration-protocol": "~0.3.0-next.0",
-    "open-collaboration-yjs": "~0.3.0-next.0"
+    "open-collaboration-protocol": "~0.3.0",
+    "open-collaboration-yjs": "~0.3.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.89.0"

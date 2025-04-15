@@ -1,7 +1,7 @@
 {
   "name": "open-collaboration-tools",
   "displayName": "Open Collaboration Tools",
-  "version": "0.3.0-next.0",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Connect with others and live-share your code in real-time collaboration sessions",
   "publisher": "typefox",
@@ -223,8 +223,8 @@
     "async-mutex": "~0.5.0",
     "inversify": "~6.2.2",
     "reflect-metadata": "~0.2.2",
-    "open-collaboration-yjs": "0.3.0-next.0",
-    "open-collaboration-protocol": "0.3.0-next.0",
+    "open-collaboration-yjs": "0.3.0",
+    "open-collaboration-protocol": "0.3.0",
     "lodash": "~4.17.21",
     "nanoid": "~5.1.5",
     "node-fetch": "~3.3.2"

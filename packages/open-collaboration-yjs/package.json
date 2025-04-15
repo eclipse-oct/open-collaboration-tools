@@ -1,6 +1,6 @@
 {
   "name": "open-collaboration-yjs",
-  "version": "0.3.0-next.0",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Open Collaboration Yjs integration, part of the Open Collaboration Tools project",
   "files": [
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "lib0": "^0.2.103",
-    "open-collaboration-protocol": "~0.3.0-next.0",
+    "open-collaboration-protocol": "~0.3.0",
     "vscode-languageserver-textdocument": "~1.0.12",
     "y-protocols": "~1.0.6"
   },

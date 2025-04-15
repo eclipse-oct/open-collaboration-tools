@@ -6,7 +6,7 @@
 
 import * as deepl from 'deepl-node';
 import * as path from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 // resolves __filename
