@@ -6,31 +6,17 @@
 
 import 'reflect-metadata';
 import * as crypto from 'node:crypto';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as url from 'node:url';
 import { program } from 'commander';
 import serverModule from './inversify-module.js';
 import { Container } from 'inversify';
 import { initializeProtocol } from 'open-collaboration-protocol';
 import { CollaborationServer } from './collaboration-server.js';
 import { ConfigurationFile } from './utils/configuration.js';
+import pck from '../package.json' with { type: 'json' };
 
 initializeProtocol({
     cryptoModule: crypto.webcrypto
 });
-
-// This is a replacement for `__dirname`
-function getDirname(): string {
-    return url.fileURLToPath(new URL('.', import.meta.url));
-}
-
-function getVersion(): string {
-    const ownPackagePath = path.resolve(getDirname(), '..', 'package.json');
-    const packString = fs.readFileSync(ownPackagePath, { encoding: 'utf-8' });
-    const pack = JSON.parse(packString);
-    return pack.version;
-}
 
 function startServer(options: { port: number, hostname: string, config: string }) {
     const container = new Container();
@@ -45,7 +31,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 program
-    .version(getVersion())
+    .version(pck.version)
     .option('-p, --port <number>', 'Port to listen on', parseInt, 8100)
     .option('-h, --hostname <string>', 'Hostname to bind to', 'localhost')
     .option('-c, --config <string>', 'Path to the configuration file')
