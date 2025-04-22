@@ -1,12 +1,12 @@
 services:
-  oct-server:
+  oct-server-dev:
     build:
       dockerfile: ./Dockerfile
       context: .
-    image: oct/oct-server
+    image: oct/oct-server-dev
     ports:
       - 8100:8100
-    container_name: oct-server
+    container_name: oct-server-dev
     tty: true
     environment:
       - OCT_ACTIVATE_SIMPLE_LOGIN=true
