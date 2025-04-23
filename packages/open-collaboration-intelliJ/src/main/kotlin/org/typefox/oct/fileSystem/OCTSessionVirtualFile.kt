@@ -20,6 +20,7 @@ open class OCTSessionVirtualFile(
 ) : VirtualFile() {
 
     private var cachedChildren: Array<VirtualFile>? = null
+    private var cachedContent: ByteArray? = null
 
     private fun retrieveStat(): FileSystemStat? {
         if (stat != null) {
@@ -84,7 +85,13 @@ open class OCTSessionVirtualFile(
     }
 
     override fun contentsToByteArray(): ByteArray {
+        if (cachedContent != null) {
+            return cachedContent!!
+        }
         val resp = fileSystem.readFile(path)?.get()
+        if (resp?.content != null) {
+            cachedContent = resp.content
+        }
         return resp?.content ?: ByteArray(0)
     }
 
@@ -101,8 +108,9 @@ open class OCTSessionVirtualFile(
     }
 
     override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) {
-        this.stat = null
-        this.cachedChildren = null
+        stat = null
+        cachedChildren = null
+        cachedContent = null
     }
 
     override fun getInputStream(): InputStream {

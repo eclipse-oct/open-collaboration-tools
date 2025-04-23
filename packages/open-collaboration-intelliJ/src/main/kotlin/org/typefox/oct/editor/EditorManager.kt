@@ -1,6 +1,7 @@
 package org.typefox.oct.editor
 
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.event.EditorFactoryEvent
@@ -15,11 +16,13 @@ import com.intellij.openapi.fileEditor.TextEditorWithPreview
 import com.intellij.openapi.fileEditor.impl.text.TextEditorImpl
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.JBColor
 import org.apache.commons.lang.StringUtils
 import org.typefox.oct.ClientTextSelection
 import org.typefox.oct.OCTMessageHandler
+import org.typefox.oct.OCTSessionService
 import org.typefox.oct.TextDocumentInsert
 import javax.swing.SwingUtilities
 import kotlin.io.path.Path
@@ -87,6 +90,8 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     }
 
     private fun createPeerCursor(selection: ClientTextSelection, editor: Editor): Inlay<CursorRenderer> {
+        val color = service<OCTSessionService>().currentCollaborationInstances[editor.project]!!
+            .peerColors.getColor(selection.peer)
         var textHighlighter: RangeHighlighter? = null
         val start = selection.start
         val end = selection.end ?: selection.start
@@ -95,11 +100,11 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
                 start,
                 end,
                 HighlighterLayer.CARET_ROW + 1,
-                TextAttributes(null, JBColor.BLUE, null, null, 0),
+                TextAttributes(null, color, null, null, 0),
                 HighlighterTargetArea.EXACT_RANGE
             )
         }
-        val cursor = editor.inlayModel.addInlineElement(start, CursorRenderer(JBColor.BLUE))!!
+        val cursor = editor.inlayModel.addInlineElement(start, CursorRenderer(color))!!
         if(textHighlighter != null) {
             Disposer.register(cursor) {
                 editor.markupModel.removeHighlighter(textHighlighter)
@@ -113,15 +118,19 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
         WriteCommandAction.runWriteCommandAction(
             editor.project
         ) {
-            documentListeners[path]?.sendUpdates = false
-            for (update in updates) {
-                editor.document.replaceString(
-                    update.startOffset,
-                    update.endOffset ?: update.startOffset,
-                    update.text
-                )
+            val listener =  documentListeners[path]
+            listener?.sendUpdates = false
+            try {
+                for (update in updates) {
+                    editor.document.replaceString(
+                        fromOCTOffset(editor, update.startOffset),
+                        fromOCTOffset(editor,update.endOffset ?: update.startOffset),
+                        update.text.replace("\r\n", "\n")
+                    )
+                }
+            } finally {
+                listener?.sendUpdates = true
             }
-            documentListeners[path]?.sendUpdates = true
 
         }
 
@@ -133,6 +142,39 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
             ""
         )
     }
+}
 
+fun toOCTOffset(editor: Editor, offset: Int): Int {
+    if(editor.virtualFile.detectedLineSeparator == "\n") {
+        return offset
+    }
+
+    val document = editor.document
+    val text  = document.text
+
+    for(i in 0..offset) {
+        if(text[0] == '\n') {
+            offset + 1
+        }
+    }
+
+    return offset
+}
+
+fun fromOCTOffset(editor: Editor, offset: Int): Int {
+    if(editor.virtualFile.detectedLineSeparator == "\n") {
+        return offset
+    }
+
+    val document = editor.document
+    val text  = document.text
+
+    for(i in 0..offset) {
+        if(text[0] == '\n') {
+            offset - 1
+        }
+    }
+
+    return offset
 
 }
