@@ -5,4 +5,4 @@
 // ******************************************************************************
 
 export * from './yjs-provider.js';
-export * from './ytext-change-tracker.js';
+export * from './yjs-normalized-text.js';
