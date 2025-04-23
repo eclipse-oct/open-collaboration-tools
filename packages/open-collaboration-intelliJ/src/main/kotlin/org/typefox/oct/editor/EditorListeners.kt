@@ -23,7 +23,7 @@ class EditorDocumentListener(private val octService: OCTMessageHandler.OCTServic
             octService.updateDocument(
                 path, arrayOf(
                     TextDocumentInsert(
-                        offset,
+                         offset,
                         offset + event.oldFragment.length,
                         event.newFragment.toString()
                     )

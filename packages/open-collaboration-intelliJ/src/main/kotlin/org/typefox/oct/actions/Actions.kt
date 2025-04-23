@@ -12,6 +12,7 @@ import com.intellij.util.containers.toArray
 import org.typefox.oct.*
 import org.typefox.oct.settings.OCTSettings
 import java.util.concurrent.CompletableFuture
+import javax.swing.JPanel
 import javax.swing.JTextField
 
 

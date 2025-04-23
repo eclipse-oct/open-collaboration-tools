@@ -40,6 +40,7 @@ export namespace ToServiceMessages {
     export const CREATE_ROOM = 'room/createRoom';
     export const CLOSE_SESSION = 'room/closeSession';
     export const OPEN_DOCUMENT = 'awareness/openDocument';
+    export const GET_DOCUMENT_CONTENT = 'awareness/getDocumentContent';
     export const UPDATE_TEXT_SELECTION = 'awareness/updateTextSelection';
     export const UPDATE_DOCUMENT_CONTENT = 'awareness/updateDocument';
 }
@@ -93,6 +94,12 @@ export interface ClientTextSelection {
 export const OpenDocument = new NotificationType3<string, string, string>(ToServiceMessages.OPEN_DOCUMENT);
 
 /**
+ * params: [documentPath]
+ * resp params: [documentContent as message pack encoded base64 string of types.FileContent]
+ */
+export const GetDocumentContent = new RequestType<string, BinaryResponse, void>(ToServiceMessages.GET_DOCUMENT_CONTENT);
+
+/**
  * params: [documentPath, selections]
  */
 export const UpdateTextSelection = new NotificationType2<string, ClientTextSelection[]>(ToServiceMessages.UPDATE_TEXT_SELECTION);
@@ -118,6 +125,11 @@ export const Authentication = new NotificationType2<string, types.AuthMetadata>(
  * params: [init data of the session]
  */
 export const OnInitNotification = new NotificationType<types.InitData>('init');
+
+/**
+ * params : [documentPath]
+ */
+export const EditorOpenedNotification = new NotificationType2<string, string>('editorOpened');
 
 /**
  * A request to the application to allow a user to join the current session
