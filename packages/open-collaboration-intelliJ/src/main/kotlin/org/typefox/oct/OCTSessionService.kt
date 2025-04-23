@@ -25,6 +25,7 @@ import org.typefox.oct.actions.CopyRoomUrlAction
 import org.typefox.oct.fileSystem.OCTSessionFileSystem
 import org.typefox.oct.fileSystem.OCTSessionRootFile
 import org.typefox.oct.settings.OCTSettings
+import org.typefox.oct.util.EventEmitter
 import javax.swing.*
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.pathString
@@ -35,6 +36,12 @@ class OCTSessionService() {
     private var currentProcesses: MutableMap<Project, OCTServiceProcess> = mutableMapOf()
 
     var currentCollaborationInstances: MutableMap<Project, CollaborationInstance> = mutableMapOf()
+
+    var onSessionCreated: EventEmitter<CollaborationInstance> = EventEmitter()
+
+    fun hasOpenSession(project: Project): Boolean {
+        return currentCollaborationInstances.containsKey(project)
+    }
 
     fun createRoom(workspace: Workspace, project: Project) {
 
@@ -108,6 +115,7 @@ class OCTSessionService() {
         val collaborationInstance = CollaborationInstance(currentProcess.octService!!, project, sessionData, isHost)
         this.currentCollaborationInstances[project] = collaborationInstance
         currentProcess.messageHandler.collaborationInstance = this.currentCollaborationInstances[project]
+        onSessionCreated.fire(collaborationInstance)
     }
 
     private fun createServiceProcess(serverUrl: String): OCTServiceProcess {

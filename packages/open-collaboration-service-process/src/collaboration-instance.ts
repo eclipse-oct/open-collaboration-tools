@@ -9,7 +9,7 @@ import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-y
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { BinaryResponse, ClientTextSelection, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages';
 import { MessageConnection } from 'vscode-jsonrpc';
 
 export class CollaborationInstance implements types.Disposable{
@@ -26,6 +26,8 @@ export class CollaborationInstance implements types.Disposable{
     protected connectionDisposables: DisposableCollection = new DisposableCollection();
 
     protected identity = new Deferred<types.Peer>();
+
+    private encoder = new TextEncoder();
 
     constructor(public currentConnection: types.ProtocolBroadcastConnection, protected communicationHandler: MessageConnection, protected host: boolean, workspace?: types.Workspace) {
         if(host && !workspace) {
@@ -83,6 +85,11 @@ export class CollaborationInstance implements types.Disposable{
             this.identity.resolve(peer);
         });
 
+        currentConnection.editor.onOpen(async (peerId, documentPath) => {
+            this.registerYjsObject('text', documentPath, '');
+            this.communicationHandler.sendNotification(EditorOpenedNotification, documentPath, peerId);
+        });
+
         currentConnection.room.onJoin(async (_, peer) => {
             if (host && workspace) {
                 // Only initialize the user if we are the host
@@ -108,6 +115,26 @@ export class CollaborationInstance implements types.Disposable{
                 this.peers.set(guest.id, guest);
             }
             this.communicationHandler.sendNotification(OnInitNotification, initData);
+        });
+
+        communicationHandler.onRequest(GetDocumentContent, async (documentPath) => {
+            let fileContent: types.FileData | undefined = undefined;
+            if(this.YjsDoc.share.has(documentPath)) {
+                const text = this.YjsDoc.getText(documentPath);
+                fileContent = {
+                    content: this.encoder.encode(text.toString()),
+                } as types.FileData;
+
+            } else {
+                fileContent = await currentConnection.fs.readFile((await this.hostInfo.promise).id, documentPath);
+            }
+
+            return {
+                type: 'binaryResponse',
+                data: toEncodedOCPMessage(fileContent),
+                method: GetDocumentContent.method,
+            } as BinaryResponse;
+
         });
     }
 

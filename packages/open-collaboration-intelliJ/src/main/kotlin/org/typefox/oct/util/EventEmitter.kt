@@ -2,9 +2,9 @@ package org.typefox.oct.util
 
 class EventEmitter<T> {
 
-  var listeners: ArrayList<(T) -> Void> = ArrayList()
+  var listeners: ArrayList<(T) -> Unit> = ArrayList()
 
-  fun onEvent(listener: (T) -> Void): Disposable {
+  fun onEvent(listener: (T) -> Unit): Disposable {
     listeners.add(listener)
     return Disposable {
       this.listeners.remove(listener)

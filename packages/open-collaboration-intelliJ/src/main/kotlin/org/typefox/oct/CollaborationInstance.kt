@@ -12,6 +12,7 @@ import com.intellij.openapi.vfs.VirtualFileManager
 import org.typefox.oct.editor.EditorManager
 import org.typefox.oct.fileSystem.OCTSessionFileSystem
 import org.typefox.oct.fileSystem.WorkspaceFileSystemService
+import org.typefox.oct.util.EventEmitter
 
 
 class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
@@ -22,8 +23,12 @@ class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
     val workspaceFileSystem: WorkspaceFileSystemService = project.getService(WorkspaceFileSystemService::class.java)
     private val editorManager: EditorManager = EditorManager(octService, project)
 
-    private val guests: ArrayList<Peer> = ArrayList()
+    val guests: ArrayList<Peer> = ArrayList()
     var host: Peer? = null
+
+    val peerColors = PeerColors()
+
+    val onPeersChanged = EventEmitter<Unit?>()
 
     init {
         EditorFactory.getInstance().addEditorFactoryListener(editorManager, this)
@@ -44,6 +49,7 @@ class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
         if(!isHost) {
             initializeSharedFolders()
         }
+        onPeersChanged.fire(null)
     }
 
     private fun initializeSharedFolders() {

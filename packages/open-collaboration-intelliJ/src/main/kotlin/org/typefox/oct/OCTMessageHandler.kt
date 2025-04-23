@@ -19,7 +19,8 @@ val MESSAGE_RESPONSE_TYPES = mapOf(
     "fileSystem/mkdir" to Void::class.java,
     "fileSystem/writeFile" to Void::class.java,
     "fileSystem/delete" to Void::class.java,
-    "fileSystem/rename" to Void::class.java
+    "fileSystem/rename" to Void::class.java,
+    "awareness/getDocumentContent" to FileContent::class.java,
 )
 
 class OCTMessageHandler() : Endpoint {
@@ -36,9 +37,12 @@ class OCTMessageHandler() : Endpoint {
         @JsonNotification(value = "awareness/openDocument")
         fun openDocument(type: String, documentUri: String, text: String)
         @JsonNotification(value = "awareness/updateTextSelection")
-        fun updateTextSelection(url: String, textSelections: Array<ClientTextSelection>)
+        fun updateTextSelection(path: String, textSelections: Array<ClientTextSelection>)
         @JsonNotification(value = "awareness/updateDocument")
-        fun updateDocument(url: String, updates: Array<TextDocumentInsert>)
+        fun updateDocument(path: String, updates: Array<TextDocumentInsert>)
+        @JsonRequest(value = "awareness/getDocumentContent")
+        @ResponseJsonAdapter(BinaryResponseTypeAdapter::class)
+        fun getDocumentContent(path: String): CompletableFuture<BinaryResponse<FileContent>>
 
         @JsonRequest
         fun <T> request(message: OCPMessage): CompletableFuture<BinaryResponse<T>>

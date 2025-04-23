@@ -120,11 +120,9 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
 
     fun readFile(path: Path): CompletableFuture<FileContent>? {
         val collab = getCollaborationInstance(path)
-        return collab?.octService?.request<FileContent>(
-            OCPMessage("fileSystem/readFile", arrayOf(toOctPath(path)), collab.host?.id ?: "")
-        )?.thenApply {
-                it.data
-            }
+        return collab?.octService?.getDocumentContent(toOctPath(path))?.thenApply {
+            it.data
+        }
     }
 
     fun readDir(path: Path): CompletableFuture<Map<String, Number>>? {

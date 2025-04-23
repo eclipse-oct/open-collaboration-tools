@@ -59,7 +59,13 @@
       displayName="Open Collaboration Tools"/>
 
     <applicationService serviceImplementation="org.typefox.oct.settings.OCTSettings" />
+
+    <toolWindow factoryClass="org.typefox.oct.sessionView.SessionViewFactory" id="org.typefox.oct.sessionView"
+                anchor="left" icon="/icons/share-icon.svg" />
+
   </extensions>
+
+  <resource-bundle>l10n.plugin</resource-bundle>
 
   <projectListeners>
     <listener class="org.typefox.oct.ProjectListener" topic="com.intellij.openapi.project.ProjectManagerListener" />
