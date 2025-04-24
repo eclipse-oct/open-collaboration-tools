@@ -44,7 +44,7 @@ npm run start
 
 ## Deployment
 
-A container image named [oct-server](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server) is available for simple deployment. It does not require any additional infrastructure services. However, the server uses WebSocket connections and holds session data in memory, so horizontal scaling is not yet supported.
+A container image named [oct-server-dev](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server-dev) is available for simple deployment. It does not require any additional infrastructure services. However, the server uses WebSocket connections and holds session data in memory, so horizontal scaling is not yet supported.
 
 Build the container image:
 
