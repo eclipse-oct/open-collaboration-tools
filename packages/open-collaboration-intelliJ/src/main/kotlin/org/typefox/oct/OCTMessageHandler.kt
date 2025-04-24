@@ -111,6 +111,11 @@ class OCTMessageHandler() : Endpoint {
         collaborationInstance?.updateDocument(url, updates)
     }
 
+    @JsonNotification
+    fun editorOpened(documentPath: String, peerId: String) {
+        println("editor opened $documentPath by $peerId")
+    }
+
     @JsonRequest
     @ResponseJsonAdapter(BinaryResponseTypeAdapter::class)
     fun request(message: OCPMessage): CompletableFuture<*> {
