@@ -127,7 +127,7 @@ export const Authentication = new NotificationType2<string, types.AuthMetadata>(
 export const OnInitNotification = new NotificationType<types.InitData>('init');
 
 /**
- * params : [documentPath]
+ * params : [documentPath, peerId]
  */
 export const EditorOpenedNotification = new NotificationType2<string, string>('editorOpened');
 
