@@ -9,7 +9,7 @@ import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-y
 import * as Y from 'yjs';
 import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages';
+import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
 export class CollaborationInstance implements types.Disposable{
