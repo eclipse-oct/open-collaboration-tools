@@ -99,10 +99,14 @@ class OCTSessionService() {
     }
 
     fun closeCurrentSession(project: Project) {
-        currentProcesses[project]?.octService?.closeSession()
-        currentProcesses[project]?.dispose()
+        currentProcesses[project]?.octService?.closeSession()?.get()
+        currentProcesses[project]?.let {
+            Disposer.dispose(it)
+        }
         currentProcesses.remove(project)
-        currentCollaborationInstances[project]?.dispose()
+        currentCollaborationInstances[project]?.let {
+            Disposer.dispose(it)
+        }
         currentCollaborationInstances.remove(project)
     }
 
@@ -113,6 +117,7 @@ class OCTSessionService() {
 
         val currentProcess = currentProcesses[project] ?: throw IllegalStateException("No current process found for project")
         val collaborationInstance = CollaborationInstance(currentProcess.octService!!, project, sessionData, isHost)
+        Disposer.register(currentProcesses[project]!!, collaborationInstance)
         this.currentCollaborationInstances[project] = collaborationInstance
         currentProcess.messageHandler.collaborationInstance = this.currentCollaborationInstances[project]
         onSessionCreated.fire(collaborationInstance)
