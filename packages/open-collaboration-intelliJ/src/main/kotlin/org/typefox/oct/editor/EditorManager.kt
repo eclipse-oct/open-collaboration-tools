@@ -35,6 +35,8 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     private val cursorDisposables: MutableMap<String, Array<Inlay<CursorRenderer>>> = mutableMapOf()
     private val documentListeners: MutableMap<String, EditorDocumentListener> = mutableMapOf()
 
+    var followingPeerId: String? = null
+
     init {
         FileEditorManager.getInstance(project).allEditors.forEach {
             val editor: Editor? = when (it) {
@@ -78,13 +80,15 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
     }
 
     fun updateTextSelection(path: String, selections: Array<ClientTextSelection>) {
-        val editor = editors[path] ?: return
+        val editor = editors[path]
 
-        SwingUtilities.invokeAndWait {
-            cursorDisposables[path]?.forEach { Disposer.dispose(it) }
-            cursorDisposables[path] = Array(selections.size) { idx ->
-                val selection = selections[idx]
-                createPeerCursor(selection, editor)
+        if(editor != null) {
+            SwingUtilities.invokeAndWait {
+                cursorDisposables[path]?.forEach { Disposer.dispose(it) }
+                cursorDisposables[path] = Array(selections.size) { idx ->
+                    val selection = selections[idx]
+                    createPeerCursor(selection, editor)
+                }
             }
         }
     }
@@ -123,8 +127,8 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
             try {
                 for (update in updates) {
                     editor.document.replaceString(
-                        fromOCTOffset(editor, update.startOffset),
-                        fromOCTOffset(editor,update.endOffset ?: update.startOffset),
+                        update.startOffset,
+                       update.endOffset ?: update.startOffset,
                         update.text.replace("\r\n", "\n")
                     )
                 }
@@ -142,39 +146,12 @@ class EditorManager(private val octService: OCTMessageHandler.OCTService, projec
             ""
         )
     }
-}
 
-fun toOCTOffset(editor: Editor, offset: Int): Int {
-    if(editor.virtualFile.detectedLineSeparator == "\n") {
-        return offset
+    fun followPeer(peerId: String) {
+        followingPeerId = peerId
     }
 
-    val document = editor.document
-    val text  = document.text
-
-    for(i in 0..offset) {
-        if(text[0] == '\n') {
-            offset + 1
-        }
+    fun stopFollowing() {
+        followingPeerId = null
     }
-
-    return offset
-}
-
-fun fromOCTOffset(editor: Editor, offset: Int): Int {
-    if(editor.virtualFile.detectedLineSeparator == "\n") {
-        return offset
-    }
-
-    val document = editor.document
-    val text  = document.text
-
-    for(i in 0..offset) {
-        if(text[0] == '\n') {
-            offset - 1
-        }
-    }
-
-    return offset
-
 }
