@@ -5,9 +5,8 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
+import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsNormalizedTextDocument, YTextChange } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
-import { Mutex } from 'async-mutex';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { MessageConnection } from 'vscode-jsonrpc';
@@ -21,16 +20,17 @@ export class CollaborationInstance implements types.Disposable{
     protected yjsProvider?: OpenCollaborationYjsProvider;
     protected YjsDoc: Y.Doc;
     protected yjsAwareness;
-    private yjsMutex = new Mutex();
 
     protected connectionDisposables: DisposableCollection = new DisposableCollection();
+
+    private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
 
     protected identity = new Deferred<types.Peer>();
 
     private encoder = new TextEncoder();
 
-    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected communicationHandler: MessageConnection, protected host: boolean, workspace?: types.Workspace) {
-        if(host && !workspace) {
+    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected communicationHandler: MessageConnection, protected isHost: boolean, workspace?: types.Workspace) {
+        if(isHost && !workspace) {
             throw new Error('Host must provide workspace');
         }
         this.YjsDoc = new Y.Doc();
@@ -91,7 +91,7 @@ export class CollaborationInstance implements types.Disposable{
         });
 
         currentConnection.room.onJoin(async (_, peer) => {
-            if (host && workspace) {
+            if (isHost && workspace) {
                 // Only initialize the user if we are the host
                 const initData: types.InitData = {
                     protocol: types.VERSION,
@@ -140,60 +140,53 @@ export class CollaborationInstance implements types.Disposable{
 
     async registerYjsObject(type: string, documentPath: string, text: string) {
         if(type === 'text') {
-            const yjsText = this.YjsDoc.getText(documentPath);
-            if (this.host) {
-                this.YjsDoc.transact(() => {
-                    yjsText.delete(0, yjsText.length);
-                    yjsText.insert(0, text);
-                });
+            const normalizedDocument = this.getNormalizedDocument(documentPath);
+            if (this.isHost) {
+                normalizedDocument.update({changes: text});
             } else {
                 this.currentConnection.editor.open((await this.hostInfo.promise).id, documentPath);
             }
-            const observer = (textEvent: Y.YTextEvent) => {
-                if (textEvent.transaction.local) {
-                    // Ignore own events or if the document is already in sync
-                    return;
-                }
-                const edits: TextDocumentInsert[] = [];
-                let index = 0;
-                textEvent.delta.forEach(delta => {
-                    if (typeof delta.retain === 'number') {
-                        index += delta.retain;
-                    } else if (typeof delta.insert === 'string') {
-                        edits.push({
-                            startOffset: index,
-                            text: delta.insert,
-                        });
-                        index += delta.insert.length;
-                    } else if (typeof delta.delete === 'number') {
-                        edits.push({
-                            startOffset: index,
-                            endOffset: index + delta.delete,
-                            text: '',
-                        });
-                    }
-                });
-                this.communicationHandler.sendNotification(UpdateDocumentContent, documentPath, edits);
-            };
-            yjsText.observe(observer);
         }
+    }
+
+    private getNormalizedDocument(path: string): YjsNormalizedTextDocument {
+        let yjsDocument = this.yjsDocuments.get(path);
+        if (!yjsDocument) {
+            yjsDocument = new YjsNormalizedTextDocument(this.YjsDoc.getText(path), async changes => {
+                this.communicationHandler.sendNotification(UpdateDocumentContent, path, changes.map(change => {
+                    const start = yjsDocument!.normalizedOffset(change.start);
+                    const end = yjsDocument!.normalizedOffset(change.end);
+                    return {
+                        startOffset: start,
+                        endOffset: end,
+                        text: change.text
+                    } as TextDocumentInsert;
+                }));
+            });
+            this.yjsDocuments.set(path, yjsDocument);
+        }
+        return yjsDocument;
     }
 
     updateYjsObjectContent(documentPath: string, changes: TextDocumentInsert[]) {
         if (changes.length === 0) {
             return;
         }
-        this.yjsMutex.runExclusive(async () => {
-            const yjsText = this.YjsDoc.getText(documentPath);
-            this.YjsDoc.transact(() => {
-                for(const change of changes) {
-                    if(change.endOffset) {
-                        yjsText.delete(change.startOffset, change.endOffset - change.startOffset);
-                    }
-                    yjsText.insert(change.startOffset, change.text);
-                }
-            });
-        });
+        if (documentPath) {
+
+            const normalizedDocument = this.getNormalizedDocument(documentPath);
+            const textChanges: YTextChange[] = [];
+            for (const change of changes) {
+                const start = change.startOffset;
+                const end = change.endOffset ?? change.startOffset;
+                textChanges.push({
+                    start,
+                    end,
+                    text: change.text
+                });
+            }
+            normalizedDocument.update({ changes: textChanges });
+        }
     }
 
     private selectionState: Map<string, ClientTextSelection[]> = new Map();
@@ -205,12 +198,18 @@ export class CollaborationInstance implements types.Disposable{
 
         for (const [clientId, state] of states.entries()) {
             if (types.ClientTextSelection.is(state.selection) && clientId !== this.yjsAwareness.clientID) {
-                const selections = state.selection.textSelections.map(s => ({
-                    peer: state.peer,
-                    start: Y.createAbsolutePositionFromRelativePosition(s.start, this.YjsDoc)?.index ?? 0,
-                    end: Y.createAbsolutePositionFromRelativePosition(s.end, this.YjsDoc)?.index,
-                    isReversed: s.direction === types.SelectionDirection.RightToLeft
-                }));
+                const normalizedDocument = this.getNormalizedDocument(state.selection.path);
+
+                const selections = state.selection.textSelections.map(s => {
+                    const start = Y.createAbsolutePositionFromRelativePosition(s.start, this.YjsDoc)?.index ?? 0;
+                    const end =  Y.createAbsolutePositionFromRelativePosition(s.end, this.YjsDoc)?.index;
+                    return {
+                        peer: state.peer,
+                        start: normalizedDocument.normalizedOffset(start),
+                        end: normalizedDocument.normalizedOffset(end ?? start),
+                        isReversed: s.direction === types.SelectionDirection.RightToLeft
+                    };
+                });
                 currentSelections.has(state.selection.path) ?
                     currentSelections.get(state.selection.path)!.push(...selections) :
                     currentSelections.set(state.selection.path, selections);
@@ -261,8 +260,12 @@ export class CollaborationInstance implements types.Disposable{
         this.yjsAwareness.setLocalStateField('selection', selection);
     }
 
+    async leaveRoom(): Promise<void> {
+        await this.currentConnection.room.leave();
+        this.dispose();
+    }
+
     dispose(): void {
-        this.currentConnection.room.leave();
         this.currentConnection.dispose();
         this.yjsProvider?.dispose();
         this.YjsDoc.destroy();

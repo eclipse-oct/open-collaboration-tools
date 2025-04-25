@@ -83,6 +83,18 @@ class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
         }
     }
 
+    fun followPeer(peerId: String) {
+        editorManager.followPeer(peerId)
+    }
+
+    fun stopFollowingPeer() {
+        editorManager.stopFollowing()
+    }
+
+    fun isFollowingPeer(peerId: String): Boolean {
+        return editorManager.followingPeerId == peerId
+    }
+
     override fun dispose() {
 
     }

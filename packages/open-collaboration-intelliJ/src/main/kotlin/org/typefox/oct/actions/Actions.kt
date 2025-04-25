@@ -1,10 +1,14 @@
 package org.typefox.oct.actions
 
+import com.intellij.concurrency.resetThreadContext
+import com.intellij.icons.AllIcons
+import com.intellij.icons.ExpUiIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
 import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.modules
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.ui.DialogBuilder
@@ -61,7 +65,7 @@ class CloseSessionAction: AnAction() {
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread {
-        return ActionUpdateThread.EDT
+        return ActionUpdateThread.BGT
     }
 
     override fun update(e: AnActionEvent) {
@@ -90,4 +94,30 @@ class JoinRequestAction(label: String,
   override fun actionPerformed(e: AnActionEvent) {
     future.complete(value)
   }
+}
+
+class ToggleFollowAction(val peerId: String, val project: Project) : AnAction(AllIcons.General.InspectionsEye) {
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val sessionService = service<OCTSessionService>()
+        val session = sessionService.currentCollaborationInstances[project] ?: return
+        if (session.isFollowingPeer(peerId)) {
+            session.stopFollowingPeer()
+        } else {
+            session.followPeer(peerId)
+        }
+        update(e)
+    }
+
+    override fun update(e: AnActionEvent) {
+        val isFollowing = service<OCTSessionService>().currentCollaborationInstances[e.project]?.isFollowingPeer(peerId) ?: false
+        e.presentation.icon = if(isFollowing) ExpUiIcons.General.Close else AllIcons.General.InspectionsEye
+        e.presentation.text = if (isFollowing) "Stop Following" else "Follow"
+    }
+
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.EDT
+    }
+
 }
