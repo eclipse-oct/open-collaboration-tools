@@ -158,7 +158,7 @@ export class CollaborationServer {
     }
 
     protected async getUserFromAuth(req: express.Request): Promise<User | undefined> {
-        const auth = req.headers['x-oct-jwt'] as string;
+        const auth = req.headers['x-oct-jwt'] as string ?? req.cookies['oct-jwt'] as string;
         try {
             const user = await this.credentials.getUser(auth);
             return user;
@@ -242,7 +242,16 @@ export class CollaborationServer {
                     return;
                 }
 
-                if (delayedAuth.jwt) {
+                if (delayedAuth.jwt && req.body?.useCookie) {
+                    // If the client requested a cookie, we set it here
+                    res.cookie('oct-jwt', delayedAuth.jwt, {
+                        maxAge: 90000000,
+                        httpOnly: true,
+                        secure: true,
+                    });
+                    res.send();
+                    delayedAuth.dispose();
+                } else if (delayedAuth.jwt) {
                     const result: LoginPollResponse = {
                         loginToken: delayedAuth.jwt
                     };
@@ -285,6 +294,19 @@ export class CollaborationServer {
                     message: 'Internal authentication server error'
                 });
             }
+        });
+        // only required for when using cookie based authentication
+        app.get('/api/logout', async (req, res) => {
+            const user = await this.getUserFromAuth(req);
+            if (user) {
+                res.clearCookie('oct-jwt');
+                res.status(200);
+                res.send('Logged out');
+            } else {
+                res.status(400);
+                res.send('no auth token cookie set or user for token not found');
+            }
+
         });
         app.get('/api/meta', async (_, res) => {
             const data: ProtocolServerMetaData = {

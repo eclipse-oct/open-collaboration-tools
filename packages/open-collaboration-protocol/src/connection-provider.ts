@@ -32,6 +32,7 @@ export interface ConnectionProviderOptions {
      */
     authenticationHandler: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
     transports: MessageTransportProvider[];
+    useCookieAuth?: boolean;
 }
 
 export interface FetchRequestOptions {
@@ -186,13 +187,11 @@ export class ConnectionProvider {
     }
 
     async validate(): Promise<boolean> {
-        if (this.userAuthToken) {
+        if (this.userAuthToken || this.options.useCookieAuth) {
             try {
                 const validateResponse = await this.fetch(this.getUrl('/api/login/validate'), {
                     method: 'POST',
-                    headers: {
-                        'x-oct-jwt': this.userAuthToken!
-                    }
+                    headers: this.getAuthHeader()
                 });
                 const body = await validateResponse.json();
                 if (types.LoginValidateResponse.is(body)) {
@@ -223,9 +222,7 @@ export class ConnectionProvider {
         const response = await this.fetch(this.getUrl('/api/session/create'), {
             method: 'POST',
             signal: options.abortSignal,
-            headers: {
-                'x-oct-jwt': this.userAuthToken!
-            }
+            headers: this.getAuthHeader()
         });
         if (!response.ok) {
             throw await this.readError(response);
@@ -255,9 +252,7 @@ export class ConnectionProvider {
         const response = await this.fetch(this.getUrl(`/api/session/join/${options.roomId}`), {
             method: 'POST',
             signal: options.abortSignal,
-            headers: {
-                'x-oct-jwt': this.userAuthToken!
-            }
+            headers: this.getAuthHeader()
         });
         if (!response.ok) {
             throw await this.readError(response);
@@ -282,9 +277,7 @@ export class ConnectionProvider {
             const response = await this.fetch(this.getUrl(`/api/session/poll/${joinToken}`), {
                 method: 'POST',
                 signal: options.abortSignal,
-                headers: {
-                    'x-oct-jwt': this.userAuthToken!
-                }
+                headers: this.getAuthHeader()
             });
             if (response.ok) {
                 const body = await response.json();
@@ -336,7 +329,7 @@ export class ConnectionProvider {
         const transportProvider = this.options.transports[transportIndex];
         const keyPair = await Encryption.generateKeyPair();
         const transport = transportProvider.createTransport(this.options.url, {
-            'x-oct-jwt': roomAuthToken,
+            ...this.getAuthHeader(),
             'x-oct-public-key': keyPair.publicKey,
             'x-oct-client': this.options.client ?? 'Unknown OCT JS Client',
             'x-oct-compression': 'gzip'
@@ -383,5 +376,17 @@ export class ConnectionProvider {
             }
         }
         return controller.signal;
+    }
+
+    private getAuthHeader(): Record<string, string> {
+        if (this.userAuthToken) {
+            return {
+                'x-oct-jwt': this.userAuthToken
+            };
+        } else if (this.options.useCookieAuth) {
+            return {};
+        } else {
+            throw new Error('No authentication token available');
+        }
     }
 }
