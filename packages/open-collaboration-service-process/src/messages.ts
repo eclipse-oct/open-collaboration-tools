@@ -138,6 +138,9 @@ export const EditorOpenedNotification = new NotificationType2<string, string>('e
  */
 export const JoinSessionRequest = new RequestType<types.User, boolean, void>(ToServiceMessages.JOIN_SESSION_REQUEST);
 
+export const PeerJoinedNotification = new NotificationType<types.Peer>('peerJoined');
+export const PeerLeftNotification = new NotificationType<types.Peer>('peerLeft');
+
 /**
  * params: [error message, stack trace]
  */

@@ -45,7 +45,7 @@ class OCTSessionService() {
 
     fun createRoom(workspace: Workspace, project: Project) {
 
-        if (!currentCollaborationInstances.contains(project)) {
+        if (currentCollaborationInstances.contains(project)) {
             return
         }
 

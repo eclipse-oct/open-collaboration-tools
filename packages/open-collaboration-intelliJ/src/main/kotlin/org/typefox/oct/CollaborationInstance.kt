@@ -9,6 +9,7 @@ import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.vfs.VirtualFileManager
+import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.typefox.oct.editor.EditorManager
 import org.typefox.oct.fileSystem.OCTSessionFileSystem
 import org.typefox.oct.fileSystem.WorkspaceFileSystemService
@@ -18,7 +19,7 @@ import org.typefox.oct.util.EventEmitter
 class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
                             val project: Project,
                             private val sessionData: SessionData,
-                            private val isHost: Boolean) : Disposable {
+                            val isHost: Boolean) : Disposable {
 
     val workspaceFileSystem: WorkspaceFileSystemService = project.getService(WorkspaceFileSystemService::class.java)
     private val editorManager: EditorManager = EditorManager(octService, project)
@@ -50,6 +51,18 @@ class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
             initializeSharedFolders()
         }
         onPeersChanged.fire(null)
+    }
+
+    fun peerJoined(peer: Peer) {
+        this.guests.add(peer)
+        this.onPeersChanged.fire(Unit)
+    }
+
+    fun peerLeft(peer: Peer) {
+        this.guests.remove(guests.find {
+            it.id == peer.id
+        } ?: return)
+        this.onPeersChanged.fire(Unit)
     }
 
     private fun initializeSharedFolders() {
