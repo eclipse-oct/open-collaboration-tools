@@ -26,6 +26,7 @@ export type MonacoCollabOptions = {
     callbacks: MonacoCollabCallbacks;
     userToken?: string;
     roomToken?: string;
+    useCookieAuth?: boolean;
     loginPageOpener?: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
 };
 
@@ -57,6 +58,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }),
         transports: [SocketIoTransportProvider],
         userToken: options.userToken,
+        useCookieAuth: options.useCookieAuth,
         fetch: async (url, options) => {
             const response = await fetch(url, options);
             return {
