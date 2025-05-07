@@ -104,7 +104,7 @@ class WorkspaceFileSystemService(private val project: Project) {
         }
     }
 
-    private fun getRelativeFile(path: String): VirtualFile {
+    fun getRelativeFile(path: String): VirtualFile {
         val relativePath = toRelativeWorkspacePath(path)
         val file = workspaceDir.findFileByRelativePath(relativePath)
             ?: throw FileNotFoundException("could not find workspace file with path: $path")

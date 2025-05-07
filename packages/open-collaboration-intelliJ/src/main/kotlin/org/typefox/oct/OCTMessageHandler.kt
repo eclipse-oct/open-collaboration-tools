@@ -101,6 +101,16 @@ class OCTMessageHandler() : Endpoint {
         collaborationInstance?.initPeers(initData)
     }
 
+    @JsonNotification
+    fun peerJoined(peer: Peer) {
+        collaborationInstance?.peerJoined(peer)
+    }
+
+    @JsonNotification
+    fun peerLeft(peer: Peer) {
+        collaborationInstance?.peerLeft(peer)
+    }
+
     @JsonNotification(value = "awareness/updateTextSelection")
     fun updateTextSelection(url: String, selections: Array<ClientTextSelection>) {
         collaborationInstance?.updateTextSelection(url, selections)

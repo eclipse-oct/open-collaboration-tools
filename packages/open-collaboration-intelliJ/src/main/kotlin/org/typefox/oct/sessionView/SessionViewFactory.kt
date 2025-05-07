@@ -6,12 +6,14 @@ import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
+import com.intellij.openapi.application.invokeLater
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBList
+import com.intellij.util.EventDispatcher
 import org.typefox.oct.*
 import org.typefox.oct.actions.ToggleFollowAction
 import java.awt.BorderLayout
@@ -26,23 +28,30 @@ class SessionViewFactory : ToolWindowFactory {
         toolWindow.title = "OCT"
         val sessionService = service<OCTSessionService>()
 
-        createView(toolWindow, project, sessionService)
+        val panel = JPanel()
+        toolWindow.contentManager.addContent(
+            toolWindow.contentManager.factory.createContent(panel, null, false))
+        setViewForProject(panel, project, sessionService)
+
         sessionService.onSessionCreated.onEvent {
             if(it.project == project) {
-                createView(toolWindow, project, sessionService)
+                setViewForProject(panel, project, sessionService)
             }
         }
+
     }
 
-    private fun createView(toolWindow: ToolWindow, project: Project, sessionService: OCTSessionService) {
-        val session = sessionService.currentCollaborationInstances[project]
+    private fun setViewForProject(panel: JPanel, project: Project, sessionService: OCTSessionService) {
+        invokeLater {
+            val session = sessionService.currentCollaborationInstances[project]
 
-        if (session != null) {
-            toolWindow.contentManager.addContent(
-                toolWindow.contentManager.factory.createContent(SessionView(project), null, false))
-        } else {
-            toolWindow.contentManager.addContent(
-                toolWindow.contentManager.factory.createContent(NoSessionView(project), null, false))
+            panel.removeAll()
+
+            if (session != null) {
+                panel.add(SessionView(project))
+            } else {
+                panel.add(NoSessionView(project))
+            }
         }
     }
 }
@@ -75,14 +84,19 @@ class SessionView(private val project: Project): JPanel() {
 
         val session = service<OCTSessionService>().currentCollaborationInstances[project]!!
         session.onPeersChanged.onEvent {
-            renderPeerList()
+            invokeLater {
+                renderPeerList()
+            }
         }
     }
 
     private fun renderPeerList() {
         val session = service<OCTSessionService>().currentCollaborationInstances[project]!!
 
-        val peers = arrayOf(session.host!!, *session.guests.toTypedArray())
+        val peers = if(session.host != null)
+            arrayOf(session.host!!, *session.guests.toTypedArray())
+        else
+            session.guests.toTypedArray()
 
         add(JPanel().apply {
             layout = GridLayout(peers.size, 2)

@@ -8,7 +8,7 @@ import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsNormalizedTextDocument, YTextChange } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, PeerJoinedNotification, PeerLeftNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
 export class CollaborationInstance implements types.Disposable{
@@ -106,6 +106,12 @@ export class CollaborationInstance implements types.Disposable{
                 };
                 currentConnection.peer.init(peer.id, initData);
             }
+            this.communicationHandler.sendNotification(PeerJoinedNotification, peer);
+        });
+
+        currentConnection.room.onLeave(async (_, peer) => {
+            this.peers.delete(peer.id);
+            this.communicationHandler.sendNotification(PeerLeftNotification, peer);
         });
 
         currentConnection.peer.onInit((_, initData) => {
