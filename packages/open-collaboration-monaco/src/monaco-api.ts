@@ -37,7 +37,8 @@ export type MonacoCollabApi = {
     createRoom: () => Promise<string | undefined>
     joinRoom: (roomToken: string) => Promise<string | undefined>
     login: () => Promise<string | undefined>
-    isLoggedIn: () => boolean
+    logout: () => Promise<void | undefined>
+    isLoggedIn: () => Promise<boolean>
     setEditor: (editor: monaco.editor.IStandaloneCodeEditor) => void
     getUserData: () => Promise<UserData | undefined>
     onUsersChanged: (evt: UsersChangeEvent) => void
@@ -177,11 +178,28 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }
     };
 
+    const isLoggedIn = async () => {
+        if (!connectionProvider) {
+            return false;
+        }
+
+        if (options.useCookieAuth) {
+            const valid = await fetch(options.serverUrl + '/api/login/validate', {
+                credentials: 'include',
+                method: 'POST',
+            });
+            return valid.ok && (await valid.json())?.valid;
+        } else {
+            return !!connectionProvider.authToken;
+        }
+    };
+
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
         login: doLogin,
-        isLoggedIn: () => !!connectionProvider?.authToken,
+        logout: async () => connectionProvider?.logout(),
+        isLoggedIn: isLoggedIn,
         setEditor: doSetEditor,
         getUserData: doGetUserData,
         onUsersChanged: registerUserChangeHandler,
