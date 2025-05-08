@@ -236,7 +236,7 @@ export class CollaborationServer {
             res.status(200);
             res.send(result);
         });
-        // for prefilght requests
+        // for preflight requests
         app.options('/api/login/poll/:token', (req, res) => {
             res.header('Access-Control-Allow-Headers', 'content-type');
             res.header('Access-Control-Allow-Methods', 'POST');
