@@ -181,6 +181,7 @@ export class CollaborationServer {
             }
             res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
             res.header('Access-Control-Allow-Credentials', 'true');
+            res.header('Access-Control-Allow-Headers', '*');
             next();
         });
         app.use(async (req, res, next) => {
@@ -257,8 +258,16 @@ export class CollaborationServer {
                     return;
                 }
 
-                if (delayedAuth.jwt && req.body?.useCookie) {
-                    res.cookie('oct-jwt', delayedAuth.jwt, {
+                const sendToken = (token: string) => {
+                    const result: LoginPollResponse = {
+                        loginToken: token
+                    };
+                    res.status(200);
+                    res.send(result);
+                };
+
+                const sendCookie = (token: string) => {
+                    res.cookie('oct-jwt', token, {
                         maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
                         httpOnly: true,
                         secure: true,
@@ -267,12 +276,13 @@ export class CollaborationServer {
                     res.header('Access-Control-Allow-Credentials', 'true');
                     res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
                     res.send();
+                };
+
+                if (delayedAuth.jwt && req.body?.useCookie) {
+                    sendCookie(delayedAuth.jwt);
                     delayedAuth.dispose();
                 } else if (delayedAuth.jwt) {
-                    const result: LoginPollResponse = {
-                        loginToken: delayedAuth.jwt
-                    };
-                    res.send(result);
+                    sendToken(delayedAuth.jwt);
                     // Don't dispose the delayed auth here, as it might be used for polling
                     // It will be disposed after 5 minutes anyway
                     delayedAuth.dispose();
@@ -286,11 +296,7 @@ export class CollaborationServer {
                             res.status(204);
                             res.send({});
                         } else if (typeof value === 'string') {
-                            const result: LoginPollResponse = {
-                                loginToken: value
-                            };
-                            res.status(200);
-                            res.send(result);
+                            req.body?.useCookie ? sendCookie(value) : sendToken(value);
                         } else {
                             res.status(400);
                             res.send(authTimeoutResponse);

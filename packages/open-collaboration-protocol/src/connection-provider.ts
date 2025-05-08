@@ -40,6 +40,7 @@ export interface FetchRequestOptions {
     headers?: Record<string, string>;
     signal?: AbortSignal | null;
     credentials?: 'include' | 'same-origin' | 'omit';
+    body?: string
 }
 
 export interface FetchResponse {
@@ -107,7 +108,10 @@ export class ConnectionProvider {
         return `${url}/${path}`;
     }
 
-    async login(options: LoginOptions): Promise<string> {
+    /**
+     * @returns the auth token if the authentication or undefined when using cookie based authentication
+     */
+    async login(options: LoginOptions): Promise<string | undefined> {
         options.reporter?.({
             code: 'PerformingLogin',
             params: [],
@@ -147,13 +151,24 @@ export class ConnectionProvider {
         return authToken;
     }
 
-    private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string> {
+    private readonly cookieAuthPollOptions: Partial<FetchRequestOptions> = {
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ useCookie: true })
+    };
+    private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string | undefined> {
         while (true) {
             const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}`), {
                 signal: options.abortSignal,
-                method: 'POST'
+                method: 'POST',
+                ...(this.options.useCookieAuth ? this.cookieAuthPollOptions : {}),
             });
             if (confirmResponse.ok) {
+                if(this.options.useCookieAuth) {
+                    return;
+                }
                 try {
                     const confirmBody = await confirmResponse.json();
                     if (types.LoginPollResponse.is(confirmBody) && confirmBody.loginToken) {
