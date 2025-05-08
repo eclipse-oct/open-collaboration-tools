@@ -354,7 +354,7 @@ export class ConnectionProvider {
         const transportProvider = this.options.transports[transportIndex];
         const keyPair = await Encryption.generateKeyPair();
         const transport = transportProvider.createTransport(this.options.url, {
-            ...this.getAuthHeader(),
+            'x-oct-jwt': roomAuthToken,
             'x-oct-public-key': keyPair.publicKey,
             'x-oct-client': this.options.client ?? 'Unknown OCT JS Client',
             'x-oct-compression': 'gzip'
