@@ -22,6 +22,7 @@ import { Logger } from './utils/logging.js';
 import { VERSION } from 'open-collaboration-protocol';
 import { Configuration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
+import cookieParser from 'cookie-parser';
 
 // resolves __filename
 export const getLocalFilename = (referenceUrl: string | URL) => {
@@ -158,7 +159,7 @@ export class CollaborationServer {
     }
 
     protected async getUserFromAuth(req: express.Request): Promise<User | undefined> {
-        const auth = req.headers['x-oct-jwt'] as string ?? req.cookies['oct-jwt'] as string;
+        const auth = req.headers['x-oct-jwt'] as string ?? req.cookies?.['oct-jwt'] as string;
         try {
             const user = await this.credentials.getUser(auth);
             return user;
@@ -170,9 +171,11 @@ export class CollaborationServer {
     protected setupApiRoute(): express.Express {
         const app = express();
         app.use(express.json());
-        app.use((_, res, next) => {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Headers', '*');
+        app.use(cookieParser());
+        app.use((req, res, next) => {
+            // TOD
+            res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+            res.header('Access-Control-Allow-Credentials', 'true');
             next();
         });
         app.use(async (req, res, next) => {
@@ -190,6 +193,7 @@ export class CollaborationServer {
         });
         app.use(express.static(path.resolve(getLocalDirectory(import.meta.url), '../src/static')));
         const loginPageUrlConfig = this.configuration.getValue('oct-login-page-url') ?? '';
+
         app.post('/api/login/initial', async (req, res) => {
             try {
                 const token = await this.credentials.startAuth();
@@ -227,6 +231,12 @@ export class CollaborationServer {
             res.status(200);
             res.send(result);
         });
+        // for prefilght requests
+        app.options('/api/login/poll/:token', (req, res) => {
+            res.header('Access-Control-Allow-Headers', 'content-type');
+            res.header('Access-Control-Allow-Methods', 'POST');
+            res.send();
+        });
         app.post('/api/login/poll/:token', async (req, res) => {
             try {
                 const authTimeoutResponse: InfoMessage = {
@@ -243,12 +253,14 @@ export class CollaborationServer {
                 }
 
                 if (delayedAuth.jwt && req.body?.useCookie) {
-                    // If the client requested a cookie, we set it here
                     res.cookie('oct-jwt', delayedAuth.jwt, {
-                        maxAge: 90000000,
+                        maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
                         httpOnly: true,
                         secure: true,
+                        sameSite: 'none'
                     });
+                    res.header('Access-Control-Allow-Credentials', 'true');
+                    res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
                     res.send();
                     delayedAuth.dispose();
                 } else if (delayedAuth.jwt) {
@@ -258,6 +270,7 @@ export class CollaborationServer {
                     res.send(result);
                     // Don't dispose the delayed auth here, as it might be used for polling
                     // It will be disposed after 5 minutes anyway
+                    delayedAuth.dispose();
                 } else {
                     const end = async (value?: string | Error | undefined) => {
                         clearTimeout(timeout);
@@ -300,16 +313,8 @@ export class CollaborationServer {
             const user = await this.getUserFromAuth(req);
             if (user) {
                 res.clearCookie('oct-jwt');
-                res.status(200);
-                res.send('Logged out');
-            } else {
-                res.status(400);
-                res.send('no auth token cookie set or user for token not found');
-            }
-
-        });
-        app.get('/api/meta', async (_, res) => {
-            const data: ProtocolServerMetaData = {
+learCookie('oct-jwt');
+olServerMetaData = {
                 owner: this.configuration.getValue('oct-server-owner') ?? 'Unknown',
                 version: VERSION,
                 transports: [
