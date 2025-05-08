@@ -322,7 +322,7 @@ export class CollaborationServer {
         app.get('/api/logout', async (req, res) => {
             const user = await this.getUserFromAuth(req);
             if (user) {
-                res.clearCookie('oct-jwt');
+                res.clearCookie('oct-jwt', {sameSite: 'none', secure: true, httpOnly: true});
                 res.status(200);
                 res.send('Logged out');
             } else {
