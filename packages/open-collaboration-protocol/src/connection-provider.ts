@@ -39,6 +39,7 @@ export interface FetchRequestOptions {
     method?: string;
     headers?: Record<string, string>;
     signal?: AbortSignal | null;
+    credentials?: 'include' | 'same-origin' | 'omit';
 }
 
 export interface FetchResponse {
@@ -167,6 +168,23 @@ export class ConnectionProvider {
         }
     }
 
+    /**
+     * only neccessary for cookie based authentication to delete the cookie.
+     * If not using cookie based authentication, just deletes the JWT.
+     * Please ensure yourself it is not saved in local storage or similar.
+     */
+    async logout(): Promise<void> {
+        this.userAuthToken = undefined;
+        if (this.options.useCookieAuth) {
+            const logoutResponse = await this.fetch(this.getUrl('/api/logout'), {
+                credentials: 'include'
+            });
+            if (!logoutResponse.ok) {
+                throw new Error('Failed to logout');
+            }
+        }
+    }
+
     async ensureCompatibility(): Promise<void> {
         const metadata = await this.getMetaData();
         const serverVersion = semver.parse(metadata.version);
@@ -191,7 +209,9 @@ export class ConnectionProvider {
             try {
                 const validateResponse = await this.fetch(this.getUrl('/api/login/validate'), {
                     method: 'POST',
-                    headers: this.getAuthHeader()
+                    headers: this.getAuthHeader(),
+                    credentials: this.options.useCookieAuth ? 'include' : 'omit'
+
                 });
                 const body = await validateResponse.json();
                 if (types.LoginValidateResponse.is(body)) {
@@ -222,7 +242,8 @@ export class ConnectionProvider {
         const response = await this.fetch(this.getUrl('/api/session/create'), {
             method: 'POST',
             signal: options.abortSignal,
-            headers: this.getAuthHeader()
+            headers: this.getAuthHeader(),
+            credentials: this.options.useCookieAuth ? 'include' : 'omit'
         });
         if (!response.ok) {
             throw await this.readError(response);
@@ -252,7 +273,9 @@ export class ConnectionProvider {
         const response = await this.fetch(this.getUrl(`/api/session/join/${options.roomId}`), {
             method: 'POST',
             signal: options.abortSignal,
-            headers: this.getAuthHeader()
+            headers: this.getAuthHeader(),
+            credentials: this.options.useCookieAuth ? 'include' : 'omit'
+
         });
         if (!response.ok) {
             throw await this.readError(response);
@@ -277,7 +300,9 @@ export class ConnectionProvider {
             const response = await this.fetch(this.getUrl(`/api/session/poll/${joinToken}`), {
                 method: 'POST',
                 signal: options.abortSignal,
-                headers: this.getAuthHeader()
+                headers: this.getAuthHeader(),
+                credentials: this.options.useCookieAuth ? 'include' : 'omit'
+
             });
             if (response.ok) {
                 const body = await response.json();
