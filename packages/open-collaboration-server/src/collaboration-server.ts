@@ -16,10 +16,9 @@ import { RoomJoinInfo, RoomManager, isRoomClaim } from './room-manager.js';
 import { UserManager } from './user-manager.js';
 import { CredentialsManager } from './credentials-manager.js';
 import { User } from './types.js';
-import { CreateRoomResponse, InfoMessage, JoinRoomInitialResponse, JoinRoomPollResponse, JoinRoomResponse, ProtocolServerMetaData, LoginInitialResponse, LoginValidateResponse, LoginPollResponse } from 'open-collaboration-protocol';
+import { CreateRoomResponse, InfoMessage, JoinRoomInitialResponse, JoinRoomPollResponse, JoinRoomResponse, LoginInitialResponse, LoginValidateResponse, LoginPollResponse } from 'open-collaboration-protocol';
 import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
 import { Logger } from './utils/logging.js';
-import { VERSION } from 'open-collaboration-protocol';
 import { Configuration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
 import cookieParser from 'cookie-parser';
@@ -313,16 +312,12 @@ export class CollaborationServer {
             const user = await this.getUserFromAuth(req);
             if (user) {
                 res.clearCookie('oct-jwt');
-learCookie('oct-jwt');
-olServerMetaData = {
-                owner: this.configuration.getValue('oct-server-owner') ?? 'Unknown',
-                version: VERSION,
-                transports: [
-                    // 'websocket',
-                    'socket.io'
-                ],
-            };
-            res.send(data);
+                res.status(200);
+                res.send('Logged out');
+            } else {
+                res.status(400);
+                res.send('no auth token cookie set or user for token not found');
+            }
         });
         app.post('/api/session/join/:room', async (req, res) => {
             try {
