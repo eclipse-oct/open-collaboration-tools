@@ -171,8 +171,14 @@ export class CollaborationServer {
         const app = express();
         app.use(express.json());
         app.use(cookieParser());
+
+        const allowedOrigins = this.configuration.getValue('oct-allowed-origins')?.split(',') ?? '*';
         app.use((req, res, next) => {
-            // TOD
+            if(req.headers?.origin && allowedOrigins !== '*' && !allowedOrigins.includes(req.headers.origin)) {
+                res.status(403);
+                res.send('Origin not allowed');
+                return;
+            }
             res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
             res.header('Access-Control-Allow-Credentials', 'true');
             next();
