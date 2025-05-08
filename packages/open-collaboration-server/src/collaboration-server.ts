@@ -16,13 +16,13 @@ import { RoomJoinInfo, RoomManager, isRoomClaim } from './room-manager.js';
 import { UserManager } from './user-manager.js';
 import { CredentialsManager } from './credentials-manager.js';
 import { User } from './types.js';
-import { CreateRoomResponse, InfoMessage, JoinRoomInitialResponse, JoinRoomPollResponse, JoinRoomResponse, LoginInitialResponse, LoginValidateResponse, LoginPollResponse } from 'open-collaboration-protocol';
+import { CreateRoomResponse, InfoMessage, JoinRoomInitialResponse, JoinRoomPollResponse, JoinRoomResponse, ProtocolServerMetaData, LoginInitialResponse, LoginValidateResponse, LoginPollResponse } from 'open-collaboration-protocol';
 import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
 import { Logger } from './utils/logging.js';
+import { VERSION } from 'open-collaboration-protocol';
 import { Configuration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
 import cookieParser from 'cookie-parser';
-
 // resolves __filename
 export const getLocalFilename = (referenceUrl: string | URL) => {
     return fileURLToPath(referenceUrl);
@@ -306,6 +306,17 @@ export class CollaborationServer {
                     message: 'Internal authentication server error'
                 });
             }
+        });
+        app.get('/api/meta', async (_, res) => {
+            const data: ProtocolServerMetaData = {
+                owner: this.configuration.getValue('oct-server-owner') ?? 'Unknown',
+                version: VERSION,
+                transports: [
+                    // 'websocket',
+                    'socket.io'
+                ],
+            };
+            res.send(data);
         });
         // only required for when using cookie based authentication
         app.get('/api/logout', async (req, res) => {
