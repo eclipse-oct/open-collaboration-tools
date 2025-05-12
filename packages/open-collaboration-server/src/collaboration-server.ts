@@ -222,7 +222,8 @@ export class CollaborationServer {
         app.post('/api/login/validate', async (req, res) => {
             const user = await this.getUserFromAuth(req);
             const result: LoginValidateResponse = {
-                valid: !!user
+                valid: !!user,
+                user
             };
             res.status(200);
             res.send(result);

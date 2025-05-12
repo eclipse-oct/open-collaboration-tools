@@ -29,8 +29,12 @@ export namespace CreateRoomResponse {
     }
 }
 
+/**
+ * if valid contains the user object so the client can show the user information
+ */
 export interface LoginValidateResponse {
     valid: boolean;
+    user?: User;
 }
 
 export namespace LoginValidateResponse {
