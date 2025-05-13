@@ -68,7 +68,6 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMe
                 }
                 .create()
 
-
             this.jsonRpc?.startListening()
         }
     }

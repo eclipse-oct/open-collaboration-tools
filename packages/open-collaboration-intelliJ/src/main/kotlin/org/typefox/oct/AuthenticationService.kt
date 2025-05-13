@@ -22,56 +22,58 @@ const val OCT_TOKEN_SERVICE_KEY = "OCT-Auth-Token"
 @Service
 class AuthenticationService {
 
-  private var currentAuthPopup: AuthDialog? = null
+    private var currentAuthPopup: AuthDialog? = null
 
-  fun authenticate(token: String, metadata: AuthMetadata) {
-    if(JBCefApp.isSupported() && metadata.loginPageUrl != null) {
-      SwingUtilities.invokeLater {
-        this.currentAuthPopup = AuthDialog(metadata.loginPageUrl, ProjectManager.getInstance().openProjects[0])
-        this.currentAuthPopup?.show()
-      }
-    } else if(!JBCefApp.isSupported()) {
-      Desktop.getDesktop().browse(URI(metadata.loginPageUrl!!))
+    fun authenticate(token: String, metadata: AuthMetadata) {
+        if (JBCefApp.isSupported() && metadata.loginPageUrl != null) {
+            SwingUtilities.invokeLater {
+                val projectManager = ProjectManager.getInstance()
+                val project = projectManager.openProjects.lastOrNull() ?: projectManager.defaultProject
+                this.currentAuthPopup = AuthDialog(metadata.loginPageUrl, project)
+                this.currentAuthPopup?.show()
+            }
+        } else if (!JBCefApp.isSupported()) {
+            Desktop.getDesktop().browse(URI(metadata.loginPageUrl!!))
+        }
     }
-  }
 
-  fun onAuthenticated(authToken: String, serverUrl: String) {
-    if(this.currentAuthPopup != null) {
-      SwingUtilities.invokeLater {
-        this.currentAuthPopup?.close(0)
-        this.currentAuthPopup = null;
-      }
+    fun onAuthenticated(authToken: String, serverUrl: String) {
+        if (this.currentAuthPopup != null) {
+            SwingUtilities.invokeLater {
+                this.currentAuthPopup?.close(0)
+                this.currentAuthPopup = null;
+            }
+        }
+        val attributes = createCredentialAttributes(OCT_TOKEN_SERVICE_KEY, serverUrl)!!
+        val credentials = Credentials(serverUrl, authToken)
+        PasswordSafe.instance.set(attributes, credentials)
+
     }
-    val attributes = createCredentialAttributes(OCT_TOKEN_SERVICE_KEY, serverUrl)!!
-    val credentials = Credentials(serverUrl, authToken)
-    PasswordSafe.instance.set(attributes, credentials)
 
-  }
+    fun getAuthToken(serverUrl: String): OneTimeString? {
+        val attributes = createCredentialAttributes(OCT_TOKEN_SERVICE_KEY, serverUrl)!!
 
-  fun getAuthToken(serverUrl: String): OneTimeString? {
-    val attributes = createCredentialAttributes(OCT_TOKEN_SERVICE_KEY, serverUrl)!!
-
-    val credentials = PasswordSafe.instance.get(attributes)
-    return credentials?.password
-  }
+        val credentials = PasswordSafe.instance.get(attributes)
+        return credentials?.password
+    }
 }
 
 
-class AuthDialog(private val url: String, project: Project): DialogWrapper(project) {
+class AuthDialog(private val url: String, project: Project) : DialogWrapper(project) {
 
-  init {
-    title = "Login"
-    buttonMap.clear()
-    init()
-  }
+    init {
+        title = "Login"
+        buttonMap.clear()
+        init()
+    }
 
-  override fun createCenterPanel(): JComponent {
-    val browser = JBCefBrowser()
-    browser.loadURL(url)
-    return browser.component
-  }
+    override fun createCenterPanel(): JComponent {
+        val browser = JBCefBrowser()
+        browser.loadURL(url)
+        return browser.component
+    }
 
-  override fun createSouthPanel(): JComponent {
-    return JPanel()
-  }
+    override fun createSouthPanel(): JComponent {
+        return JPanel()
+    }
 }
