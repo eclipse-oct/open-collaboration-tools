@@ -16,6 +16,7 @@ import { MonacoCollabCallbacks } from './monaco-api.js';
 import { DisposablePeer } from './collaboration-peer.js';
 
 export type UsersChangeEvent = () => void;
+export type FileNameChangeEvent = (fileName: string) => void;
 
 export interface Disposable {
     dispose(): void;
@@ -31,22 +32,29 @@ export interface CollaborationInstanceOptions {
 }
 
 export class CollaborationInstance implements Disposable {
-    protected yjs: Y.Doc = new Y.Doc();
-    protected yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
-    protected yjsProvider: OpenCollaborationYjsProvider;
-    protected yjsMutex = createMutex();
+    protected readonly yjs: Y.Doc = new Y.Doc();
+    protected readonly yjsAwareness: awarenessProtocol.Awareness;
+    protected readonly yjsProvider: OpenCollaborationYjsProvider;
+    protected readonly yjsMutex = createMutex();
 
-    protected identity = new Deferred<types.Peer>();
-    protected updates = new Set<string>();
-    protected documentDisposables = new Map<string, DisposableCollection>();
-    protected peers = new Map<string, DisposablePeer>();
-    protected throttles = new Map<string, () => void>();
-    protected decorations = new Map<DisposablePeer, monaco.editor.IEditorDecorationsCollection>();
-    protected usersChangedCallbacks: UsersChangeEvent[] = [];
+    protected readonly identity = new Deferred<types.Peer>();
+    protected readonly updates = new Set<string>();
+    protected readonly documentDisposables = new Map<string, DisposableCollection>();
+    protected readonly peers = new Map<string, DisposablePeer>();
+    protected readonly throttles = new Map<string, () => void>();
+    protected readonly decorations = new Map<DisposablePeer, monaco.editor.IEditorDecorationsCollection>();
+    protected readonly usersChangedCallbacks: UsersChangeEvent[] = [];
+    protected readonly fileNameChangeCallbacks: FileNameChangeEvent[] = [];
+
     protected currentPath?: string;
     protected stopPropagation = false;
-
     protected _following?: string;
+    protected _fileName: string;
+    protected previousFileName?: string;
+    protected _roomName: string;
+
+    protected connection: ProtocolBroadcastConnection;
+
     get following(): string | undefined {
         return this._following;
     }
@@ -67,27 +75,50 @@ export class CollaborationInstance implements Disposable {
         return this.options.roomToken;
     }
 
+    get fileName(): string {
+        return this._fileName;
+    }
+
+    get roomName(): string {
+        return this._roomName;
+    }
+
     onUsersChanged(callback: UsersChangeEvent) {
         this.usersChangedCallbacks.push(callback);
     }
 
+    onFileNameChange(callback: FileNameChangeEvent) {
+        this.fileNameChangeCallbacks.push(callback);
+    }
+
     constructor(protected options: CollaborationInstanceOptions) {
-        const connection = options.connection;
+        this.connection = options.connection;
+        this.yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
         this.yjsProvider = new OpenCollaborationYjsProvider(this.options.connection, this.yjs, this.yjsAwareness, {
             resyncTimer: 10_000
         });
         this.yjsProvider.connect();
 
-        connection.peer.onJoinRequest(async (_, user) => {
+        this._fileName = 'myFile.txt';
+        this._roomName = this.roomToken;
+
+        this.setupConnectionHandlers();
+        this.setupFileSystemHandlers();
+        this.options.editor && this.registerEditorEvents();
+    }
+
+    private setupConnectionHandlers(): void {
+        this.connection.peer.onJoinRequest(async (_, user) => {
             const result = await this.options.callbacks.onUserRequestsAccess(user);
             return result ? {
                 workspace: {
-                    name: 'Collaboration ' + this.roomToken,
-                    folders: []
+                    name: this.roomName,
+                    folders: [this.roomName]
                 }
             } : undefined;
         });
-        connection.room.onJoin(async (_, peer) => {
+
+        this.connection.room.onJoin(async (_, peer) => {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
             const initData: types.InitData = {
                 protocol: '0.0.1',
@@ -96,47 +127,113 @@ export class CollaborationInstance implements Disposable {
                 capabilities: {},
                 permissions: { readonly: false },
                 workspace: {
-                    name: 'Collaboration',
-                    folders: []
+                    name: this.roomName,
+                    folders: [this.roomName]
                 }
             };
-            connection.peer.init(peer.id, initData);
-            this.usersChangedCallbacks.forEach(callback => callback());
+            this.connection.peer.init(peer.id, initData);
+            this.notifyUsersChanged();
         });
-        connection.room.onLeave(async (_, peer) => {
+
+        this.connection.room.onLeave(async (_, peer) => {
             const disposable = this.peers.get(peer.id);
             if (disposable) {
                 this.peers.delete(peer.id);
-                this.usersChangedCallbacks.forEach(callback => callback());
+                this.notifyUsersChanged();
             }
             this.rerenderPresence();
         });
-        connection.peer.onInfo((_, peer) => {
+
+        this.connection.peer.onInfo((_, peer) => {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
         });
-        connection.peer.onInit(async (_, initData) => {
+
+        this.connection.peer.onInit(async (_, initData) => {
             await this.initialize(initData);
         });
-        connection.fs.onReadFile(async (_, path) => {
-            const uri = this.getResourceUri(path);
-            if (uri && this.options.editor) {
-                const text = this.options.editor.getModel()?.getValue();
-                const encoder = new TextEncoder();
-                const content = encoder.encode(text);
-                return {
-                    content
-                };
-            } else {
-                throw new Error('Could not read file');
+    }
+
+    private setupFileSystemHandlers(): void {
+        this.connection.fs.onReadFile(this.handleReadFile.bind(this));
+        this.connection.fs.onStat(this.handleStat.bind(this));
+        this.connection.fs.onReaddir(this.handleReaddir.bind(this));
+        this.connection.fs.onChange(this.handleFileChange.bind(this));
+    }
+
+    private async handleReadFile(_: unknown, path: string): Promise<{ content: Uint8Array }> {
+        if (path === this._fileName && this.options.editor) {
+            const text = this.options.editor.getModel()?.getValue();
+            const encoder = new TextEncoder();
+            const content = encoder.encode(text);
+            return { content };
+        }
+        throw new Error('Could not read file');
+    }
+
+    private async handleStat(_: unknown, path: string): Promise<{ type: types.FileType; mtime: number; ctime: number; size: number }> {
+        return {
+            type: path === this.roomName ? types.FileType.Directory : types.FileType.File,
+            mtime: 0,
+            ctime: 0,
+            size: 0
+        };
+    }
+
+    private async handleReaddir(_: unknown, path: string): Promise<Record<string, types.FileType>> {
+        const uri = this.getResourceUri(path);
+        if (uri) {
+            return {
+                [this._fileName]: types.FileType.File
+            };
+        }
+        throw new Error('Could not read directory');
+    }
+
+    private handleFileChange(_: unknown, change: types.FileChangeEvent): void {
+        const deleteChange = change.changes.find(c => c.type === types.FileChangeEventType.Delete);
+        const createChange = change.changes.find(c => c.type === types.FileChangeEventType.Create);
+        if (deleteChange && createChange) {
+            this._fileName = createChange.path;
+            const model = this.options.editor?.getModel();
+            if (model) {
+                this.registerTextDocument(model);
             }
-        });
-        options.editor && this.registerEditorEvents();
+        }
+    }
+
+    private notifyUsersChanged(): void {
+        this.usersChangedCallbacks.forEach(callback => callback());
+    }
+
+    private notifyFileNameChanged(fileName: string): void {
+        this.fileNameChangeCallbacks.forEach(callback => callback(fileName));
     }
 
     setEditor(editor: monaco.editor.IStandaloneCodeEditor): void {
         this.options.editor = editor;
         this.registerEditorEvents();
+    }
+
+    async setFileName(fileName: string): Promise<void> {
+        const oldFileName = this._fileName;
+        this._fileName = fileName;
+        const model = this.options.editor?.getModel();
+        if (model) {
+            await this.registerTextDocument(model);
+            this.connection.fs.change({
+                changes: [
+                    {
+                        type: types.FileChangeEventType.Create,
+                        path: fileName
+                    },
+                    {
+                        type: types.FileChangeEventType.Delete,
+                        path: oldFileName
+                    }
+                ]
+            });
+        }
     }
 
     dispose() {
@@ -154,7 +251,7 @@ export class CollaborationInstance implements Disposable {
         disposables.push(disposable);
     }
 
-    protected registerEditorEvents() {
+    protected registerEditorEvents(): void {
         if (!this.options.editor) {
             return;
         }
@@ -169,23 +266,20 @@ export class CollaborationInstance implements Disposable {
             }
         });
 
-        this.options.editor.onDidChangeCursorSelection(_e => {
+        this.options.editor.onDidChangeCursorSelection(() => {
             if (this.options.editor && !this.stopPropagation) {
                 this.updateTextSelection(this.options.editor);
             }
         });
 
-        let awarenessTimeout: NodeJS.Timeout | undefined;
-
         const awarenessDebounce = debounce(() => {
             this.rerenderPresence();
         }, 2000);
 
-        this.yjsAwareness.on('change', async (_: any, origin: string) => {
+        this.yjsAwareness.on('change', async (_: unknown, origin: string) => {
             if (origin !== LOCAL_ORIGIN) {
                 this.updateFollow();
                 this.rerenderPresence();
-                clearTimeout(awarenessTimeout);
                 awarenessDebounce();
             }
         });
@@ -220,7 +314,6 @@ export class CollaborationInstance implements Disposable {
         if (!this.options.editor) {
             return;
         }
-
         const uri = this.getResourceUri(selection.path);
         const text = this.yjs.getText(selection.path);
 
@@ -230,6 +323,13 @@ export class CollaborationInstance implements Disposable {
             this.stopPropagation = true;
             this.options.editor.setValue(text.toString());
             this.stopPropagation = false;
+        }
+
+        const filename = this.getHostPath(selection.path);
+        if (this._fileName !== filename) {
+            this._fileName = filename;
+            this.previousFileName = filename;
+            this.notifyFileNameChanged(this._fileName);
         }
 
         this.registerTextObserver(selection.path, this.options.editor.getModel()!, text);
@@ -282,11 +382,11 @@ export class CollaborationInstance implements Disposable {
     }
 
     protected async registerTextDocument(document: monaco.editor.ITextModel): Promise<void> {
-        if (!this.currentPath) {
-            const uri = document.uri;
-            this.currentPath = this.getProtocolPath(uri);
+        const uri = this.getResourceUri(`${this._roomName}/${this._fileName}`);
+        const path = this.getProtocolPath(uri);
+        if (!this.currentPath || this.currentPath !== path) {
+            this.currentPath = path;
         }
-        const path = this.currentPath;
         if (path) {
             const text = document.getValue();
             const yjsText = this.yjs.getText(path);
@@ -297,16 +397,21 @@ export class CollaborationInstance implements Disposable {
                     yjsText.insert(0, text);
                 });
                 ytextContent = yjsText.toString();
+            } else {
+                ytextContent = await this.readFile();
+                if (this._fileName !== this.previousFileName) {
+                    this.previousFileName = this._fileName;
+                    this.notifyFileNameChanged(this._fileName);
+                }
             }
             if (text !== ytextContent) {
                 document.setValue(ytextContent);
             }
-
             this.registerTextObserver(path, document, yjsText);
         }
     }
 
-    protected registerTextObserver(path: string, document: monaco.editor.ITextModel, yjsText: Y.Text) {
+    protected registerTextObserver(path: string, document: monaco.editor.ITextModel, yjsText: Y.Text): void {
         const textObserver = this.documentDisposables.get('textObserver');
         if (textObserver) {
             textObserver.dispose();
@@ -317,32 +422,7 @@ export class CollaborationInstance implements Disposable {
             this.yjsMutex(async () => {
                 if (this.options.editor) {
                     this.updates.add(path);
-                    let index = 0;
-                    const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-                    textEvent.delta.forEach(delta => {
-                        if (delta.retain !== undefined) {
-                            index += delta.retain;
-                        } else if (delta.insert !== undefined) {
-                            const pos = document.getPositionAt(index);
-                            const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
-                            const insert = delta.insert as string;
-                            edits.push({
-                                range,
-                                text: insert,
-                                forceMoveMarkers: true
-                            });
-                            index += insert.length;
-                        } else if (delta.delete !== undefined) {
-                            const pos = document.getPositionAt(index);
-                            const endPos = document.getPositionAt(index + delta.delete);
-                            const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
-                            edits.push({
-                                range,
-                                text: '',
-                                forceMoveMarkers: true
-                            });
-                        }
-                    });
+                    const edits = this.createEditsFromTextEvent(textEvent, document);
                     this.options.editor.executeEdits(document.id, edits);
                     this.updates.delete(path);
                     resyncThrottle();
@@ -351,6 +431,36 @@ export class CollaborationInstance implements Disposable {
         };
         yjsText.observe(observer);
         this.pushDocumentDisposable('textObserver', { dispose: () => yjsText.unobserve(observer) });
+    }
+
+    private createEditsFromTextEvent(textEvent: Y.YTextEvent, document: monaco.editor.ITextModel): monaco.editor.IIdentifiedSingleEditOperation[] {
+        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
+        let index = 0;
+        textEvent.delta.forEach(delta => {
+            if (delta.retain !== undefined) {
+                index += delta.retain;
+            } else if (delta.insert !== undefined) {
+                const pos = document.getPositionAt(index);
+                const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
+                const insert = delta.insert as string;
+                edits.push({
+                    range,
+                    text: insert,
+                    forceMoveMarkers: true
+                });
+                index += insert.length;
+            } else if (delta.delete !== undefined) {
+                const pos = document.getPositionAt(index);
+                const endPos = document.getPositionAt(index + delta.delete);
+                const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
+                edits.push({
+                    range,
+                    text: '',
+                    forceMoveMarkers: true
+                });
+            }
+        });
+        return edits;
     }
 
     protected updateTextDocument(event: monaco.editor.IModelContentChangedEvent, document: monaco.editor.ITextModel): void {
@@ -380,14 +490,7 @@ export class CollaborationInstance implements Disposable {
                     const yjsText = this.yjs.getText(path);
                     const newContent = yjsText.toString();
                     if (newContent !== document.getValue()) {
-                        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-                        edits.push({
-                            range: new monaco.Range(0, 0, document.getLineCount(), 0),
-                            text: newContent
-                        });
-                        this.updates.add(path);
-                        this.options.editor && this.options.editor.executeEdits(document.id, edits);
-                        this.updates.delete(path);
+                        await this.updateDocumentContent(document, newContent, path);
                     }
                 });
             }, 200, {
@@ -397,6 +500,16 @@ export class CollaborationInstance implements Disposable {
             this.throttles.set(path, value);
         }
         return value;
+    }
+
+    private async updateDocumentContent(document: monaco.editor.ITextModel, newContent: string, path: string): Promise<void> {
+        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [{
+            range: new monaco.Range(0, 0, document.getLineCount(), 0),
+            text: newContent
+        }];
+        this.updates.add(path);
+        this.options.editor && this.options.editor.executeEdits(document.id, edits);
+        this.updates.delete(path);
     }
 
     protected rerenderPresence() {
@@ -459,13 +572,24 @@ export class CollaborationInstance implements Disposable {
     protected setDecorations(peer: DisposablePeer, decorations: monaco.editor.IModelDeltaDecoration[]): void {
         if (this.decorations.has(peer)) {
             this.decorations.get(peer)?.set(decorations);
-        } else {
-            this.options.editor &&this.decorations.set(peer, this.options.editor.createDecorationsCollection(decorations));
+        } else if (this.options.editor) {
+            this.decorations.set(peer, this.options.editor.createDecorationsCollection(decorations));
         }
     }
 
     protected setSharedSelection(selection?: types.ClientSelection): void {
         this.yjsAwareness.setLocalStateField('selection', selection);
+    }
+
+    protected updateSelectionPath(newPath: string): void {
+        const currentState = this.yjsAwareness.getLocalState() as types.ClientAwareness;
+        if (currentState?.selection && types.ClientTextSelection.is(currentState.selection)) {
+            const newSelection: types.ClientTextSelection = {
+                ...currentState.selection,
+                path: newPath
+            };
+            this.setSharedSelection(newSelection);
+        }
     }
 
     protected createSelectionFromRelative(selection: types.RelativeTextSelection, model: monaco.editor.ITextModel): monaco.Selection | undefined {
@@ -482,21 +606,44 @@ export class CollaborationInstance implements Disposable {
         return undefined;
     }
 
+    protected getHostPath(path: string): string {
+        // When creating a URI as a guest, we always prepend it with the name of the workspace
+        // This just removes the workspace name from the path to get the path expected by the protocol
+        const subpath = path.substring(1).split('/');
+        return subpath.slice(1).join('/');
+    }
+
     async initialize(data: types.InitData): Promise<void> {
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
-        this.usersChangedCallbacks.forEach(callback => callback());
+        this.notifyUsersChanged();
     }
 
     getProtocolPath(uri?: monaco.Uri): string | undefined {
         if (!uri) {
             return undefined;
         }
-        return uri.path.toString();
+        return uri.path.startsWith('/') ? uri.path.substring(1) : uri.path;
     }
 
     getResourceUri(path?: string): monaco.Uri | undefined {
         return new monaco.Uri().with({ path });
+    }
+
+    async readFile(): Promise<string> {
+        if (!this.currentPath) {
+            return '';
+        }
+        const path = this.getHostPath(this.currentPath);
+
+        if (this.yjs.share.has(path)) {
+            const stringValue = this.yjs.getText(path);
+            return stringValue.toString();
+        } else {
+            const file = await this.connection.fs.readFile(this.options.hostId, path);
+            const decoder = new TextDecoder();
+            return decoder.decode(file.content);
+        }
     }
 }

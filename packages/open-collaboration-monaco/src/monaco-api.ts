@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { CollaborationInstance, UsersChangeEvent } from './collaboration-instance.js';
+import { CollaborationInstance, UsersChangeEvent, FileNameChangeEvent } from './collaboration-instance.js';
 import * as types from 'open-collaboration-protocol';
 import { createRoom, joinRoom, login } from './collaboration-connection.js';
 import * as monaco from 'monaco-editor';
@@ -40,8 +40,12 @@ export type MonacoCollabApi = {
     setEditor: (editor: monaco.editor.IStandaloneCodeEditor) => void
     getUserData: () => Promise<UserData | undefined>
     onUsersChanged: (evt: UsersChangeEvent) => void
+    onFileNameChange: (callback: FileNameChangeEvent) => void
     followUser: (id?: string) => void
     getFollowedUser: () => string | undefined
+    setFileName: (fileName: string) => void
+    getFileName: () => string | undefined
+    getRoomName: () => string | undefined
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -145,6 +149,32 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         return undefined;
     };
 
+    const doSetFileName = (fileName: string) => {
+        if (instance) {
+            instance.setFileName(fileName);
+        }
+    };
+
+    const doGetRoomName = () => {
+        if (instance) {
+            return instance.roomName;
+        }
+        return undefined;
+    };
+
+    const doGetFileName = () => {
+        if (instance) {
+            return instance.fileName;
+        }
+        return undefined;
+    };
+
+    const registerFileNameChangeHandler = (callback: FileNameChangeEvent) => {
+        if (instance) {
+            instance.onFileNameChange(callback);
+        }
+    };
+
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
@@ -153,8 +183,12 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         setEditor: doSetEditor,
         getUserData: doGetUserData,
         onUsersChanged: registerUserChangeHandler,
+        onFileNameChange: registerFileNameChangeHandler,
         followUser: doFollowUser,
-        getFollowedUser: doGetFollowedUser
+        getFollowedUser: doGetFollowedUser,
+        setFileName: doSetFileName,
+        getFileName: doGetFileName,
+        getRoomName: doGetRoomName
     };
 
 }
