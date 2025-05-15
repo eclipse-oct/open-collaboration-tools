@@ -27,7 +27,7 @@ open class OCTSessionVirtualFile(
             return stat
         }
 
-        stat = fileSystem.stat(path)?.get()
+        stat = fileSystem.stat(path)
         return stat
     }
 
@@ -73,7 +73,7 @@ open class OCTSessionVirtualFile(
         cachedChildren = content.map {
             OCTSessionVirtualFile(
                 path.resolve(it.key),
-                FileType.fromInt(it.value.toInt()),
+                it.value,
                 this,
                 fileSystem)
         }.toTypedArray()

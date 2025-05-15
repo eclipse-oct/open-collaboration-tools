@@ -4,10 +4,10 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import type * as types from 'open-collaboration-protocol';
-import { BinaryResponse, CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest,
-    LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument,
-    SessionData, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import * as types from 'open-collaboration-protocol';
+import { BinaryData, BinaryResponse, CloseSessionRequest, CreateRoomRequest, fromBinaryMessage, InternalError, JoinRoomRequest,
+    LoginRequest, OpenDocument,
+    SessionData, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { CollaborationInstance } from './collaboration-instance.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
@@ -30,23 +30,46 @@ export class MessageHandler {
         communicationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
         communicationHandler.onError(([error]) => communicationHandler.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
-        communicationHandler.onRequest(OCPRequest, async (rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            const result = await this.currentCollaborationInstance?.currentConnection.sendRequest(message.method, message.target, ...message.params);
+        communicationHandler.onRequest(async (method, params) => {
+            if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
+                throw new Error(`Invalid parameters for non service process specific request with method: ${method}, missing target`);
+            }
 
-            return {
-                type: 'binaryResponse',
-                method: message.method,
-                data: toEncodedOCPMessage(result),
-            } as BinaryResponse;
+            const target = params[params.length - 1] as string;
+            const messageParams = params.slice(0, params.length - 1).map((param) => {
+                if(BinaryData.is(param)) {
+                    return fromBinaryMessage(param.data);
+                }
+                return param;
+            });
+
+            const result = await this.currentCollaborationInstance?.currentConnection.sendRequest(method, target, ...messageParams);
+
+            return BinaryData.shouldConvert(result) ? {
+                type: 'binaryData',
+                method,
+                data: toBinaryMessage(result),
+            } as BinaryResponse : result;
         });
-        communicationHandler.onNotification(OCPNotification, async (rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            this.currentCollaborationInstance?.currentConnection.sendNotification(message.method, message.target, ...message.params);
-        });
-        communicationHandler.onNotification(OCPBroadCast, async (rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.method, ...message.params);
+        communicationHandler.onNotification(async (method, params) => {
+            if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
+                throw new Error(`Invalid parameters for non service process specific notification or broadcast with method: ${method}, missing target or 'broadcast'`);
+            }
+
+            const metaDataParam = params[params.length - 1];
+
+            const messageParams = params.slice(0, params.length - 1).map((param) => {
+                if(BinaryData.is(param)) {
+                    return fromBinaryMessage(param.data);
+                }
+                return param;
+            });;
+
+            if(metaDataParam === 'broadcast') {
+                this.currentCollaborationInstance?.currentConnection.sendBroadcast(method, ...messageParams);
+            } else {
+                this.currentCollaborationInstance?.currentConnection.sendNotification(method, metaDataParam, ...messageParams);
+            }
         });
     }
 

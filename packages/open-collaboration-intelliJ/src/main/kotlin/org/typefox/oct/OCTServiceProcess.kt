@@ -13,20 +13,27 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.extensions.PluginId
 import org.eclipse.lsp4j.jsonrpc.Launcher
+import org.eclipse.lsp4j.jsonrpc.messages.Message
+import org.eclipse.lsp4j.jsonrpc.messages.NotificationMessage
+import org.eclipse.lsp4j.jsonrpc.messages.RequestMessage
 import org.msgpack.jackson.dataformat.MessagePackFactory
+import org.typefox.oct.messageHandlers.BaseMessageHandler
+import org.typefox.oct.messageHandlers.OCTMessageHandler
 import java.nio.file.Path
 import java.util.Base64
 
 const val EXECUTABLE_LOCATION = "lib/oct-service-process.exe"
 
-class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMessageHandler) : Disposable {
+class OCTServiceProcess(private val serverUrl: String, val messageHandlers: List<BaseMessageHandler>) : Disposable {
     private var currentProcess: Process? = null
-    private var jsonRpc: Launcher<OCTMessageHandler.OCTService>? = null
+    private var jsonRpc: Launcher<BaseMessageHandler.BaseRemoteInterface>? = null
 
-    val octService: OCTMessageHandler.OCTService?
-        get() {
-            return jsonRpc?.remoteProxy
+    fun <T : BaseMessageHandler.BaseRemoteInterface> getOctService(): T {
+        if(jsonRpc == null) {
+            throw RuntimeException("OCTServiceProcess is not initialized")
         }
+        return jsonRpc?.remoteProxy as T
+    }
 
     init {
         startProcess()
@@ -42,9 +49,9 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMe
                 .getAuthToken(serverUrl)
             // start oct process
             currentProcess = ProcessBuilder()
-                //.command(executablePath.toString(), "--server-address=${this.serverUrl}")
+                //.command(executablePath.toString(), "--server-address=${this.serverUrl}", "--auth-token=${savedAuthToken}")
                 .command(
-                    "node", "--inspect",
+                    "node", "--inspect=23698",
                     "C:\\Typefox\\Open_Source\\open-collaboration-tools\\packages\\open-collaboration-service-process\\lib\\process.js",
                     "--server-address=${this.serverUrl}", "--auth-token=${savedAuthToken}"
                 )
@@ -57,14 +64,16 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMe
                 currentProcess = null
             }
 
-            this.jsonRpc = Launcher.Builder<OCTMessageHandler.OCTService>()
-                .setLocalService(messageHandler)
-                .setRemoteInterface(OCTMessageHandler.OCTService::class.java)
+            this.jsonRpc = Launcher.Builder<BaseMessageHandler.BaseRemoteInterface>()
+                .setLocalServices(messageHandlers)
+                .setClassLoader(OCTMessageHandler.OCTService::class.java.classLoader)
+                .setRemoteInterfaces(messageHandlers.map { it.remoteInterface })
                 .setInput(currentProcess?.inputStream)
                 .setOutput(currentProcess?.outputStream)
-                .configureGson {
-                    it.registerTypeAdapter(OCPMessage::class.java, BinaryOCPMessageTypeAdapter())
-                    it.registerTypeAdapter(BinaryResponse::class.java, BinaryResponseTypeAdapter())
+                .configureGson { gson ->
+                    binaryDataTypes.forEach {
+                        gson.registerTypeAdapter(it, BinaryDataAdapter(it))
+                    }
                 }
                 .create()
 
@@ -78,76 +87,54 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandler: OCTMe
 
 }
 
-class BinaryOCPMessageTypeAdapter : TypeAdapter<OCPMessage>() {
-    private val msgPackObjectMapper = ObjectMapper(MessagePackFactory())
+val binaryDataTypes: Array<Class<*>> = arrayOf(
+    FileContent::class.java
+)
 
-    init {
-        msgPackObjectMapper.registerKotlinModule()
+class BinaryDataAdapter<T>(private val type: Class<T>) : TypeAdapter<T>() {
+
+    private val objectMapper = ObjectMapper(MessagePackFactory()).registerKotlinModule()
+
+    private val gson = Gson()
+
+    override fun write(out: JsonWriter, value: T) {
+        val encoded = objectMapper.writeValueAsBytes(value)
+        val base64 = Base64.getEncoder().encodeToString(encoded)
+
+        val binary = BinaryData(base64)
+
+        gson.toJson(binary)
     }
 
-    override fun write(writer: JsonWriter, value: OCPMessage?) {
-        val encoded = msgPackObjectMapper.writeValueAsBytes(value)
-        writer.value(Base64.getEncoder().encodeToString(encoded))
-    }
-
-    override fun read(reader: JsonReader): OCPMessage {
-        val content = reader.nextString()
-
-        return if (content.startsWith("{")) {
-            Gson().fromJson(content, OCPMessage::class.java)
-        } else {
-            msgPackObjectMapper.readValue(Base64.getDecoder().decode(content), OCPMessage::class.java)
-        }
+    override fun read(input: JsonReader): T? {
+        val binaryData = gson.fromJson<BinaryData<String>>(input, BinaryData::class.java)
+        val decodedBinary = Base64.getDecoder().decode(binaryData.data)
+        return objectMapper.readValue(decodedBinary, type)
     }
 }
 
-class BinaryResponseTypeAdapter : TypeAdapter<BinaryResponse<*>>(), TypeAdapterFactory {
-    private val msgPackObjectMapper = ObjectMapper(MessagePackFactory())
+/**
+ * this is required because gson serializes Lists to nested arrays.
+ * like a method like m(p1, p2) will be serialized to {method: "m", params: [[p1, p2]]}
+ */
+class MessageTypeAdapter: TypeAdapter<Message>() {
+    private val gson = Gson()
 
-    init {
-        msgPackObjectMapper.registerKotlinModule()
-    }
-
-    override fun <T : Any?> create(p0: Gson?, p1: TypeToken<T>?): TypeAdapter<T> {
-        return this as TypeAdapter<T>
-    }
-
-
-    override fun write(writer: JsonWriter, response: BinaryResponse<*>) {
-        val encoded = msgPackObjectMapper.writeValueAsBytes(response.data)
-        val base64 = Base64.getEncoder().encodeToString(encoded)
-        writer
-            .beginObject()
-            .name("type").value(response.type)
-            .name("data").value(base64)
-            .endObject()
-    }
-
-    override fun read(reader: JsonReader?): BinaryResponse<*> {
-        var method: String? = null
-        var data: String? = null
-
-        reader?.beginObject()
-        while (reader?.hasNext() == true) {
-            val name = reader.nextName()
-            when (name) {
-                "method" -> method = reader.nextString()
-                "data" -> data = reader.nextString()
-                else -> reader.skipValue()
+    override fun write(out: JsonWriter, value: Message) {
+        if(value is NotificationMessage) {
+            if(value.params is List<*>) {
+                value.params = (value.params as List<*>).toTypedArray()
             }
         }
-        reader?.endObject()
-
-        if(method == null || data == null) {
-            throw RuntimeException("Invalid Binary response with method '$method' and data '$data'")
+        if(value is RequestMessage) {
+            if(value.params is List<*>) {
+                value.params = (value.params as List<*>).toTypedArray()
+            }
         }
-
-        val decoded =  Base64.getDecoder().decode(data)
-        val type = MESSAGE_RESPONSE_TYPES[method]
-        val response = msgPackObjectMapper.readValue(decoded, type)
-
-        return BinaryResponse(response)
-
+        gson.toJson(value, Message::class.java)
     }
 
+    override fun read(input: JsonReader): Message? {
+        return gson.fromJson(input, Message::class.java)
+    }
 }

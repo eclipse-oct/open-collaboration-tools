@@ -8,7 +8,7 @@ import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsNormalizedTextDocument, YTextChange } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { BinaryResponse, ClientTextSelection, EditorOpenedNotification, GetDocumentContent, JoinSessionRequest, OCPBroadCast, OCPNotification, OCPRequest, OnInitNotification, PeerJoinedNotification, PeerLeftNotification, TextDocumentInsert, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import { BinaryData, BinaryResponse, ClientTextSelection, EditorOpenedNotification, fromBinaryMessage, GetDocumentContent, JoinSessionRequest, OnInitNotification, PeerJoinedNotification, PeerLeftNotification, TextDocumentInsert, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
 export class CollaborationInstance implements types.Disposable{
@@ -60,19 +60,16 @@ export class CollaborationInstance implements types.Disposable{
         });
 
         currentConnection.onRequest(async (origin, method, ...params) => {
-            const result = await this.communicationHandler.sendRequest(OCPRequest, toEncodedOCPMessage({
-                method,
-                params
-            }));
-            return BinaryResponse.is(result) ? types.Encoding.decode(Uint8Array.from(Buffer.from(result.data, 'base64'))) : result;
+            const result = await this.communicationHandler.sendRequest(method, ...this.convertBinaryParams(params), origin);
+            return BinaryData.is(result) ? fromBinaryMessage(result.data) : result;
         });
 
         currentConnection.onNotification((origin, method, ...params) => {
-            this.communicationHandler.sendNotification(OCPNotification, toEncodedOCPMessage({method, params}));
+            this.communicationHandler.sendNotification(method, ...this.convertBinaryParams(params), origin);
         });
 
         currentConnection.onBroadcast((origin, method, ...params) => {
-            this.communicationHandler.sendNotification(OCPBroadCast, toEncodedOCPMessage({method, params}));
+            this.communicationHandler.sendNotification(method, ...this.convertBinaryParams(params), origin);
         });
 
         currentConnection.peer.onJoinRequest(async (_, user) => {
@@ -136,8 +133,8 @@ export class CollaborationInstance implements types.Disposable{
             }
 
             return {
-                type: 'binaryResponse',
-                data: toEncodedOCPMessage(fileContent),
+                type: 'binaryData',
+                data: toBinaryMessage(fileContent),
                 method: GetDocumentContent.method,
             } as BinaryResponse;
 
@@ -269,6 +266,10 @@ export class CollaborationInstance implements types.Disposable{
     async leaveRoom(): Promise<void> {
         await this.currentConnection.room.leave();
         this.dispose();
+    }
+
+    private convertBinaryParams(params: unknown[]): unknown[] {
+        return params.map(param => BinaryData.shouldConvert(param) ? toBinaryMessage(param): param);
     }
 
     dispose(): void {

@@ -9,20 +9,21 @@ import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.vfs.VirtualFileManager
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.typefox.oct.editor.EditorManager
 import org.typefox.oct.fileSystem.OCTSessionFileSystem
 import org.typefox.oct.fileSystem.WorkspaceFileSystemService
+import org.typefox.oct.messageHandlers.BaseMessageHandler
+import org.typefox.oct.messageHandlers.OCTMessageHandler
 import org.typefox.oct.util.EventEmitter
 
 
-class CollaborationInstance(val octService: OCTMessageHandler.OCTService,
+class CollaborationInstance(val remoteInterface: BaseMessageHandler.BaseRemoteInterface,
                             val project: Project,
                             private val sessionData: SessionData,
                             val isHost: Boolean) : Disposable {
 
     val workspaceFileSystem: WorkspaceFileSystemService = project.getService(WorkspaceFileSystemService::class.java)
-    private val editorManager: EditorManager = EditorManager(octService, project)
+    private val editorManager: EditorManager = EditorManager(remoteInterface as OCTMessageHandler.OCTService, project)
 
     val guests: ArrayList<Peer> = ArrayList()
     var host: Peer? = null

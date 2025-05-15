@@ -1,15 +1,9 @@
 package org.typefox.oct.editor
 
-import com.intellij.openapi.editor.Document
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.*
-import com.intellij.openapi.util.text.StringUtil
-import com.intellij.ui.JBColor
 import org.typefox.oct.ClientTextSelection
-import org.typefox.oct.OCTMessageHandler
+import org.typefox.oct.messageHandlers.OCTMessageHandler
 import org.typefox.oct.TextDocumentInsert
-import kotlin.io.path.Path
-import kotlin.io.path.pathString
 
 
 class EditorDocumentListener(private val octService: OCTMessageHandler.OCTService, private val path: String) :

@@ -1,7 +1,6 @@
 package org.typefox.oct.editor
 
 import com.intellij.openapi.application.invokeLater
-import com.intellij.openapi.client.currentSession
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
@@ -16,17 +15,11 @@ import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
-import com.intellij.openapi.fileEditor.TextEditorWithPreview
-import com.intellij.openapi.fileEditor.impl.text.TextEditorImpl
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFileManager
-import com.intellij.ui.JBColor
-import org.apache.commons.lang.StringUtils
 import org.typefox.oct.ClientTextSelection
-import org.typefox.oct.OCTMessageHandler
+import org.typefox.oct.messageHandlers.OCTMessageHandler
 import org.typefox.oct.OCTSessionService
 import org.typefox.oct.TextDocumentInsert
 import javax.swing.SwingUtilities
