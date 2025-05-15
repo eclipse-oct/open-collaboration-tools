@@ -35,13 +35,15 @@ export type UserData = {me: types.Peer, others: OtherUserData[]};
 export type MonacoCollabApi = {
     createRoom: () => Promise<string | undefined>
     joinRoom: (roomToken: string) => Promise<string | undefined>
+    leaveRoom: () => void
     login: () => Promise<string | undefined>
     isLoggedIn: () => boolean
     setEditor: (editor: monaco.editor.IStandaloneCodeEditor) => void
     getUserData: () => Promise<UserData | undefined>
     onUsersChanged: (evt: UsersChangeEvent) => void
     followUser: (id?: string) => void
-    getFollowedUser: () => string | undefined
+    getFollowedUser: () => string | undefined,
+    getCurrentConnection: () => types.ProtocolBroadcastConnection | undefined
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -148,13 +150,15 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
+        leaveRoom: () => instance?.leaveRoom(),
         login: doLogin,
         isLoggedIn: () => !!connectionProvider?.authToken,
         setEditor: doSetEditor,
         getUserData: doGetUserData,
         onUsersChanged: registerUserChangeHandler,
         followUser: doFollowUser,
-        getFollowedUser: doGetFollowedUser
+        getFollowedUser: doGetFollowedUser,
+        getCurrentConnection: () => instance?.getCurrentConnection(),
     };
 
 }

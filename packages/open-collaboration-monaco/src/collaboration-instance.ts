@@ -145,6 +145,14 @@ export class CollaborationInstance implements Disposable {
         this.documentDisposables.clear();
     }
 
+    leaveRoom() {
+        this.options.connection.room.leave();
+    }
+
+    getCurrentConnection(): ProtocolBroadcastConnection {
+        return this.options.connection;
+    }
+
     protected pushDocumentDisposable(path: string, disposable: Disposable) {
         let disposables = this.documentDisposables.get(path);
         if (!disposables) {
