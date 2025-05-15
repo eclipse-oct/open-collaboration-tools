@@ -5,6 +5,7 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 import { Encoding } from 'open-collaboration-protocol';
+import { isTypedArray } from 'util/types';
 import { NotificationType, NotificationType2, NotificationType3, RequestType } from 'vscode-jsonrpc';
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
@@ -15,20 +16,6 @@ export interface OCPMessage {
     method: string
     params: unknown[]
     target?: string
-}
-
-// ***************************** generic messages *****************************
-// all params can be either msgpack encoded base64 strings of OCPMessages or just directly OCPMessages
-export const OCPRequest = new RequestType<string | OCPMessage, any, string>('request');
-export const OCPNotification = new NotificationType<string | OCPMessage>('notification');
-export const OCPBroadCast = new NotificationType<string | OCPMessage>('broadcast');
-
-export function fromEncodedOCPMessage(encoded: string): OCPMessage {
-    return Encoding.decode(Uint8Array.from(Buffer.from(encoded, 'base64'))) as OCPMessage;
-}
-
-export function toEncodedOCPMessage(message: unknown): string {
-    return Buffer.from(Encoding.encode(message)).toString('base64');
 }
 
 // ***************************** To service process *****************************
@@ -97,7 +84,7 @@ export const OpenDocument = new NotificationType3<string, string, string>(ToServ
  * params: [documentPath]
  * resp params: [documentContent as message pack encoded base64 string of types.FileContent]
  */
-export const GetDocumentContent = new RequestType<string, BinaryResponse, void>(ToServiceMessages.GET_DOCUMENT_CONTENT);
+export const GetDocumentContent = new RequestType<string, BinaryData, void>(ToServiceMessages.GET_DOCUMENT_CONTENT);
 
 /**
  * params: [documentPath, selections]
@@ -146,14 +133,42 @@ export const PeerLeftNotification = new NotificationType<types.Peer>('peerLeft')
  */
 export const InternalError = new NotificationType<{message: string, stack?: string}>('error');
 
-export namespace BinaryResponse {
-    export function is(message: unknown): message is BinaryResponse {
-        return types.isObject<BinaryResponse>(message) && types.isString(message.data) && message.type === 'binaryResponse';
+// ***************************** binary encoding of message parameters *****************************
+// always use a BinaryData object to send binary data
+export function fromBinaryMessage(encoded: string): unknown {
+    return Encoding.decode(Uint8Array.from(Buffer.from(encoded, 'base64')));
+}
+
+export function toBinaryMessage(message: unknown): string {
+    return Buffer.from(Encoding.encode(message)).toString('base64');
+}
+export namespace BinaryData {
+    export function is(message: unknown): message is BinaryData {
+        return types.isObject<BinaryData>(message) && types.isString(message.data) && message.type === 'binaryData';
+    }
+
+    export function shouldConvert(message: unknown): boolean {
+        if (typeof message !== 'object' && message !== null) {
+            return false;
+        }
+
+        if(isTypedArray(message)) {
+            return true;
+        }
+
+        if (Array.isArray(message)) {
+            return message.some((item) => shouldConvert(item));
+        }
+
+        return Object.keys(message!).some((key) => shouldConvert((message as Record<string, unknown>)[key]));
     }
 }
 
-export interface BinaryResponse {
-    type: 'binaryResponse'
-    method?: string
+export interface BinaryData {
+    type: 'binaryData'
     data: string
+}
+
+export interface BinaryResponse extends BinaryData {
+    method?: string
 }

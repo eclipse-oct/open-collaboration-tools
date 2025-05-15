@@ -10,8 +10,8 @@ data class OCPMessage(
 
 }
 
-data class BinaryResponse<T>(val data: T) {
-    val type = "binaryResponse"
+data class BinaryData<T>(val data: T) {
+    val type = "binaryData"
 }
 
 data class Workspace(

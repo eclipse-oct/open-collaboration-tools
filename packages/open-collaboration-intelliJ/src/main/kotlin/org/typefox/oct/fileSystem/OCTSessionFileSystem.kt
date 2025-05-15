@@ -1,13 +1,13 @@
 package org.typefox.oct.fileSystem
 
-import com.google.gson.Gson
-import com.google.gson.internal.LinkedTreeMap
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileListener
 import com.intellij.openapi.vfs.VirtualFileSystem
 import com.jetbrains.rd.util.remove
 import org.typefox.oct.*
+import org.typefox.oct.messageHandlers.FileSystemMessageHandler
+import org.typefox.oct.messageHandlers.OCTMessageHandler
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.Path
@@ -109,34 +109,29 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
         return false
     }
 
-    fun stat(path: Path): CompletableFuture<FileSystemStat>? {
-        val collab = getCollaborationInstance(path)
-        return collab?.octService?.request<FileSystemStat>(
-            OCPMessage("fileSystem/stat", arrayOf(toOctPath(path)), collab.host?.id ?: "")
-        )?.thenApply {
-                it.data
-            }
+    fun stat(path: Path): FileSystemStat? {
+        val service = getRemoteFilesystemService(path)
+        return service?.stat(toOctPath(path), getHostId(path))?.get()
     }
 
     fun readFile(path: Path): CompletableFuture<FileContent>? {
-        val collab = getCollaborationInstance(path)
-        return collab?.octService?.getDocumentContent(toOctPath(path))?.thenApply {
-            it.data
-        }
+        val service = getRemoteFilesystemService(path) as OCTMessageHandler.OCTService
+        return service.getDocumentContent(toOctPath(path))
     }
 
-    fun readDir(path: Path): CompletableFuture<Map<String, Number>>? {
-        val collab = getCollaborationInstance(path)
-        return collab?.octService?.request<Map<String, Number>>(
-            OCPMessage("fileSystem/readDir", arrayOf(toOctPath(path)), collab.host?.id ?: "")
-        )?.thenApply {
-            it.data
-        }
+    fun readDir(path: Path): CompletableFuture<Map<String, FileType>>? {
+        val service = getRemoteFilesystemService(path)
+        return service?.readDir(toOctPath(path), getHostId(path))
     }
 
 
-    private fun getCollaborationInstance(path: Path): CollaborationInstance? {
-        return roots[path.getName(0).name]?.collaborationInstance
+    private fun getRemoteFilesystemService(path: Path): FileSystemMessageHandler.FileSystemService? {
+        return roots[path.getName(0).name]
+            ?.collaborationInstance?.remoteInterface as FileSystemMessageHandler.FileSystemService?
+    }
+
+    private fun getHostId(path: Path): String {
+        return roots[path.getName(0).name]?.collaborationInstance?.host?.id ?: ""
     }
 }
 

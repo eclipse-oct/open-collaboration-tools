@@ -1,34 +1,31 @@
 package org.typefox.oct
 
-import com.intellij.ProjectTopics
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
-import com.intellij.openapi.application.*
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import com.intellij.openapi.module.EmptyModuleType
-import com.intellij.openapi.module.Module
-import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
-import com.intellij.openapi.roots.ModuleRootManager
-import com.intellij.openapi.roots.ModuleRootModificationUtil
-import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.ui.AnimatedIcon
 import org.typefox.oct.actions.CopyRoomTokenAction
 import org.typefox.oct.actions.CopyRoomUrlAction
-import org.typefox.oct.fileSystem.OCTSessionFileSystem
-import org.typefox.oct.fileSystem.OCTSessionRootFile
+import org.typefox.oct.messageHandlers.BaseMessageHandler
+import org.typefox.oct.messageHandlers.FileSystemMessageHandler
+import org.typefox.oct.messageHandlers.OCTMessageHandler
 import org.typefox.oct.settings.OCTSettings
 import org.typefox.oct.util.EventEmitter
 import javax.swing.*
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.pathString
+
+val messageHandlers: Array<Class<out BaseMessageHandler>> = arrayOf(
+    FileSystemMessageHandler::class.java,
+    OCTMessageHandler::class.java
+)
 
 @Service
 class OCTSessionService() {
@@ -56,7 +53,7 @@ class OCTSessionService() {
         }
         val currentProcess = currentProcesses[project]!!
 
-        currentProcess.octService!!.createRoom(workspace).thenAccept { sessionData ->
+        currentProcess.getOctService<OCTMessageHandler.OCTService>().createRoom(workspace).thenAccept { sessionData ->
             // create session created message
             val roomCreatedNotification =
                 Notification("Oct-Notifications", "Hosted session", NotificationType.INFORMATION)
@@ -86,7 +83,7 @@ class OCTSessionService() {
             joiningDialog.show()
         }
 
-        currentProcess.octService!!.joinRoom(roomToken).thenAccept { sessionData ->
+        currentProcess.getOctService<OCTMessageHandler.OCTService>().joinRoom(roomToken).thenAccept { sessionData ->
             SwingUtilities.invokeAndWait {
                 joiningDialog.close(0)
             }
@@ -99,7 +96,7 @@ class OCTSessionService() {
     }
 
     fun closeCurrentSession(project: Project) {
-        currentProcesses[project]?.octService?.closeSession()?.get()
+        currentProcesses[project]?.getOctService<OCTMessageHandler.OCTService>()?.closeSession()?.get()
         currentProcesses[project]?.let {
             Disposer.dispose(it)
         }
@@ -116,15 +113,17 @@ class OCTSessionService() {
         }
 
         val currentProcess = currentProcesses[project] ?: throw IllegalStateException("No current process found for project")
-        val collaborationInstance = CollaborationInstance(currentProcess.octService!!, project, sessionData, isHost)
+        val collaborationInstance = CollaborationInstance(currentProcess.getOctService(), project, sessionData, isHost)
         Disposer.register(currentProcesses[project]!!, collaborationInstance)
         this.currentCollaborationInstances[project] = collaborationInstance
-        currentProcess.messageHandler.collaborationInstance = this.currentCollaborationInstances[project]
+        // TODO fire project specific emitter passed to message handlers
         onSessionCreated.fire(collaborationInstance)
     }
 
     private fun createServiceProcess(serverUrl: String): OCTServiceProcess {
-        return OCTServiceProcess(serverUrl, OCTMessageHandler())
+        return OCTServiceProcess(serverUrl, messageHandlers.map {
+            it.getConstructor(EventEmitter::class.java).newInstance(onSessionCreated)
+        })
     }
 }
 
