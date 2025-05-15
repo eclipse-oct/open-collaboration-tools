@@ -7,10 +7,7 @@ import com.intellij.openapi.vfs.*
 import com.intellij.testFramework.utils.vfs.createDirectory
 import com.intellij.testFramework.utils.vfs.createFile
 import com.intellij.testFramework.utils.vfs.deleteRecursively
-import org.typefox.oct.BinaryResponse
-import org.typefox.oct.FileContent
-import org.typefox.oct.FileSystemStat
-import org.typefox.oct.FileType
+import org.typefox.oct.*
 import java.io.FileNotFoundException
 import kotlin.io.path.Path
 
@@ -39,10 +36,10 @@ class WorkspaceFileSystemService(private val project: Project) {
         }
     }
 
-    fun readFile(path: String): BinaryResponse<FileContent>? {
+    fun readFile(path: String): BinaryData<FileContent>? {
         try {
             val file = getRelativeFile(path)
-            return BinaryResponse(FileContent(file.contentsToByteArray()))
+            return BinaryData(FileContent(file.contentsToByteArray()))
         } catch (e: FileNotFoundException) {
             return null
         }
