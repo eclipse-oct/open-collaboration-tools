@@ -1,5 +1,6 @@
 package org.typefox.oct
 
+import com.intellij.ide.projectView.ProjectView
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.editor.EditorFactory
@@ -15,6 +16,7 @@ import org.typefox.oct.fileSystem.WorkspaceFileSystemService
 import org.typefox.oct.messageHandlers.BaseMessageHandler
 import org.typefox.oct.messageHandlers.OCTMessageHandler
 import org.typefox.oct.util.EventEmitter
+import kotlin.io.path.Path
 
 
 class CollaborationInstance(val remoteInterface: BaseMessageHandler.BaseRemoteInterface,
@@ -110,6 +112,19 @@ class CollaborationInstance(val remoteInterface: BaseMessageHandler.BaseRemoteIn
     }
 
     override fun dispose() {
+
+    }
+
+    fun handleVirtualFilesystemChange(event: FileChangeEvent) {
+        val fileSystem = VirtualFileManager.getInstance().getFileSystem("oct")
+
+
+        for (change in event.changes) {
+            fileSystem.refreshAndFindFileByPath(change.path)
+
+        }
+
+        ProjectView.getInstance(project).refresh()
 
     }
 }

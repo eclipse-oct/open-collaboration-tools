@@ -98,10 +98,6 @@ enum class FileType(private val value: Int) {
     override fun toString(): String {
         return value.toString()
     }
-
-    companion object {
-        fun fromInt(value: Int) = FileType.values().first { it.value == value }
-    }
 }
 
 
@@ -127,3 +123,23 @@ data class TextDocumentInsert(
     val endOffset: Int?,
     val text: String
 )
+
+
+data class FileChangeEvent(
+    val changes: Array<FileChange>
+)
+
+data class FileChange(
+    val type: FileChangeEventType,
+    val path: String
+) {}
+
+enum class FileChangeEventType(private val value: Int) {
+    Create(0),
+    Update(1),
+    Delete(2);
+
+    override fun toString(): String {
+        return value.toString()
+    }
+}
