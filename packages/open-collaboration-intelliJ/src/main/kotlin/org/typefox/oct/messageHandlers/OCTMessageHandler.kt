@@ -32,7 +32,7 @@ class OCTMessageHandler(onSessionCreated: EventEmitter<CollaborationInstance>) :
         @JsonNotification(value = "awareness/updateDocument")
         fun updateDocument(path: String, updates: Array<TextDocumentInsert>): CompletableFuture<Unit>
         @JsonRequest(value = "awareness/getDocumentContent")
-        fun getDocumentContent(path: String): CompletableFuture<FileContent>
+        fun getDocumentContent(path: String): CompletableFuture<FileContent?>
     }
     override val remoteInterface = OCTService::class.java
 

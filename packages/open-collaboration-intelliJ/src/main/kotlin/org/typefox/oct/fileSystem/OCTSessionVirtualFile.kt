@@ -8,6 +8,7 @@ import org.typefox.oct.*
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.name
 import kotlin.io.path.Path
 
@@ -27,7 +28,7 @@ open class OCTSessionVirtualFile(
             return stat
         }
 
-        stat = fileSystem.stat(path)
+        stat = fileSystem.stat(path)?.get()
         return stat
     }
 
@@ -88,7 +89,7 @@ open class OCTSessionVirtualFile(
         if (cachedContent != null) {
             return cachedContent!!
         }
-        val resp = fileSystem.readFile(path)?.get()
+        val resp = fileSystem.readFile(path).get()
         if (resp?.content != null) {
             cachedContent = resp.content
         }
@@ -108,9 +109,14 @@ open class OCTSessionVirtualFile(
     }
 
     override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) {
+        // TODO allow for actual async refresh
+        if(recursive) {
+            cachedChildren?.forEach { it.refresh(asynchronous, true, null) }
+        }
         stat = null
         cachedChildren = null
         cachedContent = null
+        postRunnable?.run()
     }
 
     override fun getInputStream(): InputStream {
