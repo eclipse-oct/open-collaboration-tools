@@ -196,7 +196,10 @@ export class CollaborationInstance implements Disposable {
         const createChange = change.changes.find(c => c.type === types.FileChangeEventType.Create);
         if (deleteChange && createChange) {
             this._fileName = createChange.path;
-            this.registerTextDocument(this.options.editor?.getModel()!);
+            const model = this.options.editor?.getModel();
+            if (model) {
+                this.registerTextDocument(model);
+            }
         }
     }
 
@@ -216,19 +219,22 @@ export class CollaborationInstance implements Disposable {
     async setFileName(fileName: string): Promise<void> {
         const oldFileName = this._fileName;
         this._fileName = fileName;
-        await this.registerTextDocument(this.options.editor?.getModel()!);
-        this.connection.fs.change({
-            changes: [
-                {
-                    type: types.FileChangeEventType.Create,
-                    path: fileName
-                },
-                {
-                    type: types.FileChangeEventType.Delete,
-                    path: oldFileName
-                }
-            ]
-        });
+        const model = this.options.editor?.getModel();
+        if (model) {
+            await this.registerTextDocument(model);
+            this.connection.fs.change({
+                changes: [
+                    {
+                        type: types.FileChangeEventType.Create,
+                        path: fileName
+                    },
+                    {
+                        type: types.FileChangeEventType.Delete,
+                        path: oldFileName
+                    }
+                ]
+            });
+        }
     }
 
     dispose() {
