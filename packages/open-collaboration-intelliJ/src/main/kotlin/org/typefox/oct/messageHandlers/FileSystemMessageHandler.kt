@@ -1,6 +1,7 @@
 package org.typefox.oct.messageHandlers
 
 import org.eclipse.lsp4j.jsonrpc.CompletableFutures
+import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.eclipse.lsp4j.jsonrpc.services.JsonSegment
 import org.typefox.oct.*
@@ -78,6 +79,11 @@ class FileSystemMessageHandler(onSessionCreated: EventEmitter<CollaborationInsta
         return CompletableFutures.computeAsync {
             this.collaborationInstance?.workspaceFileSystem?.rename(oldPath, newPath)
         }
+    }
+
+    @JsonNotification
+    fun change(event: FileChangeEvent, origin: String) {
+        this.collaborationInstance?.handleVirtualFilesystemChange(event)
     }
 
 }

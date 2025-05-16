@@ -12,6 +12,7 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.Path
 import kotlin.io.path.name
+import kotlin.io.path.pathString
 
 class OCTSessionFileSystem() : VirtualFileSystem() {
 
@@ -61,11 +62,23 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
     }
 
     override fun refresh(asynchronous: Boolean) {
-        println("refreshing file system")
+        roots.forEach {
+            it.value.refresh(true, true)
+        }
     }
 
-    override fun refreshAndFindFileByPath(path: String): VirtualFile? {
-        return findFileByPath(path)
+    override fun refreshAndFindFileByPath(pathString: String): VirtualFile? {
+        val path = Path(pathString)
+
+        var file = findFileByPath(pathString)
+
+        if(file == null) {
+            findFileByPath(path.parent.toString())?.refresh(false, false)
+            file = findFileByPath(pathString)
+        }
+
+        file?.refresh(true, true)
+        return file
     }
 
     override fun addVirtualFileListener(listener: VirtualFileListener) {
@@ -109,12 +122,12 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
         return false
     }
 
-    fun stat(path: Path): FileSystemStat? {
+    fun stat(path: Path): CompletableFuture<FileSystemStat?>? {
         val service = getRemoteFilesystemService(path)
-        return service?.stat(toOctPath(path), getHostId(path))?.get()
+        return service?.stat(toOctPath(path), getHostId(path))
     }
 
-    fun readFile(path: Path): CompletableFuture<FileContent>? {
+    fun readFile(path: Path): CompletableFuture<FileContent?> {
         val service = getRemoteFilesystemService(path) as OCTMessageHandler.OCTService
         return service.getDocumentContent(toOctPath(path))
     }

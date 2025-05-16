@@ -19,6 +19,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.RequestMessage
 import org.msgpack.jackson.dataformat.MessagePackFactory
 import org.typefox.oct.messageHandlers.BaseMessageHandler
 import org.typefox.oct.messageHandlers.OCTMessageHandler
+import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.Base64
 
@@ -75,6 +76,7 @@ class OCTServiceProcess(private val serverUrl: String, val messageHandlers: List
                         gson.registerTypeAdapter(it, BinaryDataAdapter(it))
                     }
                 }
+                .traceMessages(PrintWriter(System.out))
                 .create()
 
             this.jsonRpc?.startListening()
