@@ -43,7 +43,7 @@ export class MessageHandler {
 
     async login(): Promise<string> {
         const authToken = await this.connectionProvider.login({ });
-        return authToken;
+        return authToken!;
     }
 
     async joinRoom(roomId: string): Promise<SessionData> {

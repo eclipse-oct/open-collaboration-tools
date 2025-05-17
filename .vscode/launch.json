@@ -21,7 +21,8 @@
                 "${workspaceFolder}/packages/open-collaboration-server/lib/**/*.js",
             ],
             "env": {
-                "OCT_ACTIVATE_SIMPLE_LOGIN": "true"
+                "OCT_ACTIVATE_SIMPLE_LOGIN": "true",
+                "OCT_REDIRECT_URL_WHITELIST": "http://localhost:5173/",
             }
         },
         {
