@@ -70,13 +70,10 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
     override fun refreshAndFindFileByPath(pathString: String): VirtualFile? {
         val path = Path(pathString)
 
-        var file = findFileByPath(pathString)
-
-        if(file == null) {
-            findFileByPath(path.parent.toString())?.refresh(false, false)
-            file = findFileByPath(pathString)
-        }
-
+        // refresh parent to check it still exists
+        findFileByPath(path.parent.toString())?.refresh(false, false)
+        val file = findFileByPath(pathString)
+        // refresh file itself
         file?.refresh(true, true)
         return file
     }
