@@ -15,7 +15,7 @@ import kotlin.io.path.Path
  * File system service for accessing files in the current workspace
  */
 @Service(Service.Level.PROJECT)
-class WorkspaceFileSystemService(private val project: Project) {
+class WorkspaceFileSystemService(project: Project) {
 
     private val workspaceDir: VirtualFile =
         VirtualFileManager.getInstance().findFileByNioPath(Path(project.basePath!!))!!
@@ -82,10 +82,6 @@ class WorkspaceFileSystemService(private val project: Project) {
 
     fun rename(path: String, newName: String) {
         getRelativeFile(path).rename("externalUser", newName)
-    }
-
-    fun change() {
-
     }
 
 
