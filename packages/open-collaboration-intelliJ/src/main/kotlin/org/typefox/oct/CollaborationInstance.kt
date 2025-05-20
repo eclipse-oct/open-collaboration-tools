@@ -91,14 +91,6 @@ class CollaborationInstance(val remoteInterface: BaseMessageHandler.BaseRemoteIn
 
     }
 
-    fun onFileChange() {
-        if (isHost) {
-            workspaceFileSystem.change()
-        } else {
-
-        }
-    }
-
     fun followPeer(peerId: String) {
         editorManager.followPeer(peerId)
     }

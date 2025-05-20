@@ -110,12 +110,17 @@ open class OCTSessionVirtualFile(
 
     override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) {
         // TODO allow for actual async refresh
-        if(recursive) {
-            cachedChildren?.forEach { it.refresh(asynchronous, true, null) }
-        }
         stat = null
         cachedChildren = null
         cachedContent = null
+        if(!asynchronous) {
+            stat = retrieveStat()
+            cachedChildren = this.children
+
+        }
+        if(recursive) {
+            cachedChildren?.forEach { it.refresh(asynchronous, true, null) }
+        }
         postRunnable?.run()
     }
 
