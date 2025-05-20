@@ -2,6 +2,7 @@ package org.typefox.oct
 
 import com.intellij.ide.projectView.ProjectView
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.module.EmptyModuleType
@@ -108,16 +109,17 @@ class CollaborationInstance(val remoteInterface: BaseMessageHandler.BaseRemoteIn
     }
 
     fun handleVirtualFilesystemChange(event: FileChangeEvent) {
-        val fileSystem = VirtualFileManager.getInstance().getFileSystem("oct")
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val fileSystem = VirtualFileManager.getInstance().getFileSystem("oct")
 
 
-        for (change in event.changes) {
-            fileSystem.refreshAndFindFileByPath(change.path)
+            for (change in event.changes) {
+                fileSystem.refreshAndFindFileByPath(change.path)
 
+            }
+
+            ProjectView.getInstance(project).refresh()
         }
-
-        ProjectView.getInstance(project).refresh()
-
     }
 }
 
