@@ -8,10 +8,10 @@ import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
 import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsNormalizedTextDocument, YTextChange } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { BinaryData, BinaryResponse, ClientTextSelection, EditorOpenedNotification, fromBinaryMessage, GetDocumentContent, JoinSessionRequest, OnInitNotification, PeerJoinedNotification, PeerLeftNotification, TextDocumentInsert, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import { BinaryData, BinaryResponse, ClientTextSelection, EditorOpenedNotification, fromBinaryMessage, GetDocumentContent, JoinSessionRequest, OnInitNotification, PeerJoinedNotification, PeerLeftNotification, SessionClosedNotification, TextDocumentInsert, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
-export class CollaborationInstance implements types.Disposable{
+export class CollaborationInstance implements types.Disposable {
 
     protected peers = new Map<string, types.Peer>();
     protected hostInfo = new Deferred<types.Peer>();
@@ -29,7 +29,9 @@ export class CollaborationInstance implements types.Disposable{
 
     private encoder = new TextEncoder();
 
-    constructor(public currentConnection: types.ProtocolBroadcastConnection, protected communicationHandler: MessageConnection, protected isHost: boolean, workspace?: types.Workspace) {
+    isDisposed = false;
+
+    constructor(public octConnection: types.ProtocolBroadcastConnection, protected clientConnection: MessageConnection, protected isHost: boolean, workspace?: types.Workspace) {
         if(isHost && !workspace) {
             throw new Error('Host must provide workspace');
         }
@@ -47,47 +49,51 @@ export class CollaborationInstance implements types.Disposable{
                 this.yjsAwareness.destroy();
             }});
 
-        this.yjsProvider = new OpenCollaborationYjsProvider(currentConnection, this.YjsDoc, this.yjsAwareness, {
+        this.yjsProvider = new OpenCollaborationYjsProvider(octConnection, this.YjsDoc, this.yjsAwareness, {
             resyncTimer: 10_000
         });
         this.yjsProvider.connect();
-        this.connectionDisposables.push(currentConnection.onReconnect(() => {
+        this.connectionDisposables.push(octConnection.onReconnect(() => {
             this.yjsProvider?.connect();
         }));
 
-        currentConnection.onDisconnect(() => {
+        octConnection.onDisconnect(() => {
             this.dispose();
         });
 
-        currentConnection.onRequest(async (origin, method, ...params) => {
-            const result = await this.communicationHandler.sendRequest(method, ...this.convertBinaryParams(params), origin);
+        octConnection.room.onClose(() => {
+            this.dispose();
+        });
+
+        octConnection.onRequest(async (origin, method, ...params) => {
+            const result = await this.clientConnection.sendRequest(method, ...this.convertBinaryParams(params), origin);
             return BinaryData.is(result) ? fromBinaryMessage(result.data) : result;
         });
 
-        currentConnection.onNotification((origin, method, ...params) => {
-            this.communicationHandler.sendNotification(method, ...this.convertBinaryParams(params), origin);
+        octConnection.onNotification((origin, method, ...params) => {
+            this.clientConnection.sendNotification(method, ...this.convertBinaryParams(params), origin);
         });
 
-        currentConnection.onBroadcast((origin, method, ...params) => {
-            this.communicationHandler.sendNotification(method, ...this.convertBinaryParams(params), origin);
+        octConnection.onBroadcast((origin, method, ...params) => {
+            this.clientConnection.sendNotification(method, ...this.convertBinaryParams(params), origin);
         });
 
-        currentConnection.peer.onJoinRequest(async (_, user) => {
-            const accepted = await this.communicationHandler.sendRequest(JoinSessionRequest, user);
+        octConnection.peer.onJoinRequest(async (_, user) => {
+            const accepted = await this.clientConnection.sendRequest(JoinSessionRequest, user);
             return accepted ? { workspace: workspace! } : undefined;
         });
 
-        currentConnection.peer.onInfo((_, peer) => {
+        octConnection.peer.onInfo((_, peer) => {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
         });
 
-        currentConnection.editor.onOpen(async (peerId, documentPath) => {
+        octConnection.editor.onOpen(async (peerId, documentPath) => {
             this.registerYjsObject('text', documentPath, '');
-            this.communicationHandler.sendNotification(EditorOpenedNotification, documentPath, peerId);
+            this.clientConnection.sendNotification(EditorOpenedNotification, documentPath, peerId);
         });
 
-        currentConnection.room.onJoin(async (_, peer) => {
+        octConnection.room.onJoin(async (_, peer) => {
             if (isHost && workspace) {
                 // Only initialize the user if we are the host
                 const initData: types.InitData = {
@@ -101,26 +107,26 @@ export class CollaborationInstance implements types.Disposable{
                         folders: workspace.folders ?? []
                     }
                 };
-                currentConnection.peer.init(peer.id, initData);
+                octConnection.peer.init(peer.id, initData);
             }
-            this.communicationHandler.sendNotification(PeerJoinedNotification, peer);
+            this.clientConnection.sendNotification(PeerJoinedNotification, peer);
         });
 
-        currentConnection.room.onLeave(async (_, peer) => {
+        octConnection.room.onLeave(async (_, peer) => {
             this.peers.delete(peer.id);
-            this.communicationHandler.sendNotification(PeerLeftNotification, peer);
+            this.clientConnection.sendNotification(PeerLeftNotification, peer);
         });
 
-        currentConnection.peer.onInit((_, initData) => {
+        octConnection.peer.onInit((_, initData) => {
             this.peers.set(initData.host.id, initData.host);
             this.hostInfo.resolve(initData.host);
             for (const guest of initData.guests) {
                 this.peers.set(guest.id, guest);
             }
-            this.communicationHandler.sendNotification(OnInitNotification, initData);
+            this.clientConnection.sendNotification(OnInitNotification, initData);
         });
 
-        communicationHandler.onRequest(GetDocumentContent, async (documentPath) => {
+        clientConnection.onRequest(GetDocumentContent, async (documentPath) => {
             let fileContent: types.FileData | undefined = undefined;
             if(this.YjsDoc.share.has(documentPath)) {
                 const text = this.YjsDoc.getText(documentPath);
@@ -129,7 +135,7 @@ export class CollaborationInstance implements types.Disposable{
                 } as types.FileData;
 
             } else {
-                fileContent = await currentConnection.fs.readFile((await this.hostInfo.promise).id, documentPath);
+                fileContent = await octConnection.fs.readFile((await this.hostInfo.promise).id, documentPath);
             }
 
             return {
@@ -147,7 +153,7 @@ export class CollaborationInstance implements types.Disposable{
             if (this.isHost) {
                 normalizedDocument.update({changes: text});
             } else {
-                this.currentConnection.editor.open((await this.hostInfo.promise).id, documentPath);
+                this.octConnection.editor.open((await this.hostInfo.promise).id, documentPath);
             }
         }
     }
@@ -156,7 +162,7 @@ export class CollaborationInstance implements types.Disposable{
         let yjsDocument = this.yjsDocuments.get(path);
         if (!yjsDocument) {
             yjsDocument = new YjsNormalizedTextDocument(this.YjsDoc.getText(path), async changes => {
-                this.communicationHandler.sendNotification(UpdateDocumentContent, path, changes.map(change => {
+                this.clientConnection.sendNotification(UpdateDocumentContent, path, changes.map(change => {
                     const start = yjsDocument!.normalizedOffset(change.start);
                     const end = yjsDocument!.normalizedOffset(change.end);
                     return {
@@ -230,7 +236,7 @@ export class CollaborationInstance implements types.Disposable{
         this.selectionState = currentSelections;
 
         for (const document of documentUpdates) {
-            this.communicationHandler.sendNotification(UpdateTextSelection, document, this.selectionState.get(document) ?? []);
+            this.clientConnection.sendNotification(UpdateTextSelection, document, this.selectionState.get(document) ?? []);
         }
 
     }
@@ -264,7 +270,7 @@ export class CollaborationInstance implements types.Disposable{
     }
 
     async leaveRoom(): Promise<void> {
-        await this.currentConnection.room.leave();
+        await this.octConnection.room.leave();
         this.dispose();
     }
 
@@ -273,7 +279,12 @@ export class CollaborationInstance implements types.Disposable{
     }
 
     dispose(): void {
-        this.currentConnection.dispose();
+        if (this.isDisposed) {
+            return;
+        }
+        this.isDisposed = true;
+        this.clientConnection.sendNotification(SessionClosedNotification);
+        this.octConnection.dispose();
         this.yjsProvider?.dispose();
         this.YjsDoc.destroy();
         this.connectionDisposables.dispose();

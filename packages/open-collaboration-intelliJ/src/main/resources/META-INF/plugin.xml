@@ -67,8 +67,12 @@
 
   <resource-bundle>l10n.plugin</resource-bundle>
 
+  <applicationListeners>
+    <listener class="org.typefox.oct.ProjectListener" topic="com.intellij.openapi.project.ProjectCloseListener" />
+  </applicationListeners>
+
   <projectListeners>
-    <listener class="org.typefox.oct.ProjectListener" topic="com.intellij.openapi.project.ProjectManagerListener" />
+    <listener class="org.typefox.oct.ProjectListener" topic="com.intellij.openapi.project.ProjectCloseListener" />
   </projectListeners>
 
 </idea-plugin>
