@@ -128,6 +128,8 @@ export const JoinSessionRequest = new RequestType<types.User, boolean, void>(ToS
 export const PeerJoinedNotification = new NotificationType<types.Peer>('peerJoined');
 export const PeerLeftNotification = new NotificationType<types.Peer>('peerLeft');
 
+export const SessionClosedNotification = new NotificationType<void>('sessionClosed');
+
 /**
  * params: [error message, stack trace]
  */
