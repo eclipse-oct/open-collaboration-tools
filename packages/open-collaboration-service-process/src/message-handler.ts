@@ -22,8 +22,10 @@ export class MessageHandler {
         communicationHandler.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
         communicationHandler.onRequest(CreateRoomRequest, this.createRoom.bind(this));
         communicationHandler.onRequest(CloseSessionRequest, async () => {
-            await this.currentCollaborationInstance?.leaveRoom();
-            this.currentCollaborationInstance = undefined;
+            if(this.currentCollaborationInstance && !this.currentCollaborationInstance.isDisposed) {
+                await this.currentCollaborationInstance?.leaveRoom();
+                this.currentCollaborationInstance = undefined;
+            }
         });
         communicationHandler.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
         communicationHandler.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
@@ -44,7 +46,7 @@ export class MessageHandler {
                 return param;
             });
 
-            const result = await this.currentCollaborationInstance?.currentConnection.sendRequest(method, target, ...messageParams);
+            const result = await this.currentCollaborationInstance?.octConnection.sendRequest(method, target, ...messageParams);
 
             return BinaryData.shouldConvert(result) ? {
                 type: 'binaryData',
@@ -67,9 +69,9 @@ export class MessageHandler {
             });;
 
             if(metaDataParam === 'broadcast') {
-                this.currentCollaborationInstance?.currentConnection.sendBroadcast(method, ...messageParams);
+                this.currentCollaborationInstance?.octConnection.sendBroadcast(method, ...messageParams);
             } else {
-                this.currentCollaborationInstance?.currentConnection.sendNotification(method, metaDataParam, ...messageParams);
+                this.currentCollaborationInstance?.octConnection.sendNotification(method, metaDataParam, ...messageParams);
             }
         });
     }

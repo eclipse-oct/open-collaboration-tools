@@ -3,8 +3,17 @@ package org.typefox.oct.messageHandlers
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.writeAction
 import com.intellij.openapi.components.service
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.ProjectManagerScope
+import com.intellij.testFramework.closeProjectAsync
+import com.intellij.testFramework.useProject
 import com.jetbrains.rd.util.printlnError
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.async
 import org.eclipse.lsp4j.jsonrpc.Endpoint
 import org.eclipse.lsp4j.jsonrpc.json.ResponseJsonAdapter
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
@@ -96,6 +105,15 @@ class OCTMessageHandler(onSessionCreated: EventEmitter<CollaborationInstance>) :
     @JsonNotification
     fun editorOpened(documentPath: String, peerId: String) {
         println("editor opened $documentPath by $peerId")
+    }
+
+    @JsonNotification
+    fun sessionClosed() {
+        ApplicationManager.getApplication().invokeLater {
+            collaborationInstance?.project?.let {
+                ProjectManager.getInstance().closeAndDispose(it)
+            }
+        }
     }
 }
 
