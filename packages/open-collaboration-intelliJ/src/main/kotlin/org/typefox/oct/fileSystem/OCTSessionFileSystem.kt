@@ -87,23 +87,47 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
     }
 
     override fun deleteFile(requestor: Any?, vFile: VirtualFile) {
-        TODO("Not yet implemented")
+        val path = Path(vFile.path)
+        val service = getRemoteFilesystemService(path)
+        service?.delete(toOctPath(path), getHostId(path))?.get()
+
     }
 
     override fun moveFile(requestor: Any?, vFile: VirtualFile, newParent: VirtualFile) {
-        TODO("Not yet implemented")
+        val oldPath = Path(vFile.path)
+        val newPath = Path(newParent.findChild(vFile.name)!!.path)
+        val service = getRemoteFilesystemService(oldPath)
+        service?.rename(toOctPath(oldPath), toOctPath(newPath), getHostId(oldPath))?.get()
+
     }
 
     override fun renameFile(requestor: Any?, vFile: VirtualFile, newName: String) {
-        TODO("Not yet implemented")
+        val oldPath = Path(vFile.path)
+        val newPath = oldPath.parent.resolve(newName)
+        val service = getRemoteFilesystemService(oldPath)
+        service?.rename(toOctPath(oldPath), toOctPath(newPath), getHostId(oldPath))?.get()
+
     }
 
     override fun createChildFile(requestor: Any?, vDir: VirtualFile, fileName: String): VirtualFile {
-        TODO("Not yet implemented")
+        val parentPath = Path(vDir.path)
+        val service = getRemoteFilesystemService(parentPath)
+        service?.writeFile(toOctPath(parentPath.resolve(fileName)),
+            FileContent(ByteArray(0)),
+            getHostId(parentPath))?.get()
+
+        vDir.refresh(false, false)
+        return vDir.findChild(fileName) ?: throw IllegalStateException("File not found after creation")
     }
 
     override fun createChildDirectory(requestor: Any?, vDir: VirtualFile, dirName: String): VirtualFile {
-        TODO("Not yet implemented")
+        val parentPath = Path(vDir.path)
+        val service = getRemoteFilesystemService(parentPath)
+        service?.mkdir(toOctPath(parentPath.resolve(dirName)), getHostId(parentPath))?.get()
+
+        vDir.refresh(false, false)
+        return vDir.findChild(dirName) ?: throw IllegalStateException("Directory not found after creation")
+
     }
 
     override fun copyFile(
@@ -112,7 +136,22 @@ class OCTSessionFileSystem() : VirtualFileSystem() {
         newParent: VirtualFile,
         copyName: String
     ): VirtualFile {
-        TODO("Not yet implemented")
+        val oldPath = Path(virtualFile.path)
+        val parentPath = Path(newParent.path)
+        val service = getRemoteFilesystemService(oldPath)
+
+        val oldContent = readFile(oldPath).get() ?:
+            throw IllegalStateException("Could not read file ${virtualFile.path} from host")
+
+        service?.writeFile(
+            toOctPath(parentPath.resolve(copyName)),
+            oldContent,
+            getHostId(parentPath)
+        )?.get()
+
+        newParent.refresh(false, false)
+        return newParent.findChild(copyName) ?:
+            throw IllegalStateException("File not found after copy")
     }
 
     override fun isReadOnly(): Boolean {
