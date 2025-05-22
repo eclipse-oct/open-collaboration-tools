@@ -158,7 +158,7 @@ export class CollaborationServer {
     }
 
     protected async getUserFromAuth(req: express.Request): Promise<User | undefined> {
-        const auth = req.headers['x-oct-jwt'] as string ?? req.cookies?.['oct-jwt'] as string;
+        const auth = (req.headers['x-oct-jwt'] ?? req.cookies?.['oct-jwt']) as string;
         try {
             const user = await this.credentials.getUser(auth);
             return user;
@@ -172,7 +172,7 @@ export class CollaborationServer {
         app.use(express.json());
         app.use(cookieParser());
 
-        const allowedOrigins = this.configuration.getValue('oct-allowed-origins')?.split(',') ?? '*';
+        const allowedOrigins = this.configuration.getValue('oct-cors-allowed-origins')?.split(',') ?? '*';
         app.use((req, res, next) => {
             if(req.headers?.origin && allowedOrigins !== '*' && !allowedOrigins.includes(req.headers.origin)) {
                 res.status(403);
@@ -266,7 +266,7 @@ export class CollaborationServer {
                     res.send(result);
                 };
 
-                const sendCookie = (token: string) => {
+                const addCookieHeader = (token: string) => {
                     res.cookie('oct-jwt', token, {
                         maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
                         httpOnly: true,
@@ -275,16 +275,11 @@ export class CollaborationServer {
                     });
                     res.header('Access-Control-Allow-Credentials', 'true');
                     res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
-                    res.send();
                 };
 
-                if (delayedAuth.jwt && req.body?.useCookie) {
-                    sendCookie(delayedAuth.jwt);
-                    delayedAuth.dispose();
-                } else if (delayedAuth.jwt) {
+                if (delayedAuth.jwt) {
+                    req.query?.useCookie && addCookieHeader(delayedAuth.jwt);
                     sendToken(delayedAuth.jwt);
-                    // Don't dispose the delayed auth here, as it might be used for polling
-                    // It will be disposed after 5 minutes anyway
                     delayedAuth.dispose();
                 } else {
                     const end = async (value?: string | Error | undefined) => {
@@ -296,7 +291,8 @@ export class CollaborationServer {
                             res.status(204);
                             res.send({});
                         } else if (typeof value === 'string') {
-                            req.body?.useCookie ? sendCookie(value) : sendToken(value);
+                            req.query?.useCookie && addCookieHeader(value);
+                            sendToken(value);
                         } else {
                             res.status(400);
                             res.send(authTimeoutResponse);

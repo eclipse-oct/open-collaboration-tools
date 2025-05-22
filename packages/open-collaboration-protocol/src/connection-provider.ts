@@ -156,19 +156,15 @@ export class ConnectionProvider {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ useCookie: true })
     };
     private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string | undefined> {
         while (true) {
-            const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}`), {
+            const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}${this.options.useCookieAuth ? '?useCookie=true' : ''}`), {
                 signal: options.abortSignal,
                 method: 'POST',
                 ...(this.options.useCookieAuth ? this.cookieAuthPollOptions : {}),
             });
-            if (confirmResponse.ok) {
-                if(this.options.useCookieAuth) {
-                    return;
-                }
+            if (confirmResponse.status === 200) {
                 try {
                     const confirmBody = await confirmResponse.json();
                     if (types.LoginPollResponse.is(confirmBody) && confirmBody.loginToken) {
