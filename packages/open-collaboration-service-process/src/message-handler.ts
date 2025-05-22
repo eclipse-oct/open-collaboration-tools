@@ -17,22 +17,22 @@ export class MessageHandler {
 
     protected lastRequestId = 0;
 
-    constructor(private connectionProvider: types.ConnectionProvider, private communicationHandler: MessageConnection) {
-        communicationHandler.onRequest(LoginRequest, async () => this.login());
-        communicationHandler.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
-        communicationHandler.onRequest(CreateRoomRequest, this.createRoom.bind(this));
-        communicationHandler.onRequest(CloseSessionRequest, async () => {
+    constructor(private octConnectionProvider: types.ConnectionProvider, private clientCommunication: MessageConnection) {
+        clientCommunication.onRequest(LoginRequest, async () => this.login());
+        clientCommunication.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
+        clientCommunication.onRequest(CreateRoomRequest, this.createRoom.bind(this));
+        clientCommunication.onRequest(CloseSessionRequest, async () => {
             if(this.currentCollaborationInstance && !this.currentCollaborationInstance.isDisposed) {
                 await this.currentCollaborationInstance?.leaveRoom();
                 this.currentCollaborationInstance = undefined;
             }
         });
-        communicationHandler.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
-        communicationHandler.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
-        communicationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
-        communicationHandler.onError(([error]) => communicationHandler.sendNotification(InternalError, {message: error.message, stack: error.stack}));
+        clientCommunication.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
+        clientCommunication.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
+        clientCommunication.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
+        clientCommunication.onError(([error]) => clientCommunication.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
-        communicationHandler.onRequest(async (method, params) => {
+        clientCommunication.onRequest(async (method, params) => {
             console.log(params);
             if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
                 throw new Error(`Invalid parameters for non service process specific request with method: ${method}, missing target`);
@@ -54,7 +54,7 @@ export class MessageHandler {
                 data: toBinaryMessage(result),
             } as BinaryResponse : result;
         });
-        communicationHandler.onNotification(async (method, params) => {
+        clientCommunication.onNotification(async (method, params) => {
             if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
                 throw new Error(`Invalid parameters for non service process specific notification or broadcast with method: ${method}, missing target or 'broadcast'`);
             }
@@ -78,7 +78,7 @@ export class MessageHandler {
 
     async login(): Promise<string> {
         try {
-            const authToken = await this.connectionProvider.login({ });
+            const authToken = await this.octConnectionProvider.login({ });
             return authToken;
         } catch (error) {
             throw new Error(`Failed to login: ${error}`);
@@ -87,12 +87,12 @@ export class MessageHandler {
 
     async joinRoom(roomId: string): Promise<SessionData> {
         try {
-            const resp = await this.connectionProvider.joinRoom({ roomId });
-            this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
+            const resp = await this.octConnectionProvider.joinRoom({ roomId });
+            this.onConnection(await this.octConnectionProvider.connect(resp.roomToken), false);
             return {
                 roomId: resp.roomId,
                 roomToken: resp.roomToken,
-                authToken: resp.loginToken ?? this.connectionProvider.authToken,
+                authToken: resp.loginToken ?? this.octConnectionProvider.authToken,
                 workspace: resp.workspace
             };
         } catch (error) {
@@ -102,12 +102,12 @@ export class MessageHandler {
 
     async createRoom(workspace: types.Workspace): Promise<SessionData> {
         try {
-            const resp = await this.connectionProvider.createRoom({});
-            this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, workspace);
+            const resp = await this.octConnectionProvider.createRoom({});
+            this.onConnection(await this.octConnectionProvider.connect(resp.roomToken), true, workspace);
             return {
                 roomId: resp.roomId,
                 roomToken: resp.roomToken,
-                authToken: resp.loginToken ?? this.connectionProvider.authToken,
+                authToken: resp.loginToken ?? this.octConnectionProvider.authToken,
                 workspace,
             };
         } catch (error) {
@@ -117,7 +117,7 @@ export class MessageHandler {
 
     onConnection(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
         this.currentCollaborationInstance?.dispose();
-        this.currentCollaborationInstance = new CollaborationInstance(connection, this.communicationHandler, host, workspace);
+        this.currentCollaborationInstance = new CollaborationInstance(connection, this.clientCommunication, host, workspace);
     }
 
     dispose() {

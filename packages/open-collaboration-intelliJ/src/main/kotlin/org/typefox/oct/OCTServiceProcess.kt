@@ -105,7 +105,7 @@ class BinaryDataAdapter<T>(private val type: Class<T>) : TypeAdapter<T>() {
 
         val binary = BinaryData(base64)
 
-        gson.toJson(binary)
+        gson.toJson(binary, BinaryData::class.java, out)
     }
 
     override fun read(input: JsonReader): T? {

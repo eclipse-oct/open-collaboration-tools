@@ -27,6 +27,8 @@ class FileSystemMessageHandler(onSessionCreated: EventEmitter<CollaborationInsta
         fun delete(path: String, target: String): CompletableFuture<Unit>
         @JsonRequest
         fun rename(oldPath: String, newPath: String, target: String): CompletableFuture<Unit>
+        @JsonNotification
+        fun change(event: FileChangeEvent, broadcast: String)
     }
 
     override val remoteInterface = FileSystemService::class.java
@@ -39,7 +41,7 @@ class FileSystemMessageHandler(onSessionCreated: EventEmitter<CollaborationInsta
     }
 
     @JsonRequest
-    fun readFile(path: String, origin: String): CompletableFuture<BinaryData<FileContent>?> {
+    fun readFile(path: String, origin: String): CompletableFuture<FileContent?>? {
         return CompletableFutures.computeAsync {
             this.collaborationInstance?.workspaceFileSystem?.readFile(path)
         }
@@ -54,31 +56,23 @@ class FileSystemMessageHandler(onSessionCreated: EventEmitter<CollaborationInsta
     }
 
     @JsonRequest
-    fun mkdir(path: String, origin: String): CompletableFuture<Unit> {
-        return CompletableFutures.computeAsync {
-            this.collaborationInstance?.workspaceFileSystem?.mkdir(path)
-        }
+    fun mkdir(path: String, origin: String): CompletableFuture<Unit>? {
+        return this.collaborationInstance?.workspaceFileSystem?.mkdir(path)
     }
 
     @JsonRequest
-    fun writeFile(path: String, content: FileContent, origin: String): CompletableFuture<Unit> {
-        return CompletableFutures.computeAsync {
-            this.collaborationInstance?.workspaceFileSystem?.writeFile(path, content)
-        }
+    fun writeFile(path: String, content: FileContent, origin: String): CompletableFuture<Unit>? {
+        return this.collaborationInstance?.workspaceFileSystem?.writeFile(path, content)
     }
 
     @JsonRequest
-    fun delete(path: String, origin: String): CompletableFuture<Unit> {
-        return CompletableFutures.computeAsync {
-            this.collaborationInstance?.workspaceFileSystem?.delete(path)
-        }
+    fun delete(path: String, origin: String): CompletableFuture<Unit>? {
+        return this.collaborationInstance?.workspaceFileSystem?.delete(path)
     }
 
     @JsonRequest
-    fun rename(oldPath: String, newPath: String, origin: String): CompletableFuture<Unit> {
-        return CompletableFutures.computeAsync {
-            this.collaborationInstance?.workspaceFileSystem?.rename(oldPath, newPath)
-        }
+    fun rename(oldPath: String, newPath: String, origin: String): CompletableFuture<Unit>? {
+        return this.collaborationInstance?.workspaceFileSystem?.rename(oldPath, newPath)
     }
 
     @JsonNotification

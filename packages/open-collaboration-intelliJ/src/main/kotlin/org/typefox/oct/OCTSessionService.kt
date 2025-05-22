@@ -116,7 +116,9 @@ class OCTSessionService() {
         currentProcesses.remove(project)
         currentCollaborationInstances[project]?.let {
             Disposer.dispose(it)
-            tempProjectsToDelete.add(project)
+            if(!it.isHost) {
+                tempProjectsToDelete.add(project)
+            }
         }
         currentCollaborationInstances.remove(project)
     }
