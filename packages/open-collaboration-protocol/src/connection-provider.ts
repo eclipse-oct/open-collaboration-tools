@@ -111,7 +111,7 @@ export class ConnectionProvider {
     /**
      * @returns the auth token if the authentication or undefined when using cookie based authentication
      */
-    async login(options: LoginOptions): Promise<string | undefined> {
+    async login(options: LoginOptions): Promise<string> {
         options.reporter?.({
             code: 'PerformingLogin',
             params: [],
@@ -152,12 +152,9 @@ export class ConnectionProvider {
     }
 
     private readonly cookieAuthPollOptions: Partial<FetchRequestOptions> = {
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        credentials: 'include'
     };
-    private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string | undefined> {
+    private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string> {
         while (true) {
             const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}${this.options.useCookieAuth ? '?useCookie=true' : ''}`), {
                 signal: options.abortSignal,
