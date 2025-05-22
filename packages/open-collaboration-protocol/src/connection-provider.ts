@@ -415,12 +415,12 @@ export class ConnectionProvider {
     }
 
     private getAuthHeader(): Record<string, string> {
-        if (this.userAuthToken) {
+        if (this.options.useCookieAuth) {
+            return {};
+        } else if (this.userAuthToken) {
             return {
                 'x-oct-jwt': this.userAuthToken
             };
-        } else if (this.options.useCookieAuth) {
-            return {};
         } else {
             throw new Error('No authentication token available');
         }
