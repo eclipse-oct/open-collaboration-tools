@@ -65,10 +65,13 @@
 
   </extensions>
 
+
+
   <resource-bundle>l10n.plugin</resource-bundle>
 
   <applicationListeners>
     <listener class="org.typefox.oct.ProjectListener" topic="com.intellij.openapi.project.ProjectCloseListener" />
+    <listener class="org.typefox.oct.fileSystem.OCTFileListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener" />
   </applicationListeners>
 
   <projectListeners>

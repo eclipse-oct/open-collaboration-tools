@@ -1,14 +1,21 @@
 package org.typefox.oct.fileSystem
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.*
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.*
 import com.intellij.testFramework.utils.vfs.createDirectory
 import com.intellij.testFramework.utils.vfs.createFile
 import com.intellij.testFramework.utils.vfs.deleteRecursively
 import org.typefox.oct.*
+import org.typefox.oct.messageHandlers.FileSystemMessageHandler
 import java.io.FileNotFoundException
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.Path
 
 /**
@@ -19,6 +26,7 @@ class WorkspaceFileSystemService(project: Project) {
 
     private val workspaceDir: VirtualFile =
         VirtualFileManager.getInstance().findFileByNioPath(Path(project.basePath!!))!!
+
 
     fun stat(path: String): FileSystemStat? {
         try {
@@ -36,10 +44,10 @@ class WorkspaceFileSystemService(project: Project) {
         }
     }
 
-    fun readFile(path: String): BinaryData<FileContent>? {
+    fun readFile(path: String): FileContent? {
         try {
             val file = getRelativeFile(path)
-            return BinaryData(FileContent(file.contentsToByteArray()))
+            return FileContent(file.contentsToByteArray())
         } catch (e: FileNotFoundException) {
             return null
         }
@@ -63,25 +71,34 @@ class WorkspaceFileSystemService(project: Project) {
         }
     }
 
-    fun mkdir(path: String) {
-        workspaceDir.createDirectory(toRelativeWorkspacePath(path))
-    }
-
-    fun writeFile(path: String, fileData: FileContent) {
-        if (stat(path) == null) {
-            workspaceDir.createFile(toRelativeWorkspacePath(path))
+    fun mkdir(path: String): CompletableFuture<Unit> {
+        return this.runAsyncInWriteContext {
+            workspaceDir.createDirectory(toRelativeWorkspacePath(path))
         }
-
-        val file = getRelativeFile(path)
-        file.writeBytes(fileData.content)
     }
 
-    fun delete(path: String) {
-        getRelativeFile(path).deleteRecursively()
+    fun writeFile(path: String, fileData: FileContent): CompletableFuture<Unit> {
+        return this.runAsyncInWriteContext {
+            if (stat(path) == null) {
+                workspaceDir.createFile(toRelativeWorkspacePath(path))
+            }
+
+            val file = getRelativeFile(path)
+            file.writeBytes(fileData.content)
+        }
     }
 
-    fun rename(path: String, newName: String) {
-        getRelativeFile(path).rename("externalUser", newName)
+    fun delete(path: String): CompletableFuture<Unit> {
+        return this.runAsyncInWriteContext {
+            val file = getRelativeFile(path)
+            file.delete(file.fileSystem)
+        }
+    }
+
+    fun rename(path: String, newName: String): CompletableFuture<Unit> {
+        return this.runAsyncInWriteContext {
+            getRelativeFile(path).rename("externalUser", newName)
+        }
     }
 
 
@@ -106,6 +123,55 @@ class WorkspaceFileSystemService(project: Project) {
 
     private fun toRelativeWorkspacePath(path: String): String {
         return if (path.startsWith(workspaceDir.name)) path.substring(workspaceDir.name.length) else path
+    }
+
+    private fun <T> runAsyncInWriteContext(action: () -> T): CompletableFuture<T> {
+        val future = CompletableFuture<T>()
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().runWriteAction {
+                future.complete(action())
+            }
+        }
+        return future
+    }
+}
+
+class OCTFileListener: BulkFileListener {
+    override fun after(events: MutableList<out VFileEvent>) {
+        val octSessionService = service<OCTSessionService>()
+        // Map von Project zu Liste von FileChange
+        val projectChangeEvents: MutableMap<Project, MutableList<FileChange>> = mutableMapOf()
+
+        events.forEach { event ->
+            for (octProject in octSessionService.currentCollaborationInstances.keys) {
+                val file = event.file
+                if (file != null && ProjectFileIndex.getInstance(octProject).isInProject(file)) {
+                    val changes = when (event) {
+                        is VFileCreateEvent -> listOf(FileChange(FileChangeEventType.Create, event.path))
+                        is VFileDeleteEvent -> listOf(FileChange(FileChangeEventType.Delete, event.path))
+                        is VFileMoveEvent -> listOf(
+                            FileChange(FileChangeEventType.Delete, event.oldPath),
+                            FileChange(FileChangeEventType.Create, event.newPath)
+                        )
+                        is VFileCopyEvent -> listOf(
+                            FileChange(FileChangeEventType.Create, event.findCreatedFile()?.path ?: event.newChildName)
+                        )
+                        is VFilePropertyChangeEvent -> listOf(FileChange(FileChangeEventType.Update, event.path))
+                        else -> throw IllegalArgumentException("Unknown event type: ${event.javaClass.name}")
+                    }
+                    projectChangeEvents.getOrPut(octProject) { mutableListOf() }.addAll(changes)
+                    break // Event nur einem Projekt zuordnen
+                }
+            }
+        }
+
+        for((project, changes) in projectChangeEvents) {
+            val octSession = octSessionService.currentCollaborationInstances[project]
+            if (octSession != null) {
+                (octSession.remoteInterface as FileSystemMessageHandler.FileSystemService)
+                    .change(FileChangeEvent(changes.toTypedArray()), "broadcast")
+            }
+        }
     }
 
 }
