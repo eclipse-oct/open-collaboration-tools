@@ -164,7 +164,7 @@ export class ConnectionProvider {
                 method: 'POST',
                 ...(this.options.useCookieAuth ? this.cookieAuthPollOptions : {}),
             });
-            if (confirmResponse.status === 200) {
+            if (confirmResponse.ok) {
                 try {
                     const confirmBody = await confirmResponse.json();
                     if (types.LoginPollResponse.is(confirmBody) && confirmBody.loginToken) {
