@@ -12,11 +12,14 @@ import com.intellij.openapi.vfs.newvfs.events.*
 import com.intellij.testFramework.utils.vfs.createDirectory
 import com.intellij.testFramework.utils.vfs.createFile
 import com.intellij.testFramework.utils.vfs.deleteRecursively
+import com.intellij.util.io.size
 import org.typefox.oct.*
 import org.typefox.oct.messageHandlers.FileSystemMessageHandler
 import java.io.FileNotFoundException
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.Path
+import kotlin.io.path.name
+import kotlin.io.path.pathString
 
 /**
  * File system service for accessing files in the current workspace
@@ -73,17 +76,20 @@ class WorkspaceFileSystemService(project: Project) {
 
     fun mkdir(path: String): CompletableFuture<Unit> {
         return this.runAsyncInWriteContext {
-            workspaceDir.createDirectory(toRelativeWorkspacePath(path))
+            workspaceDir.createChildDirectory(this, toRelativeWorkspacePath(path))
         }
     }
 
-    fun writeFile(path: String, fileData: FileContent): CompletableFuture<Unit> {
+    fun writeFile(pathString: String, fileData: FileContent): CompletableFuture<Unit> {
         return this.runAsyncInWriteContext {
-            if (stat(path) == null) {
-                workspaceDir.createFile(toRelativeWorkspacePath(path))
+            if (stat(pathString) == null) {
+                val path = Path(toRelativeWorkspacePath(pathString))
+                val parentDir = if(path.nameCount == 1) workspaceDir else workspaceDir.findFileByRelativePath(path.parent.pathString)
+
+                parentDir!!.createChildData(this, path.name)
             }
 
-            val file = getRelativeFile(path)
+            val file = getRelativeFile(pathString)
             file.writeBytes(fileData.content)
         }
     }
@@ -144,8 +150,7 @@ class OCTFileListener: BulkFileListener {
 
         events.forEach { event ->
             for (octProject in octSessionService.currentCollaborationInstances.keys) {
-                val file = event.file
-                if (file != null && ProjectFileIndex.getInstance(octProject).isInProject(file)) {
+                if (event.path.startsWith(octProject.basePath.toString())) {
                     val changes = when (event) {
                         is VFileCreateEvent -> listOf(FileChange(FileChangeEventType.Create, event.path))
                         is VFileDeleteEvent -> listOf(FileChange(FileChangeEventType.Delete, event.path))
@@ -157,10 +162,11 @@ class OCTFileListener: BulkFileListener {
                             FileChange(FileChangeEventType.Create, event.findCreatedFile()?.path ?: event.newChildName)
                         )
                         is VFilePropertyChangeEvent -> listOf(FileChange(FileChangeEventType.Update, event.path))
+                        is VFileContentChangeEvent -> listOf()
                         else -> throw IllegalArgumentException("Unknown event type: ${event.javaClass.name}")
                     }
                     projectChangeEvents.getOrPut(octProject) { mutableListOf() }.addAll(changes)
-                    break // Event nur einem Projekt zuordnen
+                    break
                 }
             }
         }

@@ -275,7 +275,7 @@ export class CollaborationInstance implements types.Disposable {
     }
 
     private convertBinaryParams(params: unknown[]): unknown[] {
-        return params.map(param => BinaryData.shouldConvert(param) ? toBinaryMessage(param): param);
+        return params.map(param => BinaryData.shouldConvert(param) ? { type: 'binaryData', data: toBinaryMessage(param) } as BinaryData: param);
     }
 
     dispose(): void {
