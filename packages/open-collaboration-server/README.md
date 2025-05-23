@@ -27,4 +27,4 @@ Environment variables
 | OCT_OAUTH_{Provider Name}_CLIENTID | Sets the client id for the specified OAuth provider |
 | OCT_OAUTH_{Provider Name}_CLIENTSECRET | Sets the client secret for the specified OAuth provider |
 | OCT_REDIRECT_URL_WHITELIST | A comma seperated list to allow usage of the specified URLs with the `redirect` query parameter when authenticating with a provider which redirects back after success |
-
+| OCT_CORS_ALLOWED_ORIGINS | `,` seperated list to configure the allowed origins for CORS. This will be evaluated based on the origin header of the request. if there is no match, fail the request. if not set all origin will be allowed |

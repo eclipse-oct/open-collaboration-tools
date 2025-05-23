@@ -22,7 +22,7 @@ import { Logger } from './utils/logging.js';
 import { VERSION } from 'open-collaboration-protocol';
 import { Configuration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
-
+import cookieParser from 'cookie-parser';
 // resolves __filename
 export const getLocalFilename = (referenceUrl: string | URL) => {
     return fileURLToPath(referenceUrl);
@@ -158,7 +158,7 @@ export class CollaborationServer {
     }
 
     protected async getUserFromAuth(req: express.Request): Promise<User | undefined> {
-        const auth = req.headers['x-oct-jwt'] as string;
+        const auth = (req.headers['x-oct-jwt'] ?? req.cookies?.['oct-jwt']) as string;
         try {
             const user = await this.credentials.getUser(auth);
             return user;
@@ -170,9 +170,18 @@ export class CollaborationServer {
     protected setupApiRoute(): express.Express {
         const app = express();
         app.use(express.json());
-        app.use((_, res, next) => {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Headers', '*');
+        app.use(cookieParser());
+
+        const allowedOrigins = this.configuration.getValue('oct-cors-allowed-origins')?.split(',') ?? '*';
+        app.use((req, res, next) => {
+            if(req.headers?.origin && allowedOrigins !== '*' && !allowedOrigins.includes(req.headers.origin)) {
+                res.status(403);
+                res.send('Origin not allowed');
+                return;
+            }
+            res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+            res.header('Access-Control-Allow-Credentials', 'true');
+            res.header('Access-Control-Allow-Headers', '*');
             next();
         });
         app.use(async (req, res, next) => {
@@ -190,6 +199,7 @@ export class CollaborationServer {
         });
         app.use(express.static(path.resolve(getLocalDirectory(import.meta.url), '../src/static')));
         const loginPageUrlConfig = this.configuration.getValue('oct-login-page-url') ?? '';
+
         app.post('/api/login/initial', async (req, res) => {
             try {
                 const token = await this.credentials.startAuth();
@@ -227,6 +237,12 @@ export class CollaborationServer {
             res.status(200);
             res.send(result);
         });
+        // for preflight requests
+        app.options('/api/login/poll/:token', (req, res) => {
+            res.header('Access-Control-Allow-Headers', 'content-type');
+            res.header('Access-Control-Allow-Methods', 'POST');
+            res.send();
+        });
         app.post('/api/login/poll/:token', async (req, res) => {
             try {
                 const authTimeoutResponse: InfoMessage = {
@@ -242,13 +258,29 @@ export class CollaborationServer {
                     return;
                 }
 
-                if (delayedAuth.jwt) {
+                const sendToken = (token: string) => {
                     const result: LoginPollResponse = {
-                        loginToken: delayedAuth.jwt
+                        loginToken: token
                     };
+                    res.status(200);
                     res.send(result);
-                    // Don't dispose the delayed auth here, as it might be used for polling
-                    // It will be disposed after 5 minutes anyway
+                };
+
+                const addCookieHeader = (token: string) => {
+                    res.cookie('oct-jwt', token, {
+                        maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+                        httpOnly: true,
+                        secure: true,
+                        sameSite: 'none'
+                    });
+                    res.header('Access-Control-Allow-Credentials', 'true');
+                    res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+                };
+
+                if (delayedAuth.jwt) {
+                    req.query?.useCookie && addCookieHeader(delayedAuth.jwt);
+                    sendToken(delayedAuth.jwt);
+                    delayedAuth.dispose();
                 } else {
                     const end = async (value?: string | Error | undefined) => {
                         clearTimeout(timeout);
@@ -259,11 +291,8 @@ export class CollaborationServer {
                             res.status(204);
                             res.send({});
                         } else if (typeof value === 'string') {
-                            const result: LoginPollResponse = {
-                                loginToken: value
-                            };
-                            res.status(200);
-                            res.send(result);
+                            req.query?.useCookie && addCookieHeader(value);
+                            sendToken(value);
                         } else {
                             res.status(400);
                             res.send(authTimeoutResponse);
@@ -296,6 +325,18 @@ export class CollaborationServer {
                 ],
             };
             res.send(data);
+        });
+        // only required for when using cookie based authentication
+        app.get('/api/logout', async (req, res) => {
+            const user = await this.getUserFromAuth(req);
+            if (user) {
+                res.clearCookie('oct-jwt', {sameSite: 'none', secure: true, httpOnly: true});
+                res.status(200);
+                res.send('Logged out');
+            } else {
+                res.status(400);
+                res.send('no auth token cookie set or user for token not found');
+            }
         });
         app.post('/api/session/join/:room', async (req, res) => {
             try {

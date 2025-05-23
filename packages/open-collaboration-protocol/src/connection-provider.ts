@@ -32,12 +32,15 @@ export interface ConnectionProviderOptions {
      */
     authenticationHandler: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
     transports: MessageTransportProvider[];
+    useCookieAuth?: boolean;
 }
 
 export interface FetchRequestOptions {
     method?: string;
     headers?: Record<string, string>;
     signal?: AbortSignal | null;
+    credentials?: 'include' | 'same-origin' | 'omit';
+    body?: string
 }
 
 export interface FetchResponse {
@@ -105,6 +108,9 @@ export class ConnectionProvider {
         return `${url}/${path}`;
     }
 
+    /**
+     * @returns the auth token if the authentication or undefined when using cookie based authentication
+     */
     async login(options: LoginOptions): Promise<string> {
         options.reporter?.({
             code: 'PerformingLogin',
@@ -145,11 +151,15 @@ export class ConnectionProvider {
         return authToken;
     }
 
+    private readonly cookieAuthPollOptions: Partial<FetchRequestOptions> = {
+        credentials: 'include'
+    };
     private async pollLogin(confirmToken: string, options: LoginOptions): Promise<string> {
         while (true) {
-            const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}`), {
+            const confirmResponse = await this.fetch(this.getUrl(`/api/login/poll/${confirmToken}${this.options.useCookieAuth ? '?useCookie=true' : ''}`), {
                 signal: options.abortSignal,
-                method: 'POST'
+                method: 'POST',
+                ...(this.options.useCookieAuth ? this.cookieAuthPollOptions : {}),
             });
             if (confirmResponse.ok) {
                 try {
@@ -162,6 +172,23 @@ export class ConnectionProvider {
                 }
             } else {
                 throw await this.readError(confirmResponse);
+            }
+        }
+    }
+
+    /**
+     * only neccessary for cookie based authentication to delete the cookie.
+     * If not using cookie based authentication, just deletes the JWT.
+     * Please ensure yourself it is not saved in local storage or similar.
+     */
+    async logout(): Promise<void> {
+        this.userAuthToken = undefined;
+        if (this.options.useCookieAuth) {
+            const logoutResponse = await this.fetch(this.getUrl('/api/logout'), {
+                credentials: 'include'
+            });
+            if (!logoutResponse.ok) {
+                throw new Error('Failed to logout');
             }
         }
     }
@@ -186,13 +213,13 @@ export class ConnectionProvider {
     }
 
     async validate(): Promise<boolean> {
-        if (this.userAuthToken) {
+        if (this.userAuthToken || this.options.useCookieAuth) {
             try {
                 const validateResponse = await this.fetch(this.getUrl('/api/login/validate'), {
                     method: 'POST',
-                    headers: {
-                        'x-oct-jwt': this.userAuthToken!
-                    }
+                    headers: this.getAuthHeader(),
+                    credentials: this.options.useCookieAuth ? 'include' : 'omit'
+
                 });
                 const body = await validateResponse.json();
                 if (types.LoginValidateResponse.is(body)) {
@@ -223,9 +250,8 @@ export class ConnectionProvider {
         const response = await this.fetch(this.getUrl('/api/session/create'), {
             method: 'POST',
             signal: options.abortSignal,
-            headers: {
-                'x-oct-jwt': this.userAuthToken!
-            }
+            headers: this.getAuthHeader(),
+            credentials: this.options.useCookieAuth ? 'include' : 'omit'
         });
         if (!response.ok) {
             throw await this.readError(response);
@@ -255,9 +281,9 @@ export class ConnectionProvider {
         const response = await this.fetch(this.getUrl(`/api/session/join/${options.roomId}`), {
             method: 'POST',
             signal: options.abortSignal,
-            headers: {
-                'x-oct-jwt': this.userAuthToken!
-            }
+            headers: this.getAuthHeader(),
+            credentials: this.options.useCookieAuth ? 'include' : 'omit'
+
         });
         if (!response.ok) {
             throw await this.readError(response);
@@ -282,9 +308,9 @@ export class ConnectionProvider {
             const response = await this.fetch(this.getUrl(`/api/session/poll/${joinToken}`), {
                 method: 'POST',
                 signal: options.abortSignal,
-                headers: {
-                    'x-oct-jwt': this.userAuthToken!
-                }
+                headers: this.getAuthHeader(),
+                credentials: this.options.useCookieAuth ? 'include' : 'omit'
+
             });
             if (response.ok) {
                 const body = await response.json();
@@ -383,5 +409,17 @@ export class ConnectionProvider {
             }
         }
         return controller.signal;
+    }
+
+    private getAuthHeader(): Record<string, string> {
+        if (this.options.useCookieAuth) {
+            return {};
+        } else if (this.userAuthToken) {
+            return {
+                'x-oct-jwt': this.userAuthToken
+            };
+        } else {
+            throw new Error('No authentication token available');
+        }
     }
 }

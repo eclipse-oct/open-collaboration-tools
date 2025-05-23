@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { CollaborationInstance, UsersChangeEvent } from './collaboration-instance.js';
+import { CollaborationInstance, UsersChangeEvent, FileNameChangeEvent } from './collaboration-instance.js';
 import * as types from 'open-collaboration-protocol';
 import { createRoom, joinRoom, login } from './collaboration-connection.js';
 import * as monaco from 'monaco-editor';
@@ -26,6 +26,7 @@ export type MonacoCollabOptions = {
     callbacks: MonacoCollabCallbacks;
     userToken?: string;
     roomToken?: string;
+    useCookieAuth?: boolean;
     loginPageOpener?: (token: string, authenticationMetadata: types.AuthMetadata) => Promise<boolean>;
 };
 
@@ -37,13 +38,18 @@ export type MonacoCollabApi = {
     joinRoom: (roomToken: string) => Promise<string | undefined>
     leaveRoom: () => void
     login: () => Promise<string | undefined>
-    isLoggedIn: () => boolean
+    logout: () => Promise<void | undefined>
+    isLoggedIn: () => Promise<boolean>
     setEditor: (editor: monaco.editor.IStandaloneCodeEditor) => void
     getUserData: () => Promise<UserData | undefined>
     onUsersChanged: (evt: UsersChangeEvent) => void
-    followUser: (id?: string) => void
-    getFollowedUser: () => string | undefined,
+    onFileNameChange: (callback: FileNameChangeEvent) => void
     getCurrentConnection: () => types.ProtocolBroadcastConnection | undefined
+    followUser: (id?: string) => void
+    getFollowedUser: () => string | undefined
+    setFileName: (fileName: string) => void
+    getFileName: () => string | undefined
+    getRoomName: () => string | undefined
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -55,6 +61,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }),
         transports: [SocketIoTransportProvider],
         userToken: options.userToken,
+        useCookieAuth: options.useCookieAuth,
         fetch: async (url, options) => {
             const response = await fetch(url, options);
             return {
@@ -147,18 +154,65 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         return undefined;
     };
 
+    const doSetFileName = (fileName: string) => {
+        if (instance) {
+            instance.setFileName(fileName);
+        }
+    };
+
+    const doGetRoomName = () => {
+        if (instance) {
+            return instance.roomName;
+        }
+        return undefined;
+    };
+
+    const doGetFileName = () => {
+        if (instance) {
+            return instance.fileName;
+        }
+        return undefined;
+    };
+
+    const registerFileNameChangeHandler = (callback: FileNameChangeEvent) => {
+        if (instance) {
+            instance.onFileNameChange(callback);
+        }
+    };
+
+    const isLoggedIn = async () => {
+        if (!connectionProvider) {
+            return false;
+        }
+
+        if (options.useCookieAuth) {
+            const valid = await fetch(options.serverUrl + '/api/login/validate', {
+                credentials: 'include',
+                method: 'POST',
+            });
+            return valid.ok && (await valid.json())?.valid;
+        } else {
+            return !!connectionProvider.authToken;
+        }
+    };
+
     return {
         createRoom: doCreateRoom,
         joinRoom: doJoinRoom,
         leaveRoom: () => instance?.leaveRoom(),
         login: doLogin,
-        isLoggedIn: () => !!connectionProvider?.authToken,
+        logout: async () => connectionProvider?.logout(),
+        isLoggedIn: isLoggedIn,
         setEditor: doSetEditor,
         getUserData: doGetUserData,
         onUsersChanged: registerUserChangeHandler,
+        onFileNameChange: registerFileNameChangeHandler,
         followUser: doFollowUser,
         getFollowedUser: doGetFollowedUser,
         getCurrentConnection: () => instance?.getCurrentConnection(),
+        setFileName: doSetFileName,
+        getFileName: doGetFileName,
+        getRoomName: doGetRoomName
     };
 
 }
