@@ -6,7 +6,7 @@
 
 import { SemVer } from 'semver';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 export const SEM_VERSION = new SemVer(VERSION);
 
 /**

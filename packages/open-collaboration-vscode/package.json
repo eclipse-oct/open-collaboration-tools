@@ -224,7 +224,7 @@
     "inversify": "~6.2.2",
     "reflect-metadata": "~0.2.2",
     "open-collaboration-yjs": "0.3.0",
-    "open-collaboration-protocol": "0.3.0",
+    "open-collaboration-protocol": "0.3.1",
     "lodash": "~4.17.21",
     "nanoid": "~5.1.5",
     "node-fetch": "~3.3.2"

@@ -1,6 +1,6 @@
 {
   "name": "open-collaboration-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "license": "MIT",
   "description": "Open Collaboration Server implementation, part of the Open Collaboration Tools project",
   "files": [
@@ -40,7 +40,7 @@
     "inversify": "~6.2.2",
     "jose": "~6.0.10",
     "nanoid": "~5.1.5",
-    "open-collaboration-protocol": "~0.3.0",
+    "open-collaboration-protocol": "~0.3.1",
     "passport": "~0.7.0",
     "passport-github": "~1.1.0",
     "passport-google-oauth20": "~2.0.0",
