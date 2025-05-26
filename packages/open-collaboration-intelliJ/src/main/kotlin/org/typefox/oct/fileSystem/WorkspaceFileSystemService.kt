@@ -33,7 +33,7 @@ class WorkspaceFileSystemService(project: Project) {
 
     fun stat(path: String): FileSystemStat? {
         try {
-            val file = getRelativeFile(path)
+            val file = getRelativeFile(path)  ?: throw FileNotFoundException("could not find file at $path")
 
             return FileSystemStat(
                 getFileType(file),
@@ -49,7 +49,7 @@ class WorkspaceFileSystemService(project: Project) {
 
     fun readFile(path: String): FileContent? {
         try {
-            val file = getRelativeFile(path)
+            val file = getRelativeFile(path) ?: throw FileNotFoundException("could not find file at $path")
             return FileContent(file.contentsToByteArray())
         } catch (e: FileNotFoundException) {
             return null
@@ -58,7 +58,7 @@ class WorkspaceFileSystemService(project: Project) {
 
     fun readDir(path: String): Map<String, FileType> {
         try {
-            val file = getRelativeFile(path)
+            val file = getRelativeFile(path) ?: throw FileNotFoundException("could not find directory at $path")
 
             val files = HashMap<String, FileType>()
             if (!file.isDirectory) {
@@ -74,36 +74,40 @@ class WorkspaceFileSystemService(project: Project) {
         }
     }
 
-    fun mkdir(path: String): CompletableFuture<Unit> {
+    fun mkdir(pathString: String): CompletableFuture<Unit> {
         return this.runAsyncInWriteContext {
-            workspaceDir.createChildDirectory(this, toRelativeWorkspacePath(path))
+            val path = Path(toRelativeWorkspacePath(pathString))
+            val parentDir = if(path.nameCount == 1) workspaceDir else workspaceDir.findFileByRelativePath(path.parent.pathString)
+
+            parentDir!!.createChildDirectory(this, path.name)
         }
     }
 
     fun writeFile(pathString: String, fileData: FileContent): CompletableFuture<Unit> {
         return this.runAsyncInWriteContext {
-            if (stat(pathString) == null) {
+            var file = getRelativeFile(pathString)
+            if (file == null) {
                 val path = Path(toRelativeWorkspacePath(pathString))
                 val parentDir = if(path.nameCount == 1) workspaceDir else workspaceDir.findFileByRelativePath(path.parent.pathString)
 
-                parentDir!!.createChildData(this, path.name)
+                file = parentDir!!.createChildData(this, path.name)
             }
 
-            val file = getRelativeFile(pathString)
             file.writeBytes(fileData.content)
         }
     }
 
     fun delete(path: String): CompletableFuture<Unit> {
         return this.runAsyncInWriteContext {
-            val file = getRelativeFile(path)
+            val file = getRelativeFile(path) ?: throw FileNotFoundException("could not find file or directory at $path")
             file.delete(file.fileSystem)
         }
     }
 
     fun rename(path: String, newName: String): CompletableFuture<Unit> {
         return this.runAsyncInWriteContext {
-            getRelativeFile(path).rename("externalUser", newName)
+            val file = getRelativeFile(path) ?: throw FileNotFoundException("could not find file at $path")
+            file.rename("externalUser", newName)
         }
     }
 
@@ -120,11 +124,9 @@ class WorkspaceFileSystemService(project: Project) {
         }
     }
 
-    fun getRelativeFile(path: String): VirtualFile {
+    fun getRelativeFile(path: String): VirtualFile? {
         val relativePath = toRelativeWorkspacePath(path)
-        val file = workspaceDir.findFileByRelativePath(relativePath)
-            ?: throw FileNotFoundException("could not find workspace file with path: $path")
-        return file
+        return workspaceDir.findFileByRelativePath(relativePath)
     }
 
     private fun toRelativeWorkspacePath(path: String): String {
