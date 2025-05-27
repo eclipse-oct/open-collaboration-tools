@@ -1,6 +1,5 @@
 package org.typefox.oct
 
-import com.intellij.ide.lightEdit.project.LightEditProjectManager
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
@@ -9,11 +8,9 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectCloseListener
 import com.intellij.openapi.project.ProjectManager
-import com.intellij.openapi.project.ProjectManagerListener
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.AnimatedIcon
-import kotlinx.coroutines.repackaged.net.bytebuddy.implementation.bytecode.Throw
 import org.typefox.oct.actions.CopyRoomTokenAction
 import org.typefox.oct.actions.CopyRoomUrlAction
 import org.typefox.oct.messageHandlers.BaseMessageHandler
@@ -52,6 +49,13 @@ class OCTSessionService() {
             return
         }
 
+        val loadingDialog = LoadingDialog(
+            project,
+            "Creating Room"
+        )
+        SwingUtilities.invokeLater {
+            loadingDialog.show()
+        }
         val serverUrl = service<OCTSettings>().state.defaultServerURL
 
         if (!currentProcesses.contains(project)) {
@@ -71,6 +75,10 @@ class OCTSessionService() {
             })
             Notifications.Bus.notify(roomCreatedNotification)
 
+            SwingUtilities.invokeAndWait {
+                loadingDialog.close(0)
+            }
+
             sessionCreated(sessionData, serverUrl, project, true)
 
         }.exceptionally {
@@ -86,7 +94,7 @@ class OCTSessionService() {
 
         val currentProcess = createServiceProcess(serverUrl)
 
-        val joiningDialog = JoiningDialog(project ?: ProjectManager.getInstance().defaultProject)
+        val joiningDialog = LoadingDialog(project ?: ProjectManager.getInstance().defaultProject, "Joining Room...")
 
         SwingUtilities.invokeLater {
             joiningDialog.show()
@@ -162,7 +170,7 @@ class OCTSessionService() {
     }
 }
 
-class JoiningDialog(project: Project) : DialogWrapper(project) {
+class LoadingDialog(project: Project, val text: String) : DialogWrapper(project) {
 
     init {
         init()
@@ -171,7 +179,7 @@ class JoiningDialog(project: Project) : DialogWrapper(project) {
 
     override fun createCenterPanel(): JComponent {
         return JLabel(
-            "Joining Room...",
+            text,
             AnimatedIcon.Default(),
             SwingConstants.LEFT
         )
