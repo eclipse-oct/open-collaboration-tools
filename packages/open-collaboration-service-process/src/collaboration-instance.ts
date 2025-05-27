@@ -89,7 +89,9 @@ export class CollaborationInstance implements types.Disposable {
         });
 
         octConnection.editor.onOpen(async (peerId, documentPath) => {
-            this.registerYjsObject('text', documentPath, '');
+            if(!this.YjsDoc.share.has(documentPath)) {
+                this.registerYjsObject('text', documentPath, '');
+            }
             this.clientConnection.sendNotification(EditorOpenedNotification, documentPath, peerId);
         });
 
