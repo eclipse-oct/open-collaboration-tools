@@ -110,8 +110,10 @@ class OCTMessageHandler(onSessionCreated: EventEmitter<CollaborationInstance>) :
     @JsonNotification
     fun sessionClosed() {
         ApplicationManager.getApplication().invokeLater {
-            collaborationInstance?.project?.let {
-                ProjectManager.getInstance().closeAndDispose(it)
+            if(collaborationInstance?.isHost != true) {
+                collaborationInstance?.project?.let {
+                    ProjectManager.getInstance().closeAndDispose(it)
+                }
             }
         }
     }

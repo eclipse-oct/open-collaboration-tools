@@ -63,6 +63,9 @@
     <toolWindow factoryClass="org.typefox.oct.sessionView.SessionViewFactory" id="org.typefox.oct.sessionView"
                 anchor="left" icon="/icons/share-icon.svg" />
 
+    <statusBarWidgetFactory implementation="org.typefox.oct.sessionView.OCTSessionStatusBarWidgetFactory"
+                            id="org.typefox.oct.sessionView.StatusBarSessionWidget" />
+
   </extensions>
 
 

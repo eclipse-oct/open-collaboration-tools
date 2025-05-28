@@ -10,12 +10,14 @@ import com.intellij.openapi.project.ProjectCloseListener
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.wm.impl.status.widget.StatusBarWidgetsManager
 import com.intellij.ui.AnimatedIcon
 import org.typefox.oct.actions.CopyRoomTokenAction
 import org.typefox.oct.actions.CopyRoomUrlAction
 import org.typefox.oct.messageHandlers.BaseMessageHandler
 import org.typefox.oct.messageHandlers.FileSystemMessageHandler
 import org.typefox.oct.messageHandlers.OCTMessageHandler
+import org.typefox.oct.sessionView.OCTSessionStatusBarWidgetFactory
 import org.typefox.oct.settings.OCTSettings
 import org.typefox.oct.util.EventEmitter
 import java.io.File
@@ -78,7 +80,6 @@ class OCTSessionService() {
             SwingUtilities.invokeAndWait {
                 loadingDialog.close(0)
             }
-
             sessionCreated(sessionData, serverUrl, project, true)
 
         }.exceptionally {
@@ -129,6 +130,10 @@ class OCTSessionService() {
             }
         }
         currentCollaborationInstances.remove(project)
+
+        // update status bar
+        project.service<StatusBarWidgetsManager>().updateWidget(OCTSessionStatusBarWidgetFactory::class.java)
+
     }
 
     fun projectClosed(project: Project) {
@@ -149,8 +154,11 @@ class OCTSessionService() {
         val collaborationInstance = CollaborationInstance(currentProcess.getOctService(), project, sessionData, isHost)
         Disposer.register(currentProcesses[project]!!, collaborationInstance)
         this.currentCollaborationInstances[project] = collaborationInstance
-        // TODO fire project specific emitter passed to message handlers
+
         onSessionCreated.fire(collaborationInstance)
+
+        // update status bar
+        project.service<StatusBarWidgetsManager>().updateWidget(OCTSessionStatusBarWidgetFactory::class.java)
     }
 
     private fun createServiceProcess(serverUrl: String): OCTServiceProcess {
