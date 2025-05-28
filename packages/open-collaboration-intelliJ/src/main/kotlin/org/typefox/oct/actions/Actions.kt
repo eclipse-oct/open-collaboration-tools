@@ -34,7 +34,10 @@ class HostSessionAction : AnAction() {
   }
 
     override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = e.project != null && !e.project!!.isDefault
+        e.presentation.isEnabled = e.project != null &&
+            !e.project!!.isDefault &&
+            !service<OCTSessionService>().hasOpenSession(e.project!!)
+
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread {
