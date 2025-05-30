@@ -1,6 +1,6 @@
 {
   "name": "open-collaboration-monaco",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "license": "MIT",
   "description": "Connect a single Monaco Editor to an Open Collaboration Tools session",
   "files": [
