@@ -86,7 +86,10 @@ export class CollaborationInstance implements Disposable {
         return this._roomName;
     }
 
-    get roomClaim(): string {
+    /**
+     * access token for the room. allow to join or reconnect as host
+     */
+    get roomToken(): string {
         return this.options.roomClaim.roomToken;
     }
 
