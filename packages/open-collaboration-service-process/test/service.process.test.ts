@@ -143,7 +143,7 @@ describe('Service Process', () => {
 
         expect(hostId).toBeTruthy();
 
-        const folderStat = await guest.communicationHandler.sendRequest('fileSystem/stat', 'testFolder', hostId );
+        const folderStat = await guest.communicationHandler.sendRequest('fileSystem/stat', 'testFolder', hostId);
         expect(folderStat).toBeDefined();
 
         // sending the file path as binary only for testing the conversion
@@ -161,7 +161,7 @@ describe('Service Process', () => {
 
         await updateArived.promise;
 
-    }, 2000000);
+    }, 60000);
 });
 
 async function makeSimpleLoginRequest(token: string, username: string) {
