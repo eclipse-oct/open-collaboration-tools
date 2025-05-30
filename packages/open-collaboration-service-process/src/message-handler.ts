@@ -33,7 +33,6 @@ export class MessageHandler {
         clientCommunication.onError(([error]) => clientCommunication.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
         clientCommunication.onRequest(async (method, params) => {
-            console.log(params);
             if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
                 throw new Error(`Invalid parameters for non service process specific request with method: ${method}, missing target`);
             }
