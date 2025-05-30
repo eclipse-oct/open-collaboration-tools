@@ -53,15 +53,14 @@ export async function joinRoom(connectionProvider: ConnectionProvider, callbacks
     return {message: 'No room ID provided'};
 }
 
-async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: CreateRoomResponse | JoinRoomResponse, isHost: boolean, callbacks: MonacoCollabCallbacks) {
+export async function connectToRoom(connectionProvider: ConnectionProvider, roomClaim: CreateRoomResponse | JoinRoomResponse, isHost: boolean, callbacks: MonacoCollabCallbacks) {
     const host = 'host' in roomClaim ? roomClaim.host : undefined;
     const connection = await connectionProvider.connect(roomClaim.roomToken, host);
     const instance = new CollaborationInstance({
         connection,
         host: isHost,
-        roomToken: roomClaim.roomId,
-        hostId: host?.id,
-        callbacks
+        callbacks,
+        roomClaim
     });
     connection.onDisconnect(() => {
         instance?.dispose();

@@ -83,7 +83,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
 
         instance = await createRoom(connectionProvider, options.callbacks);
         if (instance) {
-            return instance.roomToken;
+            return instance.roomId;
         }
         return;
     };
@@ -102,7 +102,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
             return;
         } else {
             instance = res;
-            return instance.roomToken;
+            return instance.roomId;
         }
     };
 

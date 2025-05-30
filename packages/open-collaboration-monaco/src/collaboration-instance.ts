@@ -27,8 +27,7 @@ export interface CollaborationInstanceOptions {
     host: boolean;
     callbacks: MonacoCollabCallbacks;
     editor?: monaco.editor.IStandaloneCodeEditor;
-    hostId?: string;
-    roomToken: string;
+    roomClaim: types.CreateRoomResponse | types.JoinRoomResponse;
 }
 
 export class CollaborationInstance implements Disposable {
@@ -67,12 +66,16 @@ export class CollaborationInstance implements Disposable {
         return this.identity.promise;
     }
 
-    get host(): boolean {
+    get isHost(): boolean {
         return this.options.host;
     }
 
-    get roomToken(): string {
-        return this.options.roomToken;
+    get host(): types.Peer | undefined {
+        return 'host' in this.options.roomClaim ? this.options.roomClaim.host : undefined;
+    }
+
+    get roomId(): string {
+        return this.options.roomClaim.roomId;
     }
 
     get fileName(): string {
@@ -81,6 +84,10 @@ export class CollaborationInstance implements Disposable {
 
     get roomName(): string {
         return this._roomName;
+    }
+
+    get roomClaim(): string {
+        return this.options.roomClaim.roomToken;
     }
 
     onUsersChanged(callback: UsersChangeEvent) {
@@ -100,7 +107,7 @@ export class CollaborationInstance implements Disposable {
         this.yjsProvider.connect();
 
         this._fileName = 'myFile.txt';
-        this._roomName = this.roomToken;
+        this._roomName = this.roomId;
 
         this.setupConnectionHandlers();
         this.setupFileSystemHandlers();
@@ -399,7 +406,7 @@ export class CollaborationInstance implements Disposable {
             const text = document.getValue();
             const yjsText = this.yjs.getText(path);
             let ytextContent = '';
-            if (this.host) {
+            if (this.isHost) {
                 this.yjs.transact(() => {
                     yjsText.delete(0, yjsText.length);
                     yjsText.insert(0, text);
@@ -649,7 +656,7 @@ export class CollaborationInstance implements Disposable {
             const stringValue = this.yjs.getText(path);
             return stringValue.toString();
         } else {
-            const file = await this.connection.fs.readFile(this.options.hostId, path);
+            const file = await this.connection.fs.readFile(this.host?.id, path);
             const decoder = new TextDecoder();
             return decoder.decode(file.content);
         }
