@@ -1,6 +1,7 @@
 bundle/
 lib/
 node_modules/
-*.tsbuildinfo
 dist/
+*.tsbuildinfo
 .DS_Store
+.env
