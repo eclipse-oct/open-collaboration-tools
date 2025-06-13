@@ -39,6 +39,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
         this.label = this.configuration.getValue('keycloak-client-label') ?? 'Keycloak';
 
         this.keycloakBaseUrl = `${this.host}/realms/${this.realm}`;
+        super.initialize();
     }
 
     getProtocolProvider(): AuthProvider {
