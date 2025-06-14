@@ -7,6 +7,7 @@
         { "path": "./packages/open-collaboration-monaco/tsconfig.json" },
         { "path": "./packages/open-collaboration-service-process/tsconfig.src.json" },
         { "path": "./packages/open-collaboration-service-process/tsconfig.test.json" },
-        { "path": "./packages/open-collaboration-vscode/tsconfig.json" }
+        { "path": "./packages/open-collaboration-vscode/tsconfig.json" },
+        { "path": "./packages/open-collaboration-agent/tsconfig.json" }
     ]
- }
+}
