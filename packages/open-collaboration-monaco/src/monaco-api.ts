@@ -183,7 +183,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
 
     const doSetWorkspaceName = (workspaceName: string) => {
         if (instance) {
-            instance.setWorkspaceName(workspaceName);
+            instance.workspaceName = workspaceName;
         }
     };
 

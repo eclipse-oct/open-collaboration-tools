@@ -86,6 +86,10 @@ export class CollaborationInstance implements Disposable {
         return this._workspaceName;
     }
 
+    set workspaceName(_workspaceName: string) {
+        this._workspaceName = _workspaceName;
+    }
+
     /**
      * access token for the room. allow to join or reconnect as host
      */
@@ -244,10 +248,6 @@ export class CollaborationInstance implements Disposable {
                 ]
             });
         }
-    }
-
-    setWorkspaceName(workspaceName: string): void {
-        this._workspaceName = workspaceName;
     }
 
     dispose() {
