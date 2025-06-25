@@ -246,6 +246,10 @@ export class CollaborationInstance implements Disposable {
         }
     }
 
+    setRoomName(roomName: string): void {
+        this._roomName = roomName;
+    }
+
     dispose() {
         this.peers.clear();
         this.documentDisposables.forEach(e => e.dispose());

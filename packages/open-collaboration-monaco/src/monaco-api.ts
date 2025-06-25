@@ -49,6 +49,7 @@ export type MonacoCollabApi = {
     getFollowedUser: () => string | undefined
     setFileName: (fileName: string) => void
     getFileName: () => string | undefined
+    setRoomName: (roomName: string) => void
     getRoomName: () => string | undefined
 }
 
@@ -180,6 +181,12 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }
     };
 
+    const doSetRoomName = (roomName: string) => {
+        if (instance) {
+            instance.setRoomName(roomName);
+        }
+    };
+
     const isLoggedIn = async () => {
         if (!connectionProvider) {
             return false;
@@ -212,7 +219,8 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         getCurrentConnection: () => instance?.getCurrentConnection(),
         setFileName: doSetFileName,
         getFileName: doGetFileName,
-        getRoomName: doGetRoomName
+        getRoomName: doGetRoomName,
+        setRoomName: doSetRoomName
     };
 
 }
