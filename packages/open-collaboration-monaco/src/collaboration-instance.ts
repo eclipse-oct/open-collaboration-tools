@@ -9,7 +9,7 @@ import * as Y from 'yjs';
 import * as monaco from 'monaco-editor';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
+import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YTextChange, YTextChangeDelta } from 'open-collaboration-yjs';
 import { createMutex } from 'lib0/mutex';
 import { debounce } from 'lodash';
 import { MonacoCollabCallbacks } from './monaco-api.js';
@@ -37,7 +37,6 @@ export class CollaborationInstance implements Disposable {
     protected readonly yjsMutex = createMutex();
 
     protected readonly identity = new Deferred<types.Peer>();
-    protected readonly updates = new Set<string>();
     protected readonly documentDisposables = new Map<string, DisposableCollection>();
     protected readonly peers = new Map<string, DisposablePeer>();
     protected readonly throttles = new Map<string, () => void>();
@@ -427,14 +426,16 @@ export class CollaborationInstance implements Disposable {
                 }
             }
             if (text !== ytextContent) {
-                document.setValue(ytextContent);
+                this.yjsMutex(() => {
+                    document.setValue(ytextContent);
+                });
             }
             this.registerTextObserver(path, document, yjsText);
         }
     }
 
     protected registerTextObserver(path: string, document: monaco.editor.ITextModel, yjsText: Y.Text): void {
-        const textObserver = this.documentDisposables.get('textObserver');
+        const textObserver = this.documentDisposables.get(path);
         if (textObserver) {
             textObserver.dispose();
         }
@@ -443,44 +444,32 @@ export class CollaborationInstance implements Disposable {
         const observer = (textEvent: Y.YTextEvent) => {
             this.yjsMutex(async () => {
                 if (this.options.editor) {
-                    this.updates.add(path);
-                    const edits = this.createEditsFromTextEvent(textEvent, document);
-                    this.options.editor.executeEdits(document.id, edits);
-                    this.updates.delete(path);
+                    const changes = YTextChangeDelta.toChanges(textEvent.delta);
+                    const edits = this.createEditsFromTextEvent(changes, document);
+                    this.updateDocument(document, edits);
                     resyncThrottle();
                 }
             });
         };
         yjsText.observe(observer);
-        this.pushDocumentDisposable('textObserver', { dispose: () => yjsText.unobserve(observer) });
+        this.pushDocumentDisposable(path, { dispose: () => yjsText.unobserve(observer) });
     }
 
-    private createEditsFromTextEvent(textEvent: Y.YTextEvent, document: monaco.editor.ITextModel): monaco.editor.IIdentifiedSingleEditOperation[] {
+    protected updateDocument(document: monaco.editor.ITextModel, edits: monaco.editor.IIdentifiedSingleEditOperation[]): void {
+        document.pushStackElement();
+        document.pushEditOperations(null, edits, () => null);
+        document.pushStackElement();
+    }
+
+    private createEditsFromTextEvent(changes: YTextChange[], document: monaco.editor.ITextModel): monaco.editor.IIdentifiedSingleEditOperation[] {
         const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
-        let index = 0;
-        textEvent.delta.forEach(delta => {
-            if (delta.retain !== undefined) {
-                index += delta.retain;
-            } else if (delta.insert !== undefined) {
-                const pos = document.getPositionAt(index);
-                const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
-                const insert = delta.insert as string;
-                edits.push({
-                    range,
-                    text: insert,
-                    forceMoveMarkers: true
-                });
-                index += insert.length;
-            } else if (delta.delete !== undefined) {
-                const pos = document.getPositionAt(index);
-                const endPos = document.getPositionAt(index + delta.delete);
-                const range = new monaco.Range(pos.lineNumber, pos.column, endPos.lineNumber, endPos.column);
-                edits.push({
-                    range,
-                    text: '',
-                    forceMoveMarkers: true
-                });
-            }
+        changes.forEach(change => {
+            const start = document.getPositionAt(change.start);
+            const end = document.getPositionAt(change.end);
+            edits.push({
+                range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column),
+                text: change.text
+            });
         });
         return edits;
     }
@@ -488,11 +477,8 @@ export class CollaborationInstance implements Disposable {
     protected updateTextDocument(event: monaco.editor.IModelContentChangedEvent, document: monaco.editor.ITextModel): void {
         const path = this.currentPath;
         if (path) {
-            if (this.updates.has(path)) {
-                return;
-            }
-            const ytext = this.yjs.getText(path);
             this.yjsMutex(() => {
+                const ytext = this.yjs.getText(path);
                 this.yjs.transact(() => {
                     for (const change of event.changes) {
                         ytext.delete(change.rangeOffset, change.rangeLength);
@@ -508,14 +494,14 @@ export class CollaborationInstance implements Disposable {
         let value = this.throttles.get(path);
         if (!value) {
             value = debounce(() => {
-                this.yjsMutex(async () => {
+                this.yjsMutex(() => {
                     const yjsText = this.yjs.getText(path);
                     const newContent = yjsText.toString();
                     if (newContent !== document.getValue()) {
-                        await this.updateDocumentContent(document, newContent, path);
+                        this.updateDocumentContent(document, newContent);
                     }
                 });
-            }, 200, {
+            }, 100, {
                 leading: false,
                 trailing: true
             });
@@ -524,14 +510,16 @@ export class CollaborationInstance implements Disposable {
         return value;
     }
 
-    private async updateDocumentContent(document: monaco.editor.ITextModel, newContent: string, path: string): Promise<void> {
-        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [{
-            range: new monaco.Range(0, 0, document.getLineCount(), 0),
-            text: newContent
-        }];
-        this.updates.add(path);
-        this.options.editor && this.options.editor.executeEdits(document.id, edits);
-        this.updates.delete(path);
+    private updateDocumentContent(document: monaco.editor.ITextModel, newContent: string): void {
+        this.yjsMutex(() => {
+            if (this.options.editor) {
+                const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [{
+                    range: document.getFullModelRange(),
+                    text: newContent
+                }];
+                this.updateDocument(document, edits);
+            }
+        });
     }
 
     protected rerenderPresence() {

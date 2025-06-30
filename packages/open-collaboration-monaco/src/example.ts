@@ -42,7 +42,7 @@ if (container) {
     });
 
     const monacoCollabApi = monacoCollab({
-        serverUrl: 'http://0.0.0.0:8100',
+        serverUrl: 'http://localhost:8100',
         callbacks: {
             onUserRequestsAccess: (user: User) => {
                 console.log('User requests access', user);
