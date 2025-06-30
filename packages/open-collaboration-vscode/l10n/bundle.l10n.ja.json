@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "共同作業部屋から退出",
   "Leave the collaboration session, closing the current workspace": "共同作業部屋から自分が退出し、現在のワークスペースを閉じます",
   "Copy with Server URL": "部屋のURLをコピー",
+  "Copy Web Client URL": "WebクライアントURLをコピー",
   "Invitation code {0} copied to clipboard!": "招待コード {0} がクリップボードにコピーされました！",
   "Enable Editing": "編集を有効にする",
   "Allow all participants to edit files in the workspace": "参加者全員がワークスペース内のファイルを編集できるようにする",

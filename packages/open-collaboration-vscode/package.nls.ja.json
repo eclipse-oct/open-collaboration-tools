@@ -8,5 +8,6 @@
   "oct.roomView": "現在参加中の部屋",
   "oct.serverUrl": "Open Collaboration Tools サーバの URL",
   "oct.alwaysAskToOverrideServerUrl": "招待コードのみで参加させたい場合は、サーバーURL設定を上書きするように依頼してください。",
+  "oct.webClientUrl": "WebクライアントのURLテンプレート。${roomId}を部屋IDのプレースホルダーとして使用してください。",
   "oct.user.color": "共同作業部屋でのユーザーの色"
 }

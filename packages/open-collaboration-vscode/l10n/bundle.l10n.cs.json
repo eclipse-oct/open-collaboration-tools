@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "Opustit zasedání pro spolupráci",
   "Leave the collaboration session, closing the current workspace": "Opustit relaci spolupráce a zavřít aktuální pracovní prostor.",
   "Copy with Server URL": "Kopírování pomocí adresy URL serveru",
+  "Copy Web Client URL": "Kopírovat URL webového klienta",
   "Invitation code {0} copied to clipboard!": "Kód pozvánky {0} zkopírován do schránky!",
   "Enable Editing": "Povolení úprav",
   "Allow all participants to edit files in the workspace": "Umožnit všem účastníkům upravovat soubory v pracovním prostoru.",

@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "Оставьте сессию совместной работы",
   "Leave the collaboration session, closing the current workspace": "Покиньте сеанс совместной работы, закрыв текущее рабочее пространство",
   "Copy with Server URL": "Копирование с URL-адресом сервера",
+  "Copy Web Client URL": "Копировать URL веб-клиента",
   "Invitation code {0} copied to clipboard!": "Код приглашения {0} скопирован в буфер обмена!",
   "Enable Editing": "Включить редактирование",
   "Allow all participants to edit files in the workspace": "Разрешите всем участникам редактировать файлы в рабочей области",

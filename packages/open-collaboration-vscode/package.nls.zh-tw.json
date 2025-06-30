@@ -8,5 +8,6 @@
   "oct.roomView": "目前的協作會議",
   "oct.serverUrl": "用於即時協作會話的 Open Collaboration Tools Server 實例的 URL。",
   "oct.alwaysAskToOverrideServerUrl": "加入使用特定伺服器 URL 作為階段 ID 一部分的協作階段時，請務必要求覆寫伺服器 URL。",
+  "oct.webClientUrl": "Web 用戶端的 URL 範本。使用 ${roomId} 作為房間 ID 的預留位置。",
   "oct.user.color": "協作會議中使用者的顏色"
 }

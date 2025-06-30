@@ -11,6 +11,7 @@ export namespace Settings {
 
     export const SERVER_URL = 'oct.serverUrl';
     export const ALWAYS_ASK_TO_OVERRIDE_SERVER_URL = 'oct.alwaysAskToOverrideServerUrl';
+    export const WEB_CLIENT_URL = 'oct.webClientUrl';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -32,6 +33,11 @@ export namespace Settings {
 
     export async function setServerUrlOverride(value: boolean): Promise<void> {
         await vscode.workspace.getConfiguration().update(ALWAYS_ASK_TO_OVERRIDE_SERVER_URL, value, vscode.ConfigurationTarget.Global);
+    }
+
+    export function getWebClientUrl(): string | undefined {
+        const url = vscode.workspace.getConfiguration().get(WEB_CLIENT_URL);
+        return typeof url === 'string' ? url : undefined;
     }
 
 }

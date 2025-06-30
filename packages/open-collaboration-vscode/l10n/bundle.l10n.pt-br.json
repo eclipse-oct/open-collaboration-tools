@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "Sair da sessão de colaboração",
   "Leave the collaboration session, closing the current workspace": "Sair da sessão de colaboração, fechando o espaço de trabalho atual",
   "Copy with Server URL": "Copiar com URL do servidor",
+  "Copy Web Client URL": "Copiar URL do cliente web",
   "Invitation code {0} copied to clipboard!": "Código do convite {0} copiado para a área de transferência!",
   "Enable Editing": "Ativar edição",
   "Allow all participants to edit files in the workspace": "Permitir que todos os participantes editem arquivos no espaço de trabalho",

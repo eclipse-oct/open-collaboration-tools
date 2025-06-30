@@ -8,5 +8,6 @@
   "oct.roomView": "Güncel İşbirliği Oturumu",
   "oct.serverUrl": "Canlı işbirliği oturumları için Open Collaboration Tools Server örneğinin URL'si.",
   "oct.alwaysAskToOverrideServerUrl": "Oturum kimliğinin bir parçası olarak belirli bir sunucu URL'si kullanarak bir işbirliği oturumuna katılırken her zaman sunucu URL'sini geçersiz kılmayı isteyin.",
+  "oct.webClientUrl": "Web istemcisi için URL şablonu. Oda kimliği için yer tutucu olarak ${roomId} kullanın.",
   "oct.user.color": "İşbirliği oturumlarında kullanıcılar için renk"
 }

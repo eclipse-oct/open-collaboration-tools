@@ -15,6 +15,7 @@ import { CollaborationRoomService } from './collaboration-room-service.js';
 import { CollaborationStatusService } from './collaboration-status-service.js';
 import { SecretStorage } from './secret-storage.js';
 import { RoomUri } from './utils/uri.js';
+import { Settings } from './utils/settings.js';
 import { CodeCommands, OctCommands } from './commands-list.js';
 
 @injectable()
@@ -169,12 +170,22 @@ export class Commands {
     async inviteCallback(instance: CollaborationInstance): Promise<void> {
         vscode.env.clipboard.writeText(instance.roomId);
         const copyWithServer = vscode.l10n.t('Copy with Server URL');
-        vscode.window.showInformationMessage(vscode.l10n.t('Invitation code {0} copied to clipboard!', instance.roomId), copyWithServer).then(value => {
+        const copyWebClientUrl = vscode.l10n.t('Copy Web Client URL');
+        const actions: string[] = [copyWithServer];
+        const webClientUrl = Settings.getWebClientUrl();
+        if (webClientUrl) {
+            actions.push(copyWebClientUrl);
+        }
+
+        vscode.window.showInformationMessage(vscode.l10n.t('Invitation code {0} copied to clipboard!', instance.roomId), ...actions).then(value => {
             if (value === copyWithServer) {
                 vscode.env.clipboard.writeText(RoomUri.create({
                     roomId: instance.roomId,
                     serverUrl: instance.serverUrl
                 }));
+            } else if (value === copyWebClientUrl && webClientUrl) {
+                const webUrl = webClientUrl.replace('${roomId}', instance.roomId);
+                vscode.env.clipboard.writeText(webUrl);
             }
         });
     }

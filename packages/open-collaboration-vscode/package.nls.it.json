@@ -8,5 +8,6 @@
   "oct.roomView": "Sessione di collaborazione in corso",
   "oct.serverUrl": "URL dell'istanza di Open Collaboration Tools Server per le sessioni di collaborazione dal vivo.",
   "oct.alwaysAskToOverrideServerUrl": "Chiedere sempre di sovrascrivere l'URL del server quando ci si unisce a una sessione di collaborazione utilizzando un URL del server specifico come parte dell'ID della sessione.",
+  "oct.webClientUrl": "Modello URL per il client web. Usa ${roomId} come segnaposto per l'ID della stanza.",
   "oct.user.color": "Colore per gli utenti nelle sessioni di collaborazione"
 }

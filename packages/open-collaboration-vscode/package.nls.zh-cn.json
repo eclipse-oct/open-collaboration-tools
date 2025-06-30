@@ -8,5 +8,6 @@
   "oct.roomView": "当前协作会话",
   "oct.serverUrl": "实时协作会话的开放协作工具服务器实例 URL。",
   "oct.alwaysAskToOverrideServerUrl": "在使用特定服务器 URL 作为会话 ID 的一部分加入协作会话时，始终要求覆盖服务器 URL。",
+  "oct.webClientUrl": "Web 客户端的 URL 模板。使用 ${roomId} 作为房间 ID 的占位符。",
   "oct.user.color": "协作会话中用户的颜色"
 }

@@ -19,8 +19,8 @@
   ],
   "icon": "data/oct-logo.png",
   "galleryBanner": {
-    "color": "#031021",
-    "theme": "dark"
+    "color": "#CBC9E8",
+    "theme": "light"
   },
   "homepage": "https://www.open-collab.tools/",
   "bugs": {
@@ -75,6 +75,11 @@
           "type": "boolean",
           "default": true,
           "description": "%oct.alwaysAskToOverrideServerUrl%"
+        },
+        "oct.webClientUrl": {
+          "type": "string",
+          "default": "https://www.open-collab.tools/playground/?room=${roomId}",
+          "description": "%oct.webClientUrl%"
         }
       }
     },

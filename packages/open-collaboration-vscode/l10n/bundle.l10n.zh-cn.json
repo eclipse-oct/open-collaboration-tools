@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "离开协作会话",
   "Leave the collaboration session, closing the current workspace": "离开协作会话，关闭当前工作区",
   "Copy with Server URL": "用服务器 URL 复制",
+  "Copy Web Client URL": "复制 Web 客户端 URL",
   "Invitation code {0} copied to clipboard!": "邀请码 {0} 已复制到剪贴板！",
   "Enable Editing": "启用编辑",
   "Allow all participants to edit files in the workspace": "允许所有参与者编辑工作区中的文件",

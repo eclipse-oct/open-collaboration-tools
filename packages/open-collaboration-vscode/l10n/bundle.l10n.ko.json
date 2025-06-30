@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "공동 작업 세션 나가기",
   "Leave the collaboration session, closing the current workspace": "현재 작업 공간을 닫고 공동 작업 세션에서 나갑니다.",
   "Copy with Server URL": "서버 URL로 복사",
+  "Copy Web Client URL": "웹 클라이언트 URL 복사",
   "Invitation code {0} copied to clipboard!": "초대 코드 {0}이(가) 클립보드에 복사되었습니다!",
   "Enable Editing": "편집 사용",
   "Allow all participants to edit files in the workspace": "모든 참가자가 작업 영역에서 파일을 수정할 수 있도록 허용하기",

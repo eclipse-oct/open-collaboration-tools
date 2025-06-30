@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "Hagyja el az együttműködési ülést",
   "Leave the collaboration session, closing the current workspace": "Az együttműködési munkamenet elhagyása, az aktuális munkaterület bezárása",
   "Copy with Server URL": "Másolás a kiszolgáló URL-címével",
+  "Copy Web Client URL": "Webes kliens URL másolása",
   "Invitation code {0} copied to clipboard!": "Meghívó kód {0} másolva a vágólapra!",
   "Enable Editing": "Szerkesztés engedélyezése",
   "Allow all participants to edit files in the workspace": "Minden résztvevő számára lehetővé teszi a fájlok szerkesztését a munkaterületen.",

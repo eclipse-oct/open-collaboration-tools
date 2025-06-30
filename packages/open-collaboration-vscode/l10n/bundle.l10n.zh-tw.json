@@ -14,6 +14,7 @@
   "Leave Collaboration Session": "休假協作會議",
   "Leave the collaboration session, closing the current workspace": "離開協作工作階段，關閉目前的工作空間",
   "Copy with Server URL": "使用伺服器 URL 複製",
+  "Copy Web Client URL": "複製 Web 用戶端 URL",
   "Invitation code {0} copied to clipboard!": "邀請函代碼 {0} 已複製到剪貼簿！",
   "Enable Editing": "啟用編輯",
   "Allow all participants to edit files in the workspace": "允許所有參與者編輯工作區中的檔案",
