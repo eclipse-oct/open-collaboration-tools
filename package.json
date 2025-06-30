@@ -39,6 +39,7 @@
     "eslint-plugin-header": "~3.1.1",
     "eslint-plugin-import": "~2.31.0",
     "eslint-plugin-unused-imports": "~4.1.4",
+    "monaco-editor": "0.44.0",
     "shx": "~0.4.0",
     "tsx": "~4.19.3",
     "typescript": "~5.8.3",

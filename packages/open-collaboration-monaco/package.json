@@ -35,12 +35,14 @@
   },
   "dependencies": {
     "lodash": "~4.17.21",
-    "monaco-editor": "~0.52.2",
     "open-collaboration-protocol": "~0.3.1",
     "open-collaboration-yjs": "~0.3.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.89.0"
+  },
+  "peerDependencies": {
+    "monaco-editor": ">= 0.44.0"
   },
   "keywords": [
     "collaboration",
