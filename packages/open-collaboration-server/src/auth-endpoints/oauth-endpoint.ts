@@ -97,7 +97,8 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
                 const redirectRequest = this.loginRedirectRequests.get(token);
                 if(redirectRequest) {
                     this.loginRedirectRequests.delete(token);
-                    if(!redirectUriWhitelist?.includes(redirectRequest)) {
+                    const redirectUrl = new URL(redirectRequest);
+                    if(!redirectUriWhitelist?.includes(`${redirectUrl.origin}${redirectUrl.pathname}`)) {
                         this.logger.error(`Redirect URI ${redirectRequest} not in whitelist`);
                         res.status(400);
                         res.send('Error: Redirect URL not in whitelist');
@@ -120,7 +121,6 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
 
             })(req, res);
         });
-
     }
 
     protected createRedirectUrl(host: string, port: number, path: string): string {
