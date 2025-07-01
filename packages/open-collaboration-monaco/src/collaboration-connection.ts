@@ -19,7 +19,7 @@ export async function createRoom(connectionProvider: ConnectionProvider, callbac
     if (!connectionProvider) {
         return undefined;
     }
-    const roomClaim = await connectionProvider.createRoom({});
+    const roomClaim = await connectionProvider.createRoom({reporter: callbacks.statusReporter});
     if (roomClaim.loginToken) {
         const userToken = roomClaim.loginToken;
         console.log('User Token:', userToken);
@@ -37,7 +37,7 @@ export async function joinRoom(connectionProvider: ConnectionProvider, callbacks
     }
     if (roomId && connectionProvider) {
         try {
-            const roomClaim = await connectionProvider.joinRoom({roomId});
+            const roomClaim = await connectionProvider.joinRoom({roomId, reporter: callbacks.statusReporter});
             const instance = await connectToRoom(connectionProvider, roomClaim, false, callbacks);
             if (!instance) {
                 console.log('No collaboration instance found');

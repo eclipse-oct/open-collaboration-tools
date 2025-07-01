@@ -19,6 +19,11 @@ types.initializeProtocol({
 
 export type MonacoCollabCallbacks = {
     onUserRequestsAccess: (user: types.User) => Promise<boolean>;
+    /**
+     * reports the status when joining or creating a room
+     * @param info information about the changed status
+     */
+    statusReporter?: (info: types.Info) => void;
 }
 
 export type MonacoCollabOptions = {
@@ -79,14 +84,14 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
 
         if (!connectionProvider) {
             console.log('No OCT Server configured.');
-            return;
+            throw new Error('No OCT Server configured.');
         }
 
         instance = await createRoom(connectionProvider, options.callbacks);
         if (instance) {
             return instance.roomId;
         }
-        return;
+        throw new Error('Failed to create room');
     };
 
     const doJoinRoom = async (roomToken: string) => {
@@ -94,13 +99,13 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
 
         if (!connectionProvider) {
             console.log('No OCT Server configured.');
-            return;
+            throw new Error('No OCT Server configured.');
         }
 
         const res = await joinRoom(connectionProvider, options.callbacks, roomToken);
         if (res && 'message' in res) {
             console.log('Failed to join room:', res.message);
-            return;
+            throw new Error('Failed to join room:' + res.message);
         } else {
             instance = res;
             return instance.roomId;
@@ -110,7 +115,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
     const doLogin = async () => {
         if (!connectionProvider) {
             console.log('No OCT Server configured.');
-            return;
+            throw new Error('No OCT Server configured.');
         }
         await login(connectionProvider);
         return connectionProvider.authToken;
