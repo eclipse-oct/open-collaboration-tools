@@ -104,8 +104,8 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
 
         const res = await joinRoom(connectionProvider, options.callbacks, roomToken);
         if (res && 'message' in res) {
-            console.log('Failed to join room:', res.message);
-            throw new Error('Failed to join room:' + res.message);
+            console.log('Failed to join room: ', res.message);
+            throw new Error('Failed to join room: ' + res.message);
         } else {
             instance = res;
             return instance.roomId;
