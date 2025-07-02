@@ -627,6 +627,7 @@ export class CollaborationInstance implements Disposable {
         for (const peer of [data.host, ...data.guests]) {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
+        this.workspaceName = data.workspace.name;
         this.notifyUsersChanged();
     }
 
