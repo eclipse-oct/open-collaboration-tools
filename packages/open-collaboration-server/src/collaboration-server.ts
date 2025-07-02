@@ -376,7 +376,7 @@ export class CollaborationServer {
                     const joinNotFound: InfoMessage = {
                         code: 'JoinRequestNotFound',
                         params: [],
-                        message: 'Join request not found'
+                        message: 'Join request not found or requested timed out'
                     };
                     res.send(joinNotFound);
                     return;

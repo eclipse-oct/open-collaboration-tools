@@ -312,6 +312,11 @@ export class ConnectionProvider {
                 credentials: this.options.useCookieAuth ? 'include' : 'omit'
 
             });
+
+            if(response.status === 204) {
+                continue;
+            }
+
             if (response.ok) {
                 const body = await response.json();
                 if (types.JoinRoomPollResponse.is(body)) {
