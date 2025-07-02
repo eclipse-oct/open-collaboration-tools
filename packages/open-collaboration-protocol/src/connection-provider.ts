@@ -313,7 +313,7 @@ export class ConnectionProvider {
 
             });
 
-            if(response.status === 204) {
+            if (response.status === 204) {
                 continue;
             }
 
