@@ -62,7 +62,7 @@ export class CollaborationStatusService {
         this.statusBarItem.command = commandId;
         this.statusBarItem.tooltip = vscode.l10n.t('Start a collaboration session');
         this.statusBarItem.show();
-        if (isWeb) {
+        if (isWeb()) {
             // For some reason, VS Code simply "swallows" our status bar item when running in web mode.
             // This will attempt to show it again every 200ms. After 30s, we disable that again.
             const interval = setInterval(() => this.statusBarItem.show(), 200);

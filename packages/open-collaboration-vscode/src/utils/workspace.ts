@@ -40,7 +40,7 @@ export interface CodeWorkspaceFolder {
 
 export async function storeWorkspace(folders: Folder[], storageUri: vscode.Uri): Promise<vscode.Uri | undefined> {
     const canWrite = vscode.workspace.fs.isWritableFileSystem(storageUri.scheme);
-    if (!canWrite || isWeb) {
+    if (!canWrite || isWeb()) {
         return undefined;
     }
     try {

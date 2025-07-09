@@ -1,5 +1,17 @@
 # Change Log of `open-collaboration-tools`
 
+## v0.3.4 (Jul. 2025)
+
+- Fixed the extension to work in Code-Server applications
+
+## v0.3.3 (Jun. 2025)
+
+- Updated our extension logo again
+
+## v0.3.2 (Jun. 2025)
+
+- Updated our extension logo to match the new OCT design
+
 ## v0.3.1 (Apr. 2025)
 
 - Shared documents are now using normalized line endings (`\n`) to prevent cross-platform issues ([#127](https://github.com/eclipse-oct/open-collaboration-tools/pull/127)).

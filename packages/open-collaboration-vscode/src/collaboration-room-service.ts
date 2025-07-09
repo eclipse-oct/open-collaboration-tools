@@ -169,7 +169,7 @@ export class CollaborationRoomService {
                 }
                 return false;
             });
-            if (success && isWeb) {
+            if (success && isWeb()) {
                 // It seems like the web extension mode doesn't restart the extension host upon changing workspace folders
                 // However, force restarting the extension host by reloading the window removes the current workspace folders
                 // Therefore, we simply attempt to connect after a short delay after receiving the success signal

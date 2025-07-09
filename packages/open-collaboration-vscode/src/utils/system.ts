@@ -6,4 +6,6 @@
 
 import * as vscode from 'vscode';
 
-export const isWeb = vscode.env.appRoot === '';
+export function isWeb(): boolean {
+    return !(typeof process === 'object' && Boolean(process.versions.node)) && vscode.env.uiKind === vscode.UIKind.Web;
+}
