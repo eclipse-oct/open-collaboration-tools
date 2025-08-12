@@ -14,7 +14,9 @@ Usage of the public instance is bound to its [Terms of Use](https://www.open-col
 
 ## Configuration
 
-Environment variables
+Settings are accessed in the following precedence order:
+- as environment variables in the casing format `OCT_SERVER_OWNER`
+- in a CLI-specified config file with keys in the casing format `oct.server.owner`. The file can have a `json`, `yml`, or `yaml` extension.
 
 | Variable | Description |
 |--------------------|---|
