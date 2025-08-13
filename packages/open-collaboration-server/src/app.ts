@@ -30,16 +30,24 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
+function myParseInt(value, dummyPrevious) {
+  const parsedValue = parseInt(value, 10);
+  if (isNaN(parsedValue)) {
+    throw new commander.InvalidArgumentError('Not a number.');
+  }
+  return parsedValue;
+}
+
 program
     .version(pck.version)
-    .option('-p, --port <number>', 'Port to listen on', parseInt, 8100)
+    .option('-p, --port <number>', 'Port to listen on', myParseInt, 8100)
     .option('-h, --hostname <string>', 'Hostname to bind to', 'localhost')
     .option('-c, --config <string>', 'Path to the configuration file')
     .action(startServer);
 
 // Deprecated start command for backwards compatibility
 program.command('start')
-    .option('-p, --port <number>', 'Port to listen on', parseInt, 8100)
+    .option('-p, --port <number>', 'Port to listen on', myParseInt, 8100)
     .option('-h, --hostname <string>', 'Hostname to bind to', 'localhost')
     .option('-l, --log-level <string>', 'Log level', 'info')
     .option('-c, --config <string>', 'Path to the configuration file')
