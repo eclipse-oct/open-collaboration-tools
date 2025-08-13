@@ -26,5 +26,8 @@ Environment variables
 | OCT_ACTIVATE_SIMPLE_LOGIN | Activates the simple login handler to alow unverified authentication just with username and optionally email |
 | OCT_OAUTH_{Provider Name}_CLIENTID | Sets the client id for the specified OAuth provider |
 | OCT_OAUTH_{Provider Name}_CLIENTSECRET | Sets the client secret for the specified OAuth provider |
+| OCT_OAUTH_{Provider Name}_URL | Sets the host URL for a custom OAuth provider (currently Authentik-only) |
+| OCT_OAUTH_{Provider Name}_USERNAMECLAIM | Sets the preferred username claim for an OAuth provider (currently Authentik-only); defaults to `preferred_username` |
+| OCT_OAUTH_{Provider Name}_CLIENTLABEL | Sets a custom label for the specified OAuth provider (currently Authentik-only) |
 | OCT_REDIRECT_URL_WHITELIST | A comma seperated list to allow usage of the specified URLs with the `redirect` query parameter when authenticating with a provider which redirects back after success. The query of a URL is ignored when validating against this list   |
 | OCT_CORS_ALLOWED_ORIGINS | `,` seperated list to configure the allowed origins for CORS. This will be evaluated based on the origin header of the request. if there is no match, fail the request. if not set all origin will be allowed |

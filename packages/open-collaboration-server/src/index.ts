@@ -13,6 +13,7 @@ export * from './room-manager.js';
 export * from './types.js';
 export * from './user-manager.js';
 export * from './auth-endpoints/auth-endpoint.js';
+export * from './auth-endpoints/authentik-endpoint.js';
 export * from './auth-endpoints/keycloak-endpoint.js';
 export * from './auth-endpoints/oauth-endpoint.js';
 export * from './auth-endpoints/simple-login-endpoint.js';

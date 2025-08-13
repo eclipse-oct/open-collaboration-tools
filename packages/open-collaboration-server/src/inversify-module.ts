@@ -18,6 +18,7 @@ import { AuthEndpoint } from './auth-endpoints/auth-endpoint.js';
 import { GitHubOAuthEndpoint, GoogleOAuthEndpoint  } from './auth-endpoints/oauth-endpoint.js';
 import { Configuration, DefaultConfiguration } from './utils/configuration.js';
 import { PeerManager } from './peer-manager.js';
+import { AuthentikOAuthEndpoint } from './auth-endpoints/authentik-endpoint.js';
 import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endpoint.js';
 
 /**
@@ -48,6 +49,8 @@ export default new ContainerModule(bind => {
     bind(AuthEndpoint).toService(GitHubOAuthEndpoint);
     bind(GoogleOAuthEndpoint).toSelf().inSingletonScope();
     bind(AuthEndpoint).toService(GoogleOAuthEndpoint);
+    bind(AuthentikOAuthEndpoint).toSelf().inSingletonScope();
+    bind(AuthEndpoint).toService(AuthentikOAuthEndpoint);
     bind(KeycloakOAuthEndpoint).toSelf().inSingletonScope();
     bind(AuthEndpoint).toService(KeycloakOAuthEndpoint);
 });
