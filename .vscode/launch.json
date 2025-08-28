@@ -84,6 +84,58 @@
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": []
+        },
+        {
+            "name": "Debug Agent",
+            "type": "node",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/packages/open-collaboration-agent/lib/main.js",
+            "args": [
+                "--room", "${input:roomToken}",
+                "--server", "http://localhost:8100",
+                "--model", "claude-3-5-sonnet-latest"
+            ],
+            "console": "integratedTerminal",
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/packages/open-collaboration-agent/lib/**/*.js"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            },
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Debug Agent (Hot Reload)",
+            "type": "node",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/node_modules/.bin/tsx",
+            "args": [
+                "watch",
+                "${workspaceFolder}/packages/open-collaboration-agent/src/main.ts",
+                "--room", "${input:roomToken}",
+                "--server", "http://localhost:8100",
+                "--model", "claude-3-5-sonnet-latest"
+            ],
+            "console": "integratedTerminal",
+            "restart": true,
+            "env": {
+                "NODE_ENV": "development"
+            },
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "roomToken",
+            "type": "promptString",
+            "description": "Enter the room token to join"
         }
     ]
 }
