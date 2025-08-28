@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { type CoreMessage, generateText } from 'ai';
+import { type CoreMessage, generateText, streamText, StreamTextResult } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 
@@ -38,6 +38,31 @@ export async function executePrompt(input: PromptInput): Promise<string[]> {
     });
 
     return parseOutputRegions(result.text);
+}
+
+export function executePromptStreamed(input: PromptInput): StreamTextResult<never, string> {
+    const provider = getProviderForModel(input.model);
+    const languageModel = provider(input.model);
+    const messages: CoreMessage[] = [];
+
+    const processedDocument = prepareDocumentForLLM(input.document, input.promptOffset);
+
+    messages.push({
+        role: 'user',
+        content: processedDocument
+    });
+    messages.push({
+        role: 'user',
+        content: `---USER PROMPT:\n${input.prompt}`
+    });
+
+    const result = streamText({
+        model: languageModel,
+        system: systemPrompt,
+        messages
+    });
+
+    return result;
 }
 
 /**

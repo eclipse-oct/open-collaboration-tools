@@ -28,7 +28,9 @@
     "oct-agent": "./bin/agent"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts",
+    "dev:nodemon": "nodemon --exec tsx src/main.ts --ext ts,js,json"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.10",
@@ -38,6 +40,9 @@
     "dotenv": "^16.5.0",
     "open-collaboration-protocol": "~0.3.0",
     "open-collaboration-yjs": "~0.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   },
   "keywords": [
     "collaboration",
