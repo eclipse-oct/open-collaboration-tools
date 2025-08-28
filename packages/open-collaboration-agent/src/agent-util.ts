@@ -6,6 +6,8 @@
 
 import { Deferred } from 'open-collaboration-protocol';
 import type { IDocumentSync } from './document-sync.js';
+import { LineEdit } from './document-operations.js';
+
 
 /**
  * Applies the text region changes returned by the LLM to the document.
@@ -18,11 +20,11 @@ export function applyChanges(docPath: string, docContent: string, docLines: stri
     for (const change of changes) {
         // Split the change text into lines
         const changeLines = change.split('\n');
-
+        console.log('changeLines', changeLines);
         // Locate the change in the document with context
         const location = locateChangeInDocument(currentLines, changeLines);
 
-        if (location.endLine > location.startLine) {
+        if (location.endLine >= location.startLine && location.replacementText.length > 0) {
             // Calculate character offsets from line information
             const startOffset = calculateOffset(currentContent, location.startLine);
             const endOffset = calculateOffset(currentContent, location.endLine) - 1;
@@ -40,6 +42,21 @@ export function applyChanges(docPath: string, docContent: string, docLines: stri
             currentLines = currentContent.split('\n');
         }
     }
+}
+
+/**
+ * Returns a typing delay in milliseconds based on the character type
+ * to simulate more realistic human typing patterns
+ */
+function getTypingDelay(char: string): number {
+    // No delay for most characters to keep it responsive
+    if (char === ' ') return 50;  // Slight pause after spaces
+    if (char === '\n') return 100; // Longer pause after newlines
+    if (char === '.' || char === ',' || char === ';') return 80; // Pause after punctuation
+    if (char === '{' || char === '}' || char === '(' || char === ')') return 30; // Small pause for structural characters
+
+    // Random variation for other characters (20-60ms)
+    return Math.random() * 40 + 20;
 }
 
 /**
@@ -155,9 +172,170 @@ function calculateOffset(text: string, line: number): number {
     const lines = text.split('\n');
     let offset = 0;
 
-    for (let i = 0; i < line; i++) {
+    for (let i = 0; i < line && i < lines.length; i++) {
         offset += lines[i].length + 1; // +1 for the newline character
     }
 
     return offset;
+}
+
+/**
+ * Applies line-based edits from MCP tool calls to the document.
+ * Edits are sorted in descending order by line number to avoid offset shifts.
+ */
+export function applyLineEdits(
+    docPath: string,
+    docContent: string,
+    edits: LineEdit[],
+    documentSync: IDocumentSync
+): void {
+    if (edits.length === 0) {
+        return;
+    }
+
+    let currentContent = docContent;
+
+    // Sort edits by line number (descending) to avoid offset shifts when applying multiple edits
+    const sortedEdits = [...edits].sort((a, b) => b.startLine - a.startLine);
+
+    for (const edit of sortedEdits) {
+        if (edit.type === 'replace' && edit.endLine !== undefined && edit.content !== undefined) {
+            // Replace lines from startLine to endLine (inclusive, 1-indexed)
+            const startOffset = calculateOffset(currentContent, edit.startLine - 1);
+            const endOffset = calculateOffset(currentContent, edit.endLine);
+            const length = endOffset - startOffset;
+
+            console.log(`Replacing lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+            documentSync.applyEdit(docPath, edit.content, startOffset, length);
+
+            // Update local state
+            currentContent =
+                currentContent.substring(0, startOffset) +
+                edit.content +
+                currentContent.substring(endOffset);
+        } else if (edit.type === 'insert' && edit.content !== undefined) {
+            // Insert content before the specified line (1-indexed)
+            const insertOffset = edit.startLine === 1 ? 0 : calculateOffset(currentContent, edit.startLine - 1);
+
+            console.log(`Inserting at line ${edit.startLine} (offset ${insertOffset})`);
+            // Add newline if we're inserting in the middle of the document
+            const contentToInsert = edit.startLine === 1 ? edit.content + '\n' : edit.content + '\n';
+            documentSync.applyEdit(docPath, contentToInsert, insertOffset, 0);
+
+            // Update local state
+            currentContent =
+                currentContent.substring(0, insertOffset) +
+                contentToInsert +
+                currentContent.substring(insertOffset);
+        } else if (edit.type === 'delete' && edit.endLine !== undefined) {
+            // Delete lines from startLine to endLine (inclusive, 1-indexed)
+            const startOffset = calculateOffset(currentContent, edit.startLine - 1);
+            const endOffset = calculateOffset(currentContent, edit.endLine);
+            const length = endOffset - startOffset;
+
+            console.log(`Deleting lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+            documentSync.applyEdit(docPath, '', startOffset, length);
+
+            // Update local state
+            currentContent =
+                currentContent.substring(0, startOffset) +
+                currentContent.substring(endOffset);
+        }
+    }
+}
+
+/**
+ * Applies line-based edits from MCP tool calls with natural, progressive animation.
+ * Makes the agent feel like a real colleague typing code changes.
+ */
+export async function applyLineEditsAnimated(
+    docPath: string,
+    docContent: string,
+    edits: LineEdit[],
+    documentSync: IDocumentSync
+): Promise<void> {
+    if (edits.length === 0) {
+        return;
+    }
+
+    // Sort edits by line number (descending) to avoid offset shifts when applying multiple edits
+    const sortedEdits = [...edits].sort((a, b) => b.startLine - a.startLine);
+
+    for (let i = 0; i < sortedEdits.length; i++) {
+        const edit = sortedEdits[i];
+
+        // Add a small pause between different edit operations
+        if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+
+        // Get fresh content from Yjs document (source of truth)
+        const currentContent = documentSync.getDocumentContent(docPath) || '';
+
+        if (edit.type === 'replace' && edit.endLine !== undefined && edit.content !== undefined) {
+            // Replace: delete old content first, then type new content
+            const startOffset = calculateOffset(currentContent, edit.startLine - 1);
+            const endOffset = calculateOffset(currentContent, edit.endLine);
+            const length = endOffset - startOffset;
+
+            console.log(`Replacing lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+
+            // Delete old content character by character (backwards for visual effect)
+            for (let deleteLen = length; deleteLen > 0; deleteLen--) {
+                documentSync.applyEdit(docPath, '', startOffset, 1);
+                // Update cursor position to show where the agent is working
+                documentSync.updateCursorPosition(docPath, startOffset);
+                await new Promise(resolve => setTimeout(resolve, 5)); // Fast deletion
+            }
+
+            // Type new content character by character
+            let insertOffset = startOffset;
+            for (const char of edit.content) {
+                documentSync.applyEdit(docPath, char, insertOffset, 0);
+                insertOffset++;
+                // Update cursor position after each character insertion
+                documentSync.updateCursorPosition(docPath, insertOffset);
+
+                const delay = getTypingDelay(char);
+                if (delay > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+
+        } else if (edit.type === 'insert' && edit.content !== undefined) {
+            // Insert: type content character by character
+            const insertOffset = edit.startLine === 1 ? 0 : calculateOffset(currentContent, edit.startLine - 1);
+            const contentToInsert = edit.startLine === 1 ? edit.content + '\n' : edit.content + '\n';
+
+            console.log(`Inserting at line ${edit.startLine} (offset ${insertOffset})`);
+
+            let currentOffset = insertOffset;
+            for (const char of contentToInsert) {
+                documentSync.applyEdit(docPath, char, currentOffset, 0);
+                currentOffset++;
+                // Update cursor position after each character insertion
+                documentSync.updateCursorPosition(docPath, currentOffset);
+
+                const delay = getTypingDelay(char);
+                if (delay > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+
+        } else if (edit.type === 'delete' && edit.endLine !== undefined) {
+            // Delete: remove content character by character (backwards)
+            const startOffset = calculateOffset(currentContent, edit.startLine - 1);
+            const endOffset = calculateOffset(currentContent, edit.endLine);
+            const length = endOffset - startOffset;
+
+            console.log(`Deleting lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+
+            for (let deleteLen = length; deleteLen > 0; deleteLen--) {
+                documentSync.applyEdit(docPath, '', startOffset, 1);
+                // Update cursor position to show where the agent is working
+                documentSync.updateCursorPosition(docPath, startOffset);
+                await new Promise(resolve => setTimeout(resolve, 5)); // Fast deletion
+            }
+        }
+    }
 }

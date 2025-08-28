@@ -12,6 +12,9 @@ describe('agent-util', () => {
     describe('applyChanges', () => {
         let mockDocumentSync: IDocumentSync;
         let applyEditMock: ReturnType<typeof vi.fn>;
+        let updateCursorPositionMock: ReturnType<typeof vi.fn>;
+        let getDocumentContentMock: ReturnType<typeof vi.fn>;
+
         function callArgs(call: unknown[]) {
             return {
                 path: call[0] as string,
@@ -35,7 +38,9 @@ describe('agent-util', () => {
 
                         // Call the mock for verification
                         applyEditMock(path, text, offset, length);
-                    }
+                    },
+                    updateCursorPosition: updateCursorPositionMock,
+                    getDocumentContent: () => updatedContent
                 },
                 getContent: () => updatedContent
             };
@@ -44,8 +49,13 @@ describe('agent-util', () => {
         beforeEach(() => {
             // Create a mock for the document sync with properly typed mock function
             applyEditMock = vi.fn();
+            updateCursorPositionMock = vi.fn();
+            getDocumentContentMock = vi.fn();
+
             mockDocumentSync = {
-                applyEdit: applyEditMock
+                applyEdit: applyEditMock,
+                updateCursorPosition: updateCursorPositionMock,
+                getDocumentContent: getDocumentContentMock
             };
         });
 

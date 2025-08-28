@@ -1,115 +1,163 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Server",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}/packages/open-collaboration-server/lib/app.js",
-            "args": [
-                "--hostname=0.0.0.0"
-            ],
-            "sourceMaps": true,
-            "outFiles": [
-                "${workspaceFolder}/packages/open-collaboration-server/lib/**/*.js",
-            ],
-            "env": {
-                "OCT_ACTIVATE_SIMPLE_LOGIN": "true",
-                "OCT_REDIRECT_URL_WHITELIST": "http://localhost:5173/",
-            }
-        },
-        {
-            "name": "Run VS Code Extension",
-            "type": "extensionHost",
-            "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-                "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-1",
-                "${workspaceFolder}/packages/open-collaboration-vscode"
-            ],
-            "env": {
-                "DEVELOPMENT": "true"
-            },
-            "sourceMaps": true,
-            "outFiles": [
-                "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
-            ]
-        },
-        {
-            "name": "Run VS Code Extension - Second Instance",
-            "type": "extensionHost",
-            "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-                "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-2",
-                "${workspaceFolder}/test-collab-project"
-            ],
-            "env": {
-                "DEVELOPMENT": "true"
-            },
-            "sourceMaps": true,
-            "outFiles": [
-                "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
-            ]
-        },
-        {
-            "name": "Run VS Code Web Extension",
-            "type": "extensionHost",
-            "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-                "--extensionDevelopmentKind=web"
-            ],
-            // VS Code cannot debug the web extension directly, which is why we don't configure source maps here
-            // Instead, use VS Code browser dev tools (Help -> Toggle Developer Tools) to debug the web extension
-        },
-        {
-            "name": "Launch Service Process",
-            "type": "node",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "outFiles": [
-                "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
-            ],
-            "sourceMaps": true,
-            "program": "${workspaceFolder}/packages/open-collaboration-service-process/lib/process.js",
-            "args": [
-                "--server-address=http://localhost:8100",
-                "--auth-token=12312"
-            ]
-        },
-        {
-            "name": "Debug Monaco Examples",
-            "request": "launch",
-            "type": "chrome",
-            "url": "http://localhost:5173/",
-            "webRoot": "${workspaceFolder}/packages/open-collaboration-monaco",
-        },
-        {
-            "name": "Vitest: Run Selected File",
-            "type": "node",
-            "request": "launch",
-            "autoAttachChildProcesses": true,
-            "skipFiles": ["<node_internals>/**", "**/node_modules/**", "!**/node_modules/vscode-*/**"],
-            "program": "${workspaceRoot}/node_modules/vitest/vitest.mjs",
-            "args": ["run", "${relativeFile}"],
-            "console": "integratedTerminal",
-            "smartStep": true,
-            "sourceMaps": true,
-            "outFiles": []
-        },
-
-    ],
-    "compounds": [
-      {
-        "name": "Debug parallel vscode extensions",
-        "configurations": ["Run VS Code Extension", "Run VS Code Extension - Second Instance"]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Server",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/packages/open-collaboration-server/lib/app.js",
+      "args": ["--hostname=0.0.0.0"],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-server/lib/**/*.js"
+      ],
+      "env": {
+        "OCT_ACTIVATE_SIMPLE_LOGIN": "true",
+        "OCT_REDIRECT_URL_WHITELIST": "http://localhost:5173/"
       }
-    ]
+    },
+    // Chat test: run "Run VS Code Extension", then "Spawn Second Extension Instance" to get two windows (protocol + vscode).
+    {
+      "name": "Run VS Code Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "${workspaceFolder}/packages/open-collaboration-protocol",
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
+        "--user-data-dir=${workspaceFolder}/.vscode/extension-host-data-1"
+      ],
+      "env": {
+        "DEVELOPMENT": "true"
+      },
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
+      ]
+    },
+    {
+      "name": "Spawn Second Extension Instance",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/.vscode/launch-extension-host.js",
+      "args": [
+        "packages/open-collaboration-vscode",
+        ".vscode/extension-host-data-2"
+      ],
+      "env": {
+        "WORKSPACE_FOLDER": "${workspaceFolder}",
+        "VSCODE_EXEC_PATH": "${execPath}",
+        "OCT_SERVER_URL": "http://localhost:8100"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Run VS Code Web Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
+        "--extensionDevelopmentKind=web"
+      ]
+      // VS Code cannot debug the web extension directly, which is why we don't configure source maps here
+      // Instead, use VS Code browser dev tools (Help -> Toggle Developer Tools) to debug the web extension
+    },
+    {
+      "name": "Launch Service Process",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "console": "integratedTerminal",
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
+      ],
+      "sourceMaps": true,
+      "program": "${workspaceFolder}/packages/open-collaboration-service-process/lib/process.js",
+      "args": ["--server-address=http://localhost:8100", "--auth-token=12312"]
+    },
+    {
+      "name": "Debug Monaco Examples",
+      "request": "launch",
+      "type": "chrome",
+      "url": "http://localhost:5173/",
+      "webRoot": "${workspaceFolder}/packages/open-collaboration-monaco"
+    },
+    {
+      "name": "Vitest: Run Selected File",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "autoAttachChildProcesses": true,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**",
+        "!**/node_modules/vscode-*/**"
+      ],
+      "program": "${workspaceRoot}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${relativeFile}"],
+      "console": "integratedTerminal",
+      "smartStep": true,
+      "sourceMaps": true,
+      "outFiles": []
+    },
+    {
+      "name": "Debug Agent",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/packages/open-collaboration-agent/lib/main.js",
+      "args": [
+        "--room",
+        "${input:roomToken}",
+        "--server",
+        "https://api.open-collab.tools"
+        // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
+      ],
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-agent/lib/**/*.js"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Debug Agent (Hot Reload)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": [
+        "watch",
+        "${workspaceFolder}/packages/open-collaboration-agent/src/main.ts",
+        "--room",
+        "${input:roomToken}",
+        "--server",
+        "http://localhost:8100"
+        // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
+      ],
+      "console": "integratedTerminal",
+      "restart": true,
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "roomToken",
+      "type": "promptString",
+      "description": "Enter the room token to join"
+    }
+  ]
 }

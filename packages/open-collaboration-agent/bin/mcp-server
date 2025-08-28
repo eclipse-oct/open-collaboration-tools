@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+import { startMCPServer } from '../lib/mcp-server.js';
+startMCPServer().catch(console.error);

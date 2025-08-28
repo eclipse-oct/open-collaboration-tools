@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import type { ClientAwareness, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
+import type { ClientAwareness, ClientTextSelection, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import { OpenCollaborationYjsProvider, LOCAL_ORIGIN } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
@@ -33,6 +33,8 @@ export type DocumentChange = DocumentInsert | DocumentDelete;
 
 export interface IDocumentSync {
     applyEdit(documentPath: string, text: string, offset: number, replacedLength: number): void;
+    updateCursorPosition(documentPath: string, offset: number): void;
+    getDocumentContent(documentPath: string): string | undefined;
 }
 
 export class DocumentSync implements IDocumentSync {
@@ -45,6 +47,8 @@ export class DocumentSync implements IDocumentSync {
     private activeDocumentPath?: string;
     private hostId?: string;
     private documentInitialized = false;
+    private hostIdPromise: Promise<string>;
+    private hostIdResolve?: (hostId: string) => void;
 
     private onDocumentContentChangeCallback?: (documentPath: string, content: string, changes: DocumentChange[]) => void;
     private onActiveDocumentChangeCallback?: (documentPath: string) => void;
@@ -52,6 +56,11 @@ export class DocumentSync implements IDocumentSync {
     constructor(private readonly connection: ProtocolBroadcastConnection) {
         this.yjs = new Y.Doc();
         this.yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
+
+        // Create promise for host ID
+        this.hostIdPromise = new Promise((resolve) => {
+            this.hostIdResolve = resolve;
+        });
 
         // Set up the Yjs provider
         this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness, {
@@ -82,6 +91,11 @@ export class DocumentSync implements IDocumentSync {
         connection.peer.onInit((_, initData) => {
             this.hostId = initData.host.id;
 
+            // Resolve the host ID promise
+            if (this.hostIdResolve) {
+                this.hostIdResolve(initData.host.id);
+            }
+
             // Now that we know the host, check if there's already a document to follow
             const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
             for (const state of states.values()) {
@@ -91,6 +105,26 @@ export class DocumentSync implements IDocumentSync {
                 }
             }
         });
+    }
+
+    getConnection(): ProtocolBroadcastConnection {
+        return this.connection;
+    }
+
+    /**
+     * Sets the agent's peer ID in the awareness state
+     * This makes the agent's cursor visible to other collaborators
+     */
+    setAgentPeerId(peerId: string): void {
+        this.yjsAwareness.setLocalStateField('peer', peerId);
+    }
+
+    /**
+     * Waits for the host ID to be received from the connection
+     * @returns A promise that resolves with the host ID
+     */
+    async waitForHostId(): Promise<string> {
+        return this.hostIdPromise;
     }
 
     private followDocument(documentPath: string) {
@@ -183,6 +217,13 @@ export class DocumentSync implements IDocumentSync {
         return this.activeDocumentPath;
     }
 
+    getDocumentContent(documentPath: string): string | undefined {
+        const document = this.activeDocumentPath === documentPath
+            ? this.activeDocument
+            : this.yjs.getText(documentPath);
+        return document?.toString();
+    }
+
     /**
      * Register a callback to be invoked when the active document's content changes
      * @param callback The function to call when document content changes
@@ -191,6 +232,7 @@ export class DocumentSync implements IDocumentSync {
         if (this.onDocumentContentChangeCallback) {
             throw new Error('Document change callback already registered');
         }
+        console.debug('[DEBUG] Registering document change callback');
         this.onDocumentContentChangeCallback = callback;
     }
 
@@ -244,5 +286,30 @@ export class DocumentSync implements IDocumentSync {
                 document.insert(offset, text);
             }
         }
+    }
+
+    /**
+     * Updates the agent's cursor position in the awareness state
+     * @param documentPath The path of the document
+     * @param offset The character offset of the cursor
+     */
+    updateCursorPosition(documentPath: string, offset: number): void {
+        const ytext = this.yjs.getText(documentPath);
+
+        // Create a CRDT-based relative position for the cursor
+        const relativePosition = Y.createRelativePositionFromTypeIndex(ytext, offset);
+
+        // Create a selection range (cursor is a zero-width selection)
+        const textSelection: ClientTextSelection = {
+            path: documentPath,
+            textSelections: [{
+                start: relativePosition,
+                end: relativePosition,
+                direction: 1 // LeftToRight
+            }]
+        };
+
+        // Update the awareness state with the new cursor position
+        this.yjsAwareness.setLocalStateField('selection', textSelection);
     }
 }
