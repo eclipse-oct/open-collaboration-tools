@@ -21,5 +21,7 @@
   "oct.joinAcceptMode.auto.description": "Automatically accept all join requests without prompting.",
   "oct.joinAllowlist": "List of user emails allowed to join automatically when using 'Allowlist' join accept mode. See also `#oct.joinAcceptMode#`.",
   "oct.files.exclude": "A list of glob patterns for files that should not be shared in a collaboration session.",
-  "oct.chatView": "Session Chat"
+  "oct.chatView": "Session Chat",
+  "oct.sendDiff": "Send Diff",
+  "oct.startAgent": "Start OCT Agent"
 }

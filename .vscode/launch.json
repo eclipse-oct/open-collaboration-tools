@@ -8,6 +8,7 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Server",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/packages/open-collaboration-server/lib/app.js",
       "args": ["--hostname=0.0.0.0"],
@@ -20,14 +21,14 @@
         "OCT_REDIRECT_URL_WHITELIST": "http://localhost:5173/"
       }
     },
+    // Chat test: run "Run VS Code Extension", then "Spawn Second Extension Instance" to get two windows (protocol + vscode).
     {
       "name": "Run VS Code Extension",
       "type": "extensionHost",
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-        "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-1",
-        "${workspaceFolder}/packages/open-collaboration-vscode"
+        "--user-data-dir=${workspaceFolder}/.vscode/extension-host-data-1"
       ],
       "env": {
         "DEVELOPMENT": "true"
@@ -38,21 +39,21 @@
       ]
     },
     {
-      "name": "Run VS Code Extension - Second Instance",
-      "type": "extensionHost",
+      "name": "Spawn Second Extension Instance",
+      "type": "node",
       "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "program": "${workspaceFolder}/.vscode/launch-extension-host.js",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-        "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-2",
-        "${workspaceFolder}/test-collab-project"
+        "packages/open-collaboration-vscode",
+        ".vscode/extension-host-data-2"
       ],
       "env": {
-        "DEVELOPMENT": "true"
+        "WORKSPACE_FOLDER": "${workspaceFolder}",
+        "VSCODE_EXEC_PATH": "${execPath}",
+        "OCT_SERVER_URL": "http://localhost:8100"
       },
-      "sourceMaps": true,
-      "outFiles": [
-        "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
-      ]
+      "console": "integratedTerminal"
     },
     {
       "name": "Run VS Code Web Extension",
@@ -69,6 +70,7 @@
       "name": "Launch Service Process",
       "type": "node",
       "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
       "console": "integratedTerminal",
       "outFiles": [
         "${workspaceFolder}/packages/open-collaboration-service-process/lib/**/*.js"
@@ -88,6 +90,7 @@
       "name": "Vitest: Run Selected File",
       "type": "node",
       "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
       "autoAttachChildProcesses": true,
       "skipFiles": [
         "<node_internals>/**",
@@ -100,23 +103,68 @@
       "smartStep": true,
       "sourceMaps": true,
       "outFiles": []
+    },
+    {
+      "name": "Debug Agent",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/packages/open-collaboration-agent/lib/main.js",
+      "args": [
+        "--room",
+        "${input:roomToken}",
+        "--server",
+        "https://api.open-collab.tools"
+        // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
+      ],
+      "cwd": "${input:workspaceFolder}",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/open-collaboration-agent/lib/**/*.js"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Debug Agent (Local)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": [
+        "watch",
+        "${workspaceFolder}/packages/open-collaboration-agent/src/main.ts",
+        "--room",
+        "${input:roomToken}",
+        "--server",
+        "http://localhost:8100"
+        // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
+      ],
+      "cwd": "${input:workspaceFolder}",
+      "console": "integratedTerminal",
+      "restart": true,
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "envFile": "${workspaceFolder}/.env"
     }
   ],
   "inputs": [
     {
-      "id": "attachPort",
+      "id": "roomToken",
       "type": "promptString",
-      "description": "What port should the application use for debugging?",
-      "default": "23698"
-    }
-  ],
-  "compounds": [
+      "description": "Enter the room token to join"
+    },
     {
-      "name": "Debug parallel vscode extensions",
-      "configurations": [
-        "Run VS Code Extension",
-        "Run VS Code Extension - Second Instance"
-      ]
+      "id": "workspaceFolder",
+      "type": "promptString",
+      "description": "Enter the workspace folder to use",
+      "default": "${workspaceFolder}"
     }
   ]
 }

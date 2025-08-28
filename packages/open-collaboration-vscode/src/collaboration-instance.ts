@@ -177,6 +177,47 @@ export class CollaborationInstance implements vscode.Disposable {
 
     static Current: CollaborationInstance | undefined;
 
+    private static proposedContentProvider: vscode.TextDocumentContentProvider & {
+        contents: Map<string, string>;
+        setContent(uri: vscode.Uri, text: string): void;
+        deleteContent(uri: vscode.Uri): void;
+    };
+    private static proposedContentScheme = 'oct-proposed';
+    private static providerRegistered = false;
+
+    private static ensureContentProvider(): typeof CollaborationInstance.proposedContentProvider {
+        if (!CollaborationInstance.providerRegistered) {
+            const contents = new Map<string, string>();
+            const onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+            CollaborationInstance.proposedContentProvider = {
+                contents,
+                onDidChange: onDidChangeEmitter.event,
+                provideTextDocumentContent(uri: vscode.Uri): string {
+                    return contents.get(uri.toString()) ?? '';
+                },
+                setContent(uri: vscode.Uri, text: string): void {
+                    const key = uri.toString();
+                    const existed = contents.has(key);
+                    contents.set(key, text);
+                    // Notify VSCode that cached document content for this URI is stale
+                    // so that subsequent openTextDocument calls re-read from the provider.
+                    if (existed) {
+                        onDidChangeEmitter.fire(uri);
+                    }
+                },
+                deleteContent(uri: vscode.Uri): void {
+                    contents.delete(uri.toString());
+                }
+            };
+            vscode.workspace.registerTextDocumentContentProvider(
+                CollaborationInstance.proposedContentScheme,
+                CollaborationInstance.proposedContentProvider
+            );
+            CollaborationInstance.providerRegistered = true;
+        }
+        return CollaborationInstance.proposedContentProvider;
+    }
+
     private yjs: Y.Doc = new Y.Doc();
     private yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
     private identity = new Deferred<types.Peer>();
@@ -187,6 +228,7 @@ export class CollaborationInstance implements vscode.Disposable {
     private peers = new Map<string, DisposablePeer>();
     private pending = new Map<string, PendingUser>();
     private throttles = new Map<string, () => void>();
+    private proposalDebounces = new Map<string, ReturnType<typeof debounce>>();
     private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
     private _permissions: types.Permissions = { readonly: false };
 
@@ -356,6 +398,10 @@ export class CollaborationInstance implements vscode.Disposable {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
             this.onDidUsersChangeEmitter.fire();
+            // Proactively publish the current selection so peers (e.g. the agent)
+            // can resolve the active document immediately on join, even when the
+            // user has not moved the cursor since the connection was established.
+            this.updateTextSelection(vscode.window.activeTextEditor);
         });
 
         this.registerFileEvents();
@@ -615,7 +661,8 @@ export class CollaborationInstance implements vscode.Disposable {
         this.connection.editor.onOpen(async (_, path) => {
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
-                await vscode.workspace.openTextDocument(uri);
+                const document = await vscode.workspace.openTextDocument(uri);
+                await vscode.window.showTextDocument(document, { preview: false });
             } else {
                 throw new Error('Could not open file');
             }
@@ -642,6 +689,13 @@ export class CollaborationInstance implements vscode.Disposable {
         this.toDispose.push(vscode.window.onDidChangeVisibleTextEditors(() => {
             this.updateTextSelection(vscode.window.activeTextEditor);
             this.rerenderPresence();
+        }));
+
+        // Switching the active editor (or opening the first one after join) does
+        // not always trigger selection/visible-range events, so publish the
+        // selection here too to keep awareness in sync for late joiners.
+        this.toDispose.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+            this.updateTextSelection(editor);
         }));
 
         this.toDispose.push(vscode.workspace.onDidCloseTextDocument(document => {
@@ -680,48 +734,78 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
 
-        this.connection.editor.onProposeChanges(async (_, path, changes) => this.onDidProposeChanges(path, changes));
+        this.connection.editor.onProposeChanges((_, path, changes) => this.onDidProposeChanges(path, changes));
     }
 
     proposeChanges(path: string, changes: types.TextDiffChange[]): void {
-        this.connection.editor.proposeChanges(this.options.hostId, path, changes);
+        this.connection.editor.proposeChanges(path, changes);
     }
 
-    private async onDidProposeChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
+    private onDidProposeChanges(path: string, changes: types.TextDiffChange[]): void {
+        let debouncedOpen = this.proposalDebounces.get(path);
+        if (!debouncedOpen) {
+            debouncedOpen = debounce(
+                (p: string, c: types.TextDiffChange[]) => { void this.openProposedChanges(p, c); },
+                200,
+                { leading: false, trailing: true }
+            );
+            this.proposalDebounces.set(path, debouncedOpen);
+        }
+        debouncedOpen(path, changes);
+    }
+
+    private async openProposedChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
         const originalUri = CollaborationUri.getResourceUri(path);
 
-        if(!originalUri) {
+        if (!originalUri) {
             vscode.window.showErrorMessage(vscode.l10n.t('Could not open file for diff editor'));
             return;
         }
 
         const originalDocument = await vscode.workspace.openTextDocument(originalUri);
+        const originalText = originalDocument.getText();
 
-        const tempUri = vscode.Uri.parse(`untitled:${originalUri.path}.modified`);
-
-        await vscode.workspace.openTextDocument(tempUri);
-        const edit = new vscode.WorkspaceEdit();
-        edit.replace(
-            tempUri,
-            new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, 0),
-            originalDocument.getText(),
-        );
-
-        for(const change of changes) {
-            edit.replace(tempUri, new vscode.Range(
-                change.range.start.line,
-                change.range.start.character,
-                change.range.end.line,
-                change.range.end.character
-            ), change.text);
+        let modifiedText = originalText;
+        const sorted = [...changes].sort((a, b) => {
+            const lineDiff = b.range.start.line - a.range.start.line;
+            return lineDiff !== 0 ? lineDiff : b.range.start.character - a.range.start.character;
+        });
+        for (const change of sorted) {
+            const startOffset = originalDocument.offsetAt(
+                new vscode.Position(change.range.start.line, change.range.start.character)
+            );
+            const endOffset = originalDocument.offsetAt(
+                new vscode.Position(change.range.end.line, change.range.end.character)
+            );
+            modifiedText = modifiedText.substring(0, startOffset) + change.text + modifiedText.substring(endOffset);
         }
 
-        await vscode.workspace.applyEdit(edit);
+        const provider = CollaborationInstance.ensureContentProvider();
+        const scheme = CollaborationInstance.proposedContentScheme;
+        // Three distinct virtual URIs are required by the 3-way merge editor:
+        // re-using `originalUri` for `base`, `input1` and `output` collapses the
+        // view so both visible panes render the same content.
+        const baseUri = vscode.Uri.parse(`${scheme}:${originalUri.path}.base`);
+        const localUri = vscode.Uri.parse(`${scheme}:${originalUri.path}.local`);
+        const agentUri = vscode.Uri.parse(`${scheme}:${originalUri.path}.agent`);
+
+        provider.setContent(baseUri, originalText);
+        // The host has no uncommitted local edits at review time, so input1 mirrors base.
+        provider.setContent(localUri, originalText);
+        provider.setContent(agentUri, modifiedText);
+
+        // Ensure VSCode has freshly loaded documents for each virtual URI
+        // (otherwise a previously cached document could shadow setContent).
+        await Promise.all([
+            vscode.workspace.openTextDocument(baseUri),
+            vscode.workspace.openTextDocument(localUri),
+            vscode.workspace.openTextDocument(agentUri)
+        ]);
 
         await vscode.commands.executeCommand('_open.mergeEditor', {
-            base: originalUri,
-            input1: { uri: originalUri, title: 'Your Changes', description: 'Local' },
-            input2: { uri: tempUri, title: 'Collaborator Changes', description: 'Remote' },
+            base: baseUri,
+            input1: { uri: localUri, title: 'Your Changes', description: 'Local' },
+            input2: { uri: agentUri, title: 'Agent Changes', description: 'Remote' },
             output: originalUri
         });
     }
