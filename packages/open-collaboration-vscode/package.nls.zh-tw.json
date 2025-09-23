@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "接受加入請求",
+  "oct.rejectJoin": "拒絕加入請求",
   "oct.followPeer": "跟隨同行",
   "oct.stopFollowPeer": "停止追隨同行",
   "oct.closeConnection": "關閉電流連接",

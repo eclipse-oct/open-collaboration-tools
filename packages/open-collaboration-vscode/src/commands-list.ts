@@ -8,6 +8,8 @@ export namespace OctCommands {
     export const FollowPeer = 'oct.followPeer';
     export const StopFollowPeer = 'oct.stopFollowPeer';
     export const Enter = 'oct.enter';
+    export const RejectJoin = 'oct.rejectJoin';
+    export const AcceptJoin = 'oct.acceptJoin';
     export const JoinRoom = 'oct.joinRoom';
     export const CreateRoom = 'oct.createRoom';
     export const CloseConnection = 'oct.closeConnection';

@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "Katılma İsteğini Kabul Et",
+  "oct.rejectJoin": "Katılma İsteğini Reddet",
   "oct.followPeer": "Peer'i Takip Edin",
   "oct.stopFollowPeer": "Akran Takibini Bırakın",
   "oct.closeConnection": "Akım Bağlantısını Kapat",

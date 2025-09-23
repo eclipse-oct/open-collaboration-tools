@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "Přijmout žádost o připojení",
+  "oct.rejectJoin": "Odmítnutí žádosti o připojení",
   "oct.followPeer": "Sledovat Peer",
   "oct.stopFollowPeer": "Přestat sledovat vrstevníky",
   "oct.closeConnection": "Zavřít aktuální připojení",

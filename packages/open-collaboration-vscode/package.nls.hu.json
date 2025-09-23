@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "Csatlakozási kérelem elfogadása",
+  "oct.rejectJoin": "Csatlakozási kérelem elutasítása",
   "oct.followPeer": "Kövesse Peer",
   "oct.stopFollowPeer": "Ne kövesse Peer",
   "oct.closeConnection": "Jelenlegi kapcsolat bezárása",

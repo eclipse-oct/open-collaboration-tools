@@ -8,6 +8,7 @@ import * as deepl from 'deepl-node';
 import * as path from 'node:path';
 import { writeFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { EOL } from 'node:os';
 
 // resolves __filename
 export const getLocalFilename = (referenceUrl: string | URL) => {
@@ -84,7 +85,8 @@ async function translateFile(filePath: string): Promise<void> {
         }
         const entries = Object.entries(existingContent).sort(([a], [b]) => contentKeys.indexOf(a) - contentKeys.indexOf(b));
         const translatedContent = Object.fromEntries(entries);
-        await writeFile(targetPath, JSON.stringify(translatedContent, undefined, 2));
+        const fileContent = JSON.stringify(translatedContent, undefined, 2).replace(/\n/g, EOL) + EOL;
+        await writeFile(targetPath, fileContent);
     }
 }
 

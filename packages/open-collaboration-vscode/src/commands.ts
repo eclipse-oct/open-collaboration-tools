@@ -17,6 +17,7 @@ import { SecretStorage } from './secret-storage.js';
 import { RoomUri } from './utils/uri.js';
 import { Settings } from './utils/settings.js';
 import { CodeCommands, OctCommands } from './commands-list.js';
+import { TreeUserData } from './collaboration-status-view.js';
 
 @injectable()
 export class Commands {
@@ -51,6 +52,12 @@ export class Commands {
             }),
             vscode.commands.registerCommand(OctCommands.CreateRoom, async () => {
                 await this.roomService.createRoom();
+            }),
+            vscode.commands.registerCommand(OctCommands.AcceptJoin, (userData: TreeUserData) => {
+                CollaborationInstance.Current?.acceptJoinRequest(userData.id);
+            }),
+            vscode.commands.registerCommand(OctCommands.RejectJoin, (userData: TreeUserData) => {
+                CollaborationInstance.Current?.rejectJoinRequest(userData.id);
             }),
             vscode.commands.registerCommand(OctCommands.CloseConnection, async () => {
                 const instance = CollaborationInstance.Current;
