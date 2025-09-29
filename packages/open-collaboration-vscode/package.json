@@ -87,6 +87,7 @@
       "explorer": [
         {
           "id": "oct.roomView",
+          "icon": "data/oct-view-icon.svg",
           "name": "%oct.roomView%",
           "when": "oct.connection"
         }
