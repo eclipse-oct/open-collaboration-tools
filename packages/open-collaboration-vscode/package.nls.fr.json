@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "Accepter la demande d'adhésion",
+  "oct.rejectJoin": "Rejeter la demande d'adhésion",
   "oct.followPeer": "Suivre le pair",
   "oct.stopFollowPeer": "Cesser de suivre les pairs",
   "oct.closeConnection": "Fermer la connexion actuelle",

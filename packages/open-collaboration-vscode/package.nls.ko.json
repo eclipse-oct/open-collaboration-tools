@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "가입 요청 수락",
+  "oct.rejectJoin": "가입 요청 거부",
   "oct.followPeer": "피어 팔로우",
   "oct.stopFollowPeer": "피어 팔로우 중지",
   "oct.closeConnection": "현재 연결 닫기",

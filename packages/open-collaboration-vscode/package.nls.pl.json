@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "Zaakceptuj żądanie dołączenia",
+  "oct.rejectJoin": "Odrzuć żądanie dołączenia",
   "oct.followPeer": "Follow Peer",
   "oct.stopFollowPeer": "Przestań podążać za rówieśnikami",
   "oct.closeConnection": "Zamknięcie bieżącego połączenia",

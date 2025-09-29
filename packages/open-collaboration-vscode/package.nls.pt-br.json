@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "Aceitar solicitação de ingresso",
+  "oct.rejectJoin": "Rejeitar solicitação de ingresso",
   "oct.followPeer": "Seguir os colegas",
   "oct.stopFollowPeer": "Parar de seguir os colegas",
   "oct.closeConnection": "Fechar conexão de corrente",

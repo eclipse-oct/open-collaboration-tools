@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "接受加入请求",
+  "oct.rejectJoin": "拒绝加入请求",
   "oct.followPeer": "跟踪参与者",
   "oct.stopFollowPeer": "停止跟踪参与者",
   "oct.closeConnection": "关闭连接",

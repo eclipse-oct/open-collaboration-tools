@@ -113,6 +113,16 @@
           "command": "oct.stopFollowPeer",
           "when": "viewItem == followedPeer",
           "group": "inline"
+        },
+        {
+          "command": "oct.acceptJoin",
+          "when": "viewItem == pendingPeer",
+          "group": "inline"
+        },
+        {
+          "command": "oct.rejectJoin",
+          "when": "viewItem == pendingPeer",
+          "group": "inline"
         }
       ]
     },
@@ -122,6 +132,16 @@
         "title": "Run Fuzzing Test",
         "category": "Open Collaboration Tools Developer",
         "enablement": "oct.dev"
+      },
+      {
+        "command": "oct.acceptJoin",
+        "title": "%oct.acceptJoin%",
+        "icon": "$(check)"
+      },
+      {
+        "command": "oct.rejectJoin",
+        "title": "%oct.rejectJoin%",
+        "icon": "$(x)"
       },
       {
         "command": "oct.followPeer",

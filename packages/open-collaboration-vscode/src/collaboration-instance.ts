@@ -17,14 +17,17 @@ import { inject, injectable, postConstruct } from 'inversify';
 import { removeWorkspaceFolders } from './utils/workspace.js';
 import { CollaborationUri } from './utils/uri.js';
 import { userColors } from './utils/package.js';
+import { nanoid } from 'nanoid';
 
 export interface PeerWithColor extends types.Peer {
+    nanoid: string;
     color?: string;
 }
 
 export class DisposablePeer implements vscode.Disposable {
 
     readonly peer: types.Peer;
+    readonly nanoid = nanoid();
     private disposables: vscode.Disposable[] = [];
     private yjsAwareness: awarenessProtocol.Awareness;
 
@@ -159,6 +162,12 @@ export interface CollaborationInstanceOptions {
     roomId: string;
 }
 
+export interface PendingUser {
+    nanoid: string;
+    user: types.User;
+    deferred: Deferred<boolean>;
+}
+
 export type CollaborationInstanceFactory = (options: CollaborationInstanceOptions) => CollaborationInstance;
 
 @injectable()
@@ -174,6 +183,7 @@ export class CollaborationInstance implements vscode.Disposable {
     private resyncing = new Set<string>();
     private documentDisposables = new Map<string, DisposableCollection>();
     private peers = new Map<string, DisposablePeer>();
+    private pending = new Map<string, PendingUser>();
     private throttles = new Map<string, () => void>();
     private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
     private _permissions: types.Permissions = { readonly: false };
@@ -198,15 +208,25 @@ export class CollaborationInstance implements vscode.Disposable {
     private readonly onDidDisposeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidDispose: vscode.Event<void> = this.onDidDisposeEmitter.event;
 
+    private readonly onDidPendingChangeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+    readonly onDidPendingChange: vscode.Event<void> = this.onDidPendingChangeEmitter.event;
+
     get connectedUsers(): Promise<PeerWithColor[]> {
         return this.ownUserData.then(own => {
             const all = Array.from(this.peers.values()).map(e => ({
                 ...e.peer,
                 color: e.decoration.color
             }) as PeerWithColor);
-            all.push(own);
-            return Array.from(all);
+            all.push({
+                ...own,
+                nanoid: nanoid(),
+            });
+            return Array.from(all).sort((a, b) => a.name.localeCompare(b.name, 'en'));
         });
+    }
+
+    get pendingUsers(): PendingUser[] {
+        return Array.from(this.pending.values()).sort((a, b) => a.user.name.localeCompare(b.user.name, 'en'));
     }
 
     get ownUserData(): Promise<types.Peer> {
@@ -273,16 +293,9 @@ export class CollaborationInstance implements vscode.Disposable {
         this.toDispose.push(this.onDidDisposeEmitter);
 
         connection.peer.onJoinRequest(async (_, user) => {
-            const message = vscode.l10n.t(
-                'User {0} via {1} login wants to join the collaboration session',
-                user.email ? `${user.name} (${user.email})` : user.name,
-                user.authProvider ?? 'unknown'
-            );
-            const allow = vscode.l10n.t('Allow');
-            const deny = vscode.l10n.t('Deny');
-            const result = await vscode.window.showInformationMessage(message, allow, deny);
+            const result = await this.showCancellableJoinRequest(user);
             const roots = vscode.workspace.workspaceFolders ?? [];
-            return result === allow ? {
+            return result ? {
                 workspace: {
                     name: vscode.workspace.name ?? 'Collaboration',
                     folders: roots.map(e => e.name)
@@ -340,6 +353,44 @@ export class CollaborationInstance implements vscode.Disposable {
 
         this.registerFileEvents();
         this.registerEditorEvents();
+    }
+
+    private async showCancellableJoinRequest(user: types.User): Promise<boolean> {
+        const deferred = new Deferred<boolean>();
+        const pendingUser: PendingUser = {
+            nanoid: nanoid(),
+            deferred,
+            user
+        };
+        this.pending.set(pendingUser.nanoid, pendingUser);
+        this.onDidPendingChangeEmitter.fire();
+        const message = vscode.l10n.t(
+            'User {0} via {1} login wants to join the collaboration session',
+            user.email ? `${user.name} (${user.email})` : user.name,
+            user.authProvider ?? 'unknown'
+        );
+        const allow = vscode.l10n.t('Allow');
+        const deny = vscode.l10n.t('Deny');
+        vscode.window.showInformationMessage(message, allow, deny).then(result => {
+            deferred.resolve(result === allow);
+        });
+        const timeout = setTimeout(() => {
+            // Join requests will be automatically rejected after 5 minutes
+            deferred.resolve(false);
+        }, 300_000);
+        const result = await deferred.promise;
+        this.pending.delete(pendingUser.nanoid);
+        this.onDidPendingChangeEmitter.fire();
+        clearTimeout(timeout);
+        return result;
+    }
+
+    rejectJoinRequest(id: string): void {
+        this.pending.get(id)?.deferred.resolve(false);
+    }
+
+    acceptJoinRequest(id: string): void {
+        this.pending.get(id)?.deferred.resolve(true);
     }
 
     private registerFileEvents() {

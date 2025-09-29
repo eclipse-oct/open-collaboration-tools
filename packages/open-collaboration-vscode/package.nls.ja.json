@@ -1,4 +1,6 @@
 {
+  "oct.acceptJoin": "参加リクエストを受け入れる",
+  "oct.rejectJoin": "参加リクエストを拒否する",
   "oct.followPeer": "追跡をする",
   "oct.stopFollowPeer": "追跡をやめる",
   "oct.closeConnection": "共同作業部屋を閉じる",
