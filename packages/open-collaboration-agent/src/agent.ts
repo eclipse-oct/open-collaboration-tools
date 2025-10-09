@@ -8,8 +8,8 @@ import { webcrypto } from 'node:crypto';
 import { ConnectionProvider, SocketIoTransportProvider, initializeProtocol } from 'open-collaboration-protocol';
 import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protocol';
 import { DocumentSync, DocumentChange } from './document-sync.js';
-import { executePromptStreamed } from './prompt.js';
-import { animateLoadingIndicator, applyChangesStreamed } from './agent-util.js';
+import { executePrompt, executePromptStreamed } from './prompt.js';
+import { animateLoadingIndicator, applyChanges, applyChangesStreamed } from './agent-util.js';
 
 export interface AgentOptions {
     server: string
@@ -129,7 +129,7 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
             return;
         }
         for (const change of changes) {
-            if (change.type === 'insert' && change.text.endsWith('\n')) {
+            if (change.type === 'insert' && change.text.includes('\n')) {
                 // Extract the line that was just completed
                 const docLines = docContent.split('\n');
                 const completedLine = docLines[change.position.line];
@@ -149,42 +149,42 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
                             const animationOffset = change.offset - (completedLine.length - triggerIndex - trigger.length);
                             const animation = animateLoadingIndicator(docPath, animationOffset, documentSync, state.animationAbort.signal);
 
-                            // const changes = await executePrompt({
-                            //     document: docContent,
-                            //     prompt,
-                            //     promptOffset: change.offset,
-                            //     model: options.model
-                            // });
-
-                            const streamedChanges = executePromptStreamed({
+                            const changes = await executePrompt({
                                 document: docContent,
                                 prompt,
                                 promptOffset: change.offset,
                                 model: options.model
                             });
-                            let currentContent = docContent;
-                            let currentLines = docLines;
-                            if (state.documentChanged) {
-                                currentContent = documentSync.getActiveDocumentContent() ?? docContent;
-                                currentLines = currentContent.split('\n');
-                            }
-                            await applyChangesStreamed(docPath, currentContent, currentLines, documentSync, completedLine, streamedChanges);
+
+                            // const streamedChanges = executePromptStreamed({
+                            //     document: docContent,
+                            //     prompt,
+                            //     promptOffset: change.offset,
+                            //     model: options.model
+                            // });
+                            // let currentContent = docContent;
+                            // let currentLines = docLines;
+                            // if (state.documentChanged) {
+                            //     currentContent = documentSync.getActiveDocumentContent() ?? docContent;
+                            //     currentLines = currentContent.split('\n');
+                            // }
+                            // await applyChangesStreamed(docPath, currentContent, currentLines, documentSync, completedLine, streamedChanges);
 
                             // Abort the animation
                             state.animationAbort?.abort();
                             await animation;
 
-                            // if (changes.length > 0) {
-                            //     // Apply the changes to the document
-                            //     console.log(`Applying ${changes.length} changes to ${docPath}`);
-                            //     let currentContent = docContent;
-                            //     let currentLines = docLines;
-                            //     if (state.documentChanged) {
-                            //         currentContent = documentSync.getActiveDocumentContent() ?? docContent;
-                            //         currentLines = currentContent.split('\n');
-                            //     }
-                            //     applyChanges(docPath, currentContent, currentLines, changes, documentSync);
-                            // }
+                            if (changes.length > 0) {
+                                // Apply the changes to the document
+                                console.log(`Applying ${changes.length} changes to ${docPath}`);
+                                let currentContent = docContent;
+                                let currentLines = docLines;
+                                if (state.documentChanged) {
+                                    currentContent = documentSync.getActiveDocumentContent() ?? docContent;
+                                    currentLines = currentContent.split('\n');
+                                }
+                                applyChanges(docPath, currentContent, currentLines, changes, documentSync);
+                            }
                         } catch (error) {
                             // Abort the animation in case of error
                             state.animationAbort?.abort();

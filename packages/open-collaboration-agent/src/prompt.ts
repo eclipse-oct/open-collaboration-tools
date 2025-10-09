@@ -104,7 +104,7 @@ Additional Rules:
 - Be robust to partial files: do not assume full-file context unless given.
 - If the task is straightforward, you may remove the user's prompt as part of your proposed changes.
 - If you'd like to provide explanations or reasoning for a more complex task, keep the user's prompt and add your own comment below it.
-- Do **not** write any introductory text now any summary or concluding text. Do **not** write any placeholder text (e.g. "[remaining code unchanged]"). Your output **must** focus purely on the changes to the code.
+- Do **not** write any introductory text nor any summary or concluding text. Do **not** write any placeholder text (e.g. "[remaining code unchanged]"). Your output **must** focus purely on the changes to the code.
 
 Your output will be automatically parsed and applied to the original code. Therefore, format compliance is critical. Do not include anything outside the valid output formats.
 `;

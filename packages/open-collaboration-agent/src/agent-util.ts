@@ -19,11 +19,11 @@ export function applyChanges(docPath: string, docContent: string, docLines: stri
     for (const change of changes) {
         // Split the change text into lines
         const changeLines = change.split('\n');
-
+        console.log('changeLines', changeLines);
         // Locate the change in the document with context
         const location = locateChangeInDocument(currentLines, changeLines);
 
-        if (location.endLine > location.startLine) {
+        if (location.endLine >= location.startLine) {
             // Calculate character offsets from line information
             const startOffset = calculateOffset(currentContent, location.startLine);
             const endOffset = calculateOffset(currentContent, location.endLine) - 1;
@@ -47,10 +47,10 @@ export async function applyChangesStreamed(docPath: string, docContent: string, 
     streamedChanges.usage.then(usage => {
         console.log(usage.completionTokens, usage.promptTokens, usage.totalTokens);
     });
-    console.log('docPath', docPath);
-    console.log('docContent', docContent);
-    console.log('docLines', docLines);
-    console.log('documentSync', documentSync);
+    // console.log('docPath', docPath);
+    // console.log('docContent', docContent);
+    // console.log('docLines', docLines);
+    // console.log('documentSync', documentSync);
 
     // Find the initial insertion point - we'll determine where to start inserting based on the completed line
     // For now, let's append to the end of the document
