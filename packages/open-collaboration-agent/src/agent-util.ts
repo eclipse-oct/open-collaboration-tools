@@ -24,7 +24,7 @@ export function applyChanges(docPath: string, docContent: string, docLines: stri
         // Locate the change in the document with context
         const location = locateChangeInDocument(currentLines, changeLines);
 
-        if (location.endLine >= location.startLine) {
+        if (location.endLine >= location.startLine && location.replacementText.length > 0) {
             // Calculate character offsets from line information
             const startOffset = calculateOffset(currentContent, location.startLine);
             const endOffset = calculateOffset(currentContent, location.endLine) - 1;

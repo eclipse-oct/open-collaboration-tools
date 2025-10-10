@@ -11,8 +11,17 @@ The `open-collaboration-agent` is an AI-powered coding assistant that joins coll
 - ✅ Character-by-character animation with variable typing delays
 - ✅ Cursor appears with agent's assigned color in Monaco editor
 - ✅ Updates broadcast to all collaborators via `ClientTextSelection`
+- ✅ Peer ID properly set in awareness state for cursor visibility
 
 **Implementation**: The agent updates its cursor position after every character insertion/deletion using `updateCursorPosition()` which creates relative positions via `Y.createRelativePositionFromTypeIndex()`. This ensures the cursor remains valid even during concurrent edits by other users.
+
+**Recent Fixes**:
+- Fixed document content synchronization regression in `applyLineEditsAnimated()` - now fetches fresh content from Yjs document before each edit
+- Added `getDocumentContent(documentPath)` method to retrieve current state from Yjs
+- Fixed missing peer ID in awareness state - agent cursor is now visible to all collaborators
+- Added `setAgentPeerId(peerId)` method called during initialization
+- Fixed test suite: Updated mocks to match new `IDocumentSync` interface with three methods
+- Fixed edge case in `applyChanges()` to skip edits with empty replacement text
 
 ## Core Workflow
 
@@ -956,7 +965,34 @@ Based on commented code and TODOs:
    - Performance metrics
    - User feedback collection
 
-## Testing Notes
+## Testing
+
+### Automated Tests
+
+The project uses Vitest for unit testing. Tests are located in `test/` directory.
+
+**Running Tests:**
+```bash
+npm test              # Run tests once
+npm run test:watch    # Run tests in watch mode
+```
+
+**Test Configuration:**
+- Test framework: Vitest 2.0
+- Config file: `vitest.config.ts`
+- Test files: `test/**/*.test.ts`
+- Current coverage: Legacy `applyChanges()` function (6 tests)
+
+**Test Suite (`test/agent-util.test.ts`):**
+- Tests the legacy string-matching `applyChanges()` function
+- Verifies correct offset calculations for single and multiple edits
+- Tests document state tracking across sequential changes
+- Validates minimal edit detection (only changing what's needed)
+- Mock `IDocumentSync` with all three required methods: `applyEdit()`, `updateCursorPosition()`, `getDocumentContent()`
+
+**Note**: MCP tool-based functions (`applyLineEdits`, `applyLineEditsAnimated`) don't have tests yet - they rely on manual testing in collaboration sessions.
+
+### Manual Testing
 
 Manual testing workflow:
 1. Start OCT server or use `api.open-collab.tools`
@@ -965,10 +1001,14 @@ Manual testing workflow:
 4. Run `./bin/agent -r {room-id}`
 5. Complete browser authentication
 6. In editor, type `// @agent Write a factorial function` + Enter
-7. Observe loading animation, then AI-generated code
+7. Observe:
+   - Loading animation during LLM processing
+   - Agent's cursor appearing and moving during edits
+   - AI-generated code with `// AI:` comment markers
 
 Common issues:
 - API keys not set in `.env`
 - Room ID incorrect or expired
 - Agent user not admitted to room (must approve in host editor)
 - Network connectivity to OCT server
+- Cursor not visible: Check that `setAgentPeerId()` is called
