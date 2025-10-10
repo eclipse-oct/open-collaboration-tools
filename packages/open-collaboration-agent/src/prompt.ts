@@ -183,11 +183,16 @@ Workflow:
 1. Use get_line_range to understand the file structure and locate relevant code
 2. Use replace_lines, insert_at_line, or delete_lines to make the requested changes
 3. You can make multiple changes by calling tools multiple times
+4. All edits are queued and will be applied in the optimal order automatically
 
 Important:
 - Line numbers are 1-indexed (first line is line 1)
-- Always use get_line_range first to confirm line numbers before modifying
-- If you're unsure about line numbers, query incrementally to find the right location
+- Always use get_line_range to confirm line numbers before modifying
+- THE DOCUMENT DOES NOT CHANGE during your execution - all get_line_range calls return the same original document
+- All your edit operations are queued and applied together at the end in the correct order
+- This means you should always use the line numbers from the original document you see
+- For multiple edits, simply specify the line numbers as they appear in the original document
+- The system will automatically apply them in descending order to avoid line shifts
 - Be precise with line ranges to avoid unintended changes
 - When replacing lines, the replacement includes everything from start_line to end_line (inclusive)
 
@@ -206,6 +211,12 @@ CRITICAL - Marking Changes:
                     console.error(err);
                 }
             }
+
+CRITICAL - Complete All Requested Changes:
+- Read the user's prompt carefully and ensure you complete ALL requested changes
+- If the user asks for multiple operations (e.g., "add X after each function AND delete Y"), you must do ALL of them
+- Don't stop after completing just one part of a multi-part request
+- Use all 20 available tool calls if needed to complete complex tasks
 `;
 
 export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit[]> {
@@ -231,7 +242,7 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
         model: languageModel,
         system: systemPromptWithMCP,
         messages,
-        maxSteps: 5,  // Allow LLM to make multiple tool calls
+        maxSteps: 20,  // Allow LLM to make many tool calls for complex multi-edit tasks
         tools: {
             get_line_range: {
                 description: "Get specific lines from the document with line numbers. Lines are 1-indexed.",
@@ -251,7 +262,7 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                 }
             },
             replace_lines: {
-                description: "Replace a specific range of lines with new content. The range is inclusive (start_line to end_line).",
+                description: "Replace a specific range of lines with new content. The range is inclusive (start_line to end_line). All edits will be applied in the correct order at the end.",
                 parameters: z.object({
                     start_line: z.number().int().positive().describe("Starting line number (1-indexed)"),
                     end_line: z.number().int().positive().describe("Ending line number (1-indexed, inclusive)"),
@@ -262,6 +273,7 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                     if (start_line > lines.length || end_line > lines.length || start_line > end_line) {
                         return { error: `Invalid line range. Document has ${lines.length} lines.` };
                     }
+
                     // Queue this edit to be applied
                     pendingEdits.push({
                         type: 'replace',
@@ -269,6 +281,7 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                         endLine: end_line,
                         content: new_content
                     });
+
                     return {
                         success: true,
                         message: `Queued replacement of lines ${start_line}-${end_line}`
@@ -276,7 +289,7 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                 }
             },
             insert_at_line: {
-                description: "Insert new content before the specified line number",
+                description: "Insert new content before the specified line number. All edits will be applied in the correct order at the end.",
                 parameters: z.object({
                     line: z.number().int().positive().describe("Line number to insert before (1-indexed)"),
                     content: z.string().describe("The content to insert")
@@ -286,12 +299,14 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                     if (line > lines.length + 1) {
                         return { error: `Invalid line number. Document has ${lines.length} lines.` };
                     }
+
                     // Queue this edit to be applied
                     pendingEdits.push({
                         type: 'insert',
                         startLine: line,
                         content: content
                     });
+
                     return {
                         success: true,
                         message: `Queued insertion at line ${line}`
@@ -299,7 +314,7 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                 }
             },
             delete_lines: {
-                description: "Delete a range of lines from the document",
+                description: "Delete a range of lines from the document. All edits will be applied in the correct order at the end.",
                 parameters: z.object({
                     start_line: z.number().int().positive().describe("Starting line number (1-indexed)"),
                     end_line: z.number().int().positive().describe("Ending line number (1-indexed, inclusive)")
@@ -309,12 +324,14 @@ export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit
                     if (start_line > lines.length || end_line > lines.length || start_line > end_line) {
                         return { error: `Invalid line range. Document has ${lines.length} lines.` };
                     }
+
                     // Queue this edit to be applied
                     pendingEdits.push({
                         type: 'delete',
                         startLine: start_line,
                         endLine: end_line
                     });
+
                     return {
                         success: true,
                         message: `Queued deletion of lines ${start_line}-${end_line}`
