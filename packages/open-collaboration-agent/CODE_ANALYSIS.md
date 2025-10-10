@@ -3,6 +3,17 @@
 ## Overview
 The `open-collaboration-agent` is an AI-powered coding assistant that joins collaborative editing sessions through the Open Collaboration Tools framework. It listens for `@agent` mentions in code files and executes LLM-powered code modifications in real-time.
 
+### Latest Updates (January 2025)
+
+**Cursor Awareness Feature** - The agent now appears as a natural collaborative participant:
+- ✅ Visible cursor that moves in real-time during edits
+- ✅ CRDT-based positioning via Yjs awareness protocol
+- ✅ Character-by-character animation with variable typing delays
+- ✅ Cursor appears with agent's assigned color in Monaco editor
+- ✅ Updates broadcast to all collaborators via `ClientTextSelection`
+
+**Implementation**: The agent updates its cursor position after every character insertion/deletion using `updateCursorPosition()` which creates relative positions via `Y.createRelativePositionFromTypeIndex()`. This ensures the cursor remains valid even during concurrent edits by other users.
+
 ## Core Workflow
 
 ### 1. Entry Point: `src/main.ts`
@@ -135,37 +146,93 @@ State {
 | CLI entry point | `main.ts:14-21` |
 | Agent initialization | `agent.ts:20-102` |
 | Prompt trigger detection | `agent.ts:132-141` |
-| LLM execution | `agent.ts:152-157` |
+| LLM execution with MCP tools | `agent.ts:152-158` |
+| Cursor awareness setup | `agent.ts:173-178, 200` |
 | Document following logic | `document-sync.ts:67-93` |
 | Change event handling | `document-sync.ts:125-167` |
-| LLM system prompt | `prompt.ts:81-110` |
-| Context windowing | `prompt.ts:114-130` |
-| Change localization algorithm | `agent-util.ts:144-202` |
-| Edit application | `agent-util.ts:14-44` |
+| Cursor position updates | `document-sync.ts:255-273` |
+| MCP tool definitions | `prompt.ts:246-341` |
+| MCP system prompt | `prompt.ts:173-220` |
+| Context windowing | `prompt.ts:122-138` |
+| Animated line edits | `agent-util.ts:288-381` |
+| Cursor tracking during animation | `agent-util.ts:324, 335, 356, 376` |
+| Legacy change localization | `agent-util.ts:145-203` (unused) |
+| Legacy edit application | `agent-util.ts:15-44` (unused) |
 
 ## Key Design Decisions
 
-1. **Yjs CRDT**: Ensures conflict-free collaborative editing
+1. **Yjs CRDT**: Ensures conflict-free collaborative editing and cursor positioning
 2. **Context Windowing**: Limits LLM input to 24k chars (12k before/after prompt) for large files
-3. **Change Format**: LLM returns either full file or context-anchored regions for unambiguous application
-4. **State Management**: Prevents concurrent executions, handles document changes during processing
-5. **Loading Animation**: Provides visual feedback during LLM processing
-6. **Streaming Support**: Infrastructure exists but currently disabled (lines 159-171 in `agent.ts`)
+3. **MCP Tool-Based Editing**: LLM uses precise line-based tools instead of fragile string matching
+4. **Static Document Approach**: LLM sees unchanging original document during execution; edits queued and applied in descending order
+5. **State Management**: Prevents concurrent executions, handles document changes during processing
+6. **Cursor Awareness**: Agent cursor visible and moves in real-time using CRDT-based relative positions
+7. **Character-by-Character Animation**: Edits applied progressively with natural typing delays for collaborative feel
+8. **Loading Animation**: Provides visual feedback during LLM processing (spinning indicator)
+9. **Streaming Support**: Infrastructure exists but currently disabled (lines 159-171 in `agent.ts`)
 
 ## MCP (Model Context Protocol) Integration
 
-### Current Tool Usage Analysis
+### Current Implementation Status
 
-**The agent currently does NOT use any LLM tools.** The implementation follows a simple prompt-response pattern:
+**✅ FULLY IMPLEMENTED** - The agent now uses MCP tool-based execution as the primary method for code modifications.
+
+### How It Works
 
 1. User types `@agent <prompt>` in the document
-2. Agent sends document content + prompt to LLM (`src/prompt.ts:34-38`)
-3. LLM returns modified code regions or full file replacement (as plain text)
-4. Agent parses and applies changes using string matching (`src/agent-util.ts:14-44`)
+2. Agent calls `executePromptWithMCP()` (`src/prompt.ts:226-350`)
+3. LLM uses 4 tools to inspect and modify the document:
+   - `get_line_range`: Read specific lines with line numbers
+   - `replace_lines`: Replace a range of lines
+   - `insert_at_line`: Insert content at a specific line
+   - `delete_lines`: Delete a range of lines
+4. All tool calls see the **static original document** (no state changes during execution)
+5. Edits are queued and applied in **descending order** to avoid line number shifts
+6. Changes are applied with **character-by-character animation** for natural feel
+7. Trigger line is removed after all edits complete
 
-The LLM has no tools or function-calling capabilities available - it simply returns text that the `locateChangeInDocument()` algorithm attempts to match against the current file.
+### Animated Edits with Cursor Awareness
 
-### Current Limitations: String Matching Fragility
+The agent now shows a visible cursor that moves in real-time during edits, making it feel like a natural collaborative participant.
+
+**Implementation** (`src/document-sync.ts:255-273`, `src/agent-util.ts:320-378`, `src/agent.ts:173-200`):
+
+1. **Cursor Position Updates**:
+   - Agent updates its cursor position after every character typed or deleted
+   - Uses `updateCursorPosition(documentPath, offset)` method
+   - Position is broadcast via Yjs awareness to all collaborators
+
+2. **CRDT-Based Positioning**:
+   - Cursor uses `Y.createRelativePositionFromTypeIndex()` for conflict-free positions
+   - Position remains valid even when other users edit the document
+   - Automatically adjusts to concurrent edits via Yjs CRDT
+
+3. **Awareness Protocol Integration**:
+   - Agent's cursor appears in the same system as user cursors
+   - Uses `ClientTextSelection` type from `open-collaboration-protocol`
+   - Broadcasts via `yjsAwareness.setLocalStateField('selection', ...)`
+   - Monaco editor renders agent cursor with assigned color
+
+4. **Character-by-Character Animation**:
+   - Delete operations: Cursor stays at deletion point, updates every 5ms
+   - Insert operations: Cursor advances after each character, updates every 20-100ms
+   - Replace operations: Delete phase → insert phase with cursor tracking
+   - Variable typing delays for natural feel (spaces: 50ms, newlines: 100ms)
+
+5. **Lifecycle**:
+   - Initial position: Set at start of first edit (line 173-178 in `agent.ts`)
+   - During edits: Updates continuously in `applyLineEditsAnimated()`
+   - After completion: Cleared to offset 0 (line 200 in `agent.ts`)
+
+**Technical Details**:
+- Each cursor update creates a zero-width selection (start = end)
+- Direction set to `1` (LeftToRight) for consistency
+- Cursor visible only while agent is actively editing
+- No cursor shown during LLM processing (loading indicator used instead)
+
+### Legacy String Matching Approach
+
+The old `executePrompt()` and `applyChanges()` functions (`src/prompt.ts:26-49`, `src/agent-util.ts:15-44`) still exist but are **no longer used**. They had fragile string-matching limitations:
 
 The `locateChangeInDocument()` function (`src/agent-util.ts:144-202`) uses prefix/suffix string matching to locate where changes should be applied. This approach is **fragile** and breaks in several scenarios:
 

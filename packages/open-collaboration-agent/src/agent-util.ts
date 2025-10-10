@@ -295,8 +295,6 @@ export async function applyLineEditsAnimated(
         return;
     }
 
-    let currentContent = docContent;
-
     // Sort edits by line number (descending) to avoid offset shifts when applying multiple edits
     const sortedEdits = [...edits].sort((a, b) => b.startLine - a.startLine);
 
@@ -307,6 +305,9 @@ export async function applyLineEditsAnimated(
         if (i > 0) {
             await new Promise(resolve => setTimeout(resolve, 250));
         }
+
+        // Get fresh content from Yjs document (source of truth)
+        const currentContent = documentSync.getDocumentContent(docPath) || '';
 
         if (edit.type === 'replace' && edit.endLine !== undefined && edit.content !== undefined) {
             // Replace: delete old content first, then type new content
@@ -319,7 +320,8 @@ export async function applyLineEditsAnimated(
             // Delete old content character by character (backwards for visual effect)
             for (let deleteLen = length; deleteLen > 0; deleteLen--) {
                 documentSync.applyEdit(docPath, '', startOffset, 1);
-                currentContent = currentContent.substring(0, startOffset) + currentContent.substring(startOffset + 1);
+                // Update cursor position to show where the agent is working
+                documentSync.updateCursorPosition(docPath, startOffset);
                 await new Promise(resolve => setTimeout(resolve, 5)); // Fast deletion
             }
 
@@ -327,8 +329,9 @@ export async function applyLineEditsAnimated(
             let insertOffset = startOffset;
             for (const char of edit.content) {
                 documentSync.applyEdit(docPath, char, insertOffset, 0);
-                currentContent = currentContent.substring(0, insertOffset) + char + currentContent.substring(insertOffset);
                 insertOffset++;
+                // Update cursor position after each character insertion
+                documentSync.updateCursorPosition(docPath, insertOffset);
 
                 const delay = getTypingDelay(char);
                 if (delay > 0) {
@@ -346,8 +349,9 @@ export async function applyLineEditsAnimated(
             let currentOffset = insertOffset;
             for (const char of contentToInsert) {
                 documentSync.applyEdit(docPath, char, currentOffset, 0);
-                currentContent = currentContent.substring(0, currentOffset) + char + currentContent.substring(currentOffset);
                 currentOffset++;
+                // Update cursor position after each character insertion
+                documentSync.updateCursorPosition(docPath, currentOffset);
 
                 const delay = getTypingDelay(char);
                 if (delay > 0) {
@@ -365,7 +369,8 @@ export async function applyLineEditsAnimated(
 
             for (let deleteLen = length; deleteLen > 0; deleteLen--) {
                 documentSync.applyEdit(docPath, '', startOffset, 1);
-                currentContent = currentContent.substring(0, startOffset) + currentContent.substring(startOffset + 1);
+                // Update cursor position to show where the agent is working
+                documentSync.updateCursorPosition(docPath, startOffset);
                 await new Promise(resolve => setTimeout(resolve, 5)); // Fast deletion
             }
         }

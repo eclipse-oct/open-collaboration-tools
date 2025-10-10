@@ -98,6 +98,9 @@ export async function startCLIAgent(options: AgentOptions): Promise<void> {
     });
     console.log(`✅ Received peer info: ${identity.name} (${identity.id})`);
 
+    // Set the agent's peer ID in the awareness state so its cursor is visible
+    documentSync.setAgentPeerId(identity.id);
+
     runAgent(documentSync, identity, options);
 }
 
@@ -170,6 +173,13 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
                             // Apply line edits FIRST (they're based on the document with the trigger line)
                             if (lineEdits.length > 0) {
                                 console.log(`Applying ${lineEdits.length} line edits to ${docPath}`);
+                                // Set initial cursor position at the start of the first edit
+                                const firstEdit = lineEdits[0];
+                                const initialOffset = firstEdit.startLine > 0
+                                    ? currentContent.split('\n').slice(0, firstEdit.startLine - 1).reduce((acc, line) => acc + line.length + 1, 0)
+                                    : 0;
+                                documentSync.updateCursorPosition(docPath, initialOffset);
+
                                 await applyLineEditsAnimated(docPath, currentContent, lineEdits, documentSync);
 
                                 // Update current content after edits
@@ -188,6 +198,9 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
                                 // Remove the trigger line
                                 documentSync.applyEdit(docPath, '', triggerLineOffset, triggerLineLength);
                             }
+
+                            // Clear the agent's cursor position after all work is done
+                            documentSync.updateCursorPosition(docPath, 0);
                         } catch (error) {
                             // Abort the animation in case of error
                             state.animationAbort?.abort();
