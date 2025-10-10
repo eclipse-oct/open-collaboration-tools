@@ -4,7 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import type { ClientAwareness, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
+import type { ClientAwareness, ClientTextSelection, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import { OpenCollaborationYjsProvider, LOCAL_ORIGIN } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
@@ -33,6 +33,8 @@ export type DocumentChange = DocumentInsert | DocumentDelete;
 
 export interface IDocumentSync {
     applyEdit(documentPath: string, text: string, offset: number, replacedLength: number): void;
+    updateCursorPosition(documentPath: string, offset: number): void;
+    getDocumentContent(documentPath: string): string | undefined;
 }
 
 export class DocumentSync implements IDocumentSync {
@@ -91,6 +93,14 @@ export class DocumentSync implements IDocumentSync {
                 }
             }
         });
+    }
+
+    /**
+     * Sets the agent's peer ID in the awareness state
+     * This makes the agent's cursor visible to other collaborators
+     */
+    setAgentPeerId(peerId: string): void {
+        this.yjsAwareness.setLocalStateField('peer', peerId);
     }
 
     private followDocument(documentPath: string) {
@@ -183,6 +193,13 @@ export class DocumentSync implements IDocumentSync {
         return this.activeDocumentPath;
     }
 
+    getDocumentContent(documentPath: string): string | undefined {
+        const document = this.activeDocumentPath === documentPath
+            ? this.activeDocument
+            : this.yjs.getText(documentPath);
+        return document?.toString();
+    }
+
     /**
      * Register a callback to be invoked when the active document's content changes
      * @param callback The function to call when document content changes
@@ -244,5 +261,30 @@ export class DocumentSync implements IDocumentSync {
                 document.insert(offset, text);
             }
         }
+    }
+
+    /**
+     * Updates the agent's cursor position in the awareness state
+     * @param documentPath The path of the document
+     * @param offset The character offset of the cursor
+     */
+    updateCursorPosition(documentPath: string, offset: number): void {
+        const ytext = this.yjs.getText(documentPath);
+
+        // Create a CRDT-based relative position for the cursor
+        const relativePosition = Y.createRelativePositionFromTypeIndex(ytext, offset);
+
+        // Create a selection range (cursor is a zero-width selection)
+        const textSelection: ClientTextSelection = {
+            path: documentPath,
+            textSelections: [{
+                start: relativePosition,
+                end: relativePosition,
+                direction: 1 // LeftToRight
+            }]
+        };
+
+        // Update the awareness state with the new cursor position
+        this.yjsAwareness.setLocalStateField('selection', textSelection);
     }
 }
