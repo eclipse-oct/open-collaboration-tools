@@ -7,6 +7,7 @@
 import { Deferred } from 'open-collaboration-protocol';
 import type { IDocumentSync } from './document-sync.js';
 import { StreamTextResult } from 'ai';
+import type { LineEdit } from './prompt.js';
 
 /**
  * Applies the text region changes returned by the LLM to the document.
@@ -213,4 +214,69 @@ function calculateOffset(text: string, line: number): number {
     }
 
     return offset;
+}
+
+/**
+ * Applies line-based edits from MCP tool calls to the document.
+ * Edits are sorted in descending order by line number to avoid offset shifts.
+ */
+export function applyLineEdits(
+    docPath: string,
+    docContent: string,
+    edits: LineEdit[],
+    documentSync: IDocumentSync
+): void {
+    if (edits.length === 0) {
+        return;
+    }
+
+    let currentContent = docContent;
+
+    // Sort edits by line number (descending) to avoid offset shifts when applying multiple edits
+    const sortedEdits = [...edits].sort((a, b) => b.startLine - a.startLine);
+
+    for (const edit of sortedEdits) {
+        if (edit.type === 'replace' && edit.endLine !== undefined && edit.content !== undefined) {
+            // Replace lines from startLine to endLine (inclusive, 1-indexed)
+            const startOffset = calculateOffset(currentContent, edit.startLine - 1);
+            const endOffset = calculateOffset(currentContent, edit.endLine);
+            const length = endOffset - startOffset;
+
+            console.log(`Replacing lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+            documentSync.applyEdit(docPath, edit.content, startOffset, length);
+
+            // Update local state
+            currentContent =
+                currentContent.substring(0, startOffset) +
+                edit.content +
+                currentContent.substring(endOffset);
+        } else if (edit.type === 'insert' && edit.content !== undefined) {
+            // Insert content before the specified line (1-indexed)
+            const insertOffset = edit.startLine === 1 ? 0 : calculateOffset(currentContent, edit.startLine - 1);
+
+            console.log(`Inserting at line ${edit.startLine} (offset ${insertOffset})`);
+            // Add newline if we're inserting in the middle of the document
+            const contentToInsert = edit.startLine === 1 ? edit.content + '\n' : edit.content + '\n';
+            documentSync.applyEdit(docPath, contentToInsert, insertOffset, 0);
+
+            // Update local state
+            currentContent =
+                currentContent.substring(0, insertOffset) +
+                contentToInsert +
+                currentContent.substring(insertOffset);
+        } else if (edit.type === 'delete' && edit.endLine !== undefined) {
+            // Delete lines from startLine to endLine (inclusive, 1-indexed)
+            const startOffset = calculateOffset(currentContent, edit.startLine - 1);
+            const endOffset = calculateOffset(currentContent, edit.endLine);
+            const length = endOffset - startOffset;
+
+            console.log(`Deleting lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+            documentSync.applyEdit(docPath, '', startOffset, length);
+
+            // Update local state
+            currentContent =
+                currentContent.substring(0, startOffset) +
+                currentContent.substring(endOffset);
+        }
+    }
 }

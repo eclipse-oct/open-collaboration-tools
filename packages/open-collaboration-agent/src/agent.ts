@@ -8,8 +8,8 @@ import { webcrypto } from 'node:crypto';
 import { ConnectionProvider, SocketIoTransportProvider, initializeProtocol } from 'open-collaboration-protocol';
 import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protocol';
 import { DocumentSync, DocumentChange } from './document-sync.js';
-import { executePrompt, executePromptStreamed } from './prompt.js';
-import { animateLoadingIndicator, applyChanges, applyChangesStreamed } from './agent-util.js';
+import { executePromptWithMCP } from './prompt.js';
+import { animateLoadingIndicator, applyLineEdits } from './agent-util.js';
 
 export interface AgentOptions {
     server: string
@@ -149,41 +149,46 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
                             const animationOffset = change.offset - (completedLine.length - triggerIndex - trigger.length);
                             const animation = animateLoadingIndicator(docPath, animationOffset, documentSync, state.animationAbort.signal);
 
-                            const changes = await executePrompt({
+                            // Use MCP-based execution with tool calls
+                            const lineEdits = await executePromptWithMCP({
                                 document: docContent,
                                 prompt,
                                 promptOffset: change.offset,
                                 model: options.model
                             });
 
-                            // const streamedChanges = executePromptStreamed({
-                            //     document: docContent,
-                            //     prompt,
-                            //     promptOffset: change.offset,
-                            //     model: options.model
-                            // });
-                            // let currentContent = docContent;
-                            // let currentLines = docLines;
-                            // if (state.documentChanged) {
-                            //     currentContent = documentSync.getActiveDocumentContent() ?? docContent;
-                            //     currentLines = currentContent.split('\n');
-                            // }
-                            // await applyChangesStreamed(docPath, currentContent, currentLines, documentSync, completedLine, streamedChanges);
-
                             // Abort the animation
                             state.animationAbort?.abort();
                             await animation;
 
-                            if (changes.length > 0) {
-                                // Apply the changes to the document
-                                console.log(`Applying ${changes.length} changes to ${docPath}`);
-                                let currentContent = docContent;
-                                let currentLines = docLines;
-                                if (state.documentChanged) {
-                                    currentContent = documentSync.getActiveDocumentContent() ?? docContent;
-                                    currentLines = currentContent.split('\n');
-                                }
-                                applyChanges(docPath, currentContent, currentLines, changes, documentSync);
+                            // Get current content in case it changed during execution
+                            let currentContent = docContent;
+                            if (state.documentChanged) {
+                                currentContent = documentSync.getActiveDocumentContent() ?? docContent;
+                            }
+
+                            // Remove the trigger line first
+                            const currentLines = currentContent.split('\n');
+                            const triggerLineIndex = currentLines.findIndex(line => line.includes(trigger));
+                            if (triggerLineIndex !== -1) {
+                                console.log(`Removing trigger line at line ${triggerLineIndex + 1}`);
+                                // Calculate offset for the trigger line
+                                const triggerLineOffset = currentLines.slice(0, triggerLineIndex).reduce((acc, line) => acc + line.length + 1, 0);
+                                const triggerLineLength = currentLines[triggerLineIndex].length + 1; // +1 for newline
+
+                                // Remove the trigger line
+                                documentSync.applyEdit(docPath, '', triggerLineOffset, triggerLineLength);
+
+                                // Update current content after removing trigger line
+                                currentContent =
+                                    currentContent.substring(0, triggerLineOffset) +
+                                    currentContent.substring(triggerLineOffset + triggerLineLength);
+                            }
+
+                            if (lineEdits.length > 0) {
+                                // Apply the line-based edits to the document
+                                console.log(`Applying ${lineEdits.length} line edits to ${docPath}`);
+                                applyLineEdits(docPath, currentContent, lineEdits, documentSync);
                             }
                         } catch (error) {
                             // Abort the animation in case of error

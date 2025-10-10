@@ -7,12 +7,20 @@
 import { type CoreMessage, generateText, streamText, StreamTextResult } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
 
 export interface PromptInput {
     document: string
     prompt: string
     promptOffset: number
     model: string
+}
+
+export interface LineEdit {
+    type: 'replace' | 'insert' | 'delete';
+    startLine: number;
+    endLine?: number;
+    content?: string;
 }
 
 export async function executePrompt(input: PromptInput): Promise<string[]> {
@@ -156,4 +164,167 @@ function parseOutputRegions(text: string): string[] {
     }
 
     return regions;
+}
+
+// ============================================================================
+// MCP Tool-based Execution
+// ============================================================================
+
+const systemPromptWithMCP = `
+You are a coding agent operating on a single source code file. Your task is to modify the code according to a user prompt. This same prompt is also embedded in the code, typically inside a comment line starting with the user-chosen agent name.
+
+You have access to the following tools:
+- get_line_range: Read specific lines from the document (1-indexed line numbers)
+- replace_lines: Replace a range of lines with new content
+- insert_at_line: Insert new content before a specific line
+- delete_lines: Delete a range of lines
+
+Workflow:
+1. Use get_line_range to understand the file structure and locate relevant code
+2. Use replace_lines, insert_at_line, or delete_lines to make the requested changes
+3. You can make multiple changes by calling tools multiple times
+
+Important:
+- Line numbers are 1-indexed (first line is line 1)
+- Always use get_line_range first to confirm line numbers before modifying
+- If you're unsure about line numbers, query incrementally to find the right location
+- Be precise with line ranges to avoid unintended changes
+- When replacing lines, the replacement includes everything from start_line to end_line (inclusive)
+
+CRITICAL - Marking Changes:
+- You MUST mark all your changes with comments so users can identify what you modified
+- Add a comment "// AI: <brief description>" or "/* AI: <brief description> */" before or after the changed code
+- Use the appropriate comment syntax for the file type (e.g., // for JS/TS/Java, # for Python, <!-- --> for HTML)
+- Keep the marker comments concise and descriptive
+- Example for JavaScript:
+  Original: function foo() { return x; }
+  Modified: // AI: Added error handling
+            function foo() {
+                try {
+                    return x;
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+`;
+
+export async function executePromptWithMCP(input: PromptInput): Promise<LineEdit[]> {
+    const provider = getProviderForModel(input.model);
+    const languageModel = provider(input.model);
+    const messages: CoreMessage[] = [];
+
+    const processedDocument = prepareDocumentForLLM(input.document, input.promptOffset);
+
+    messages.push({
+        role: 'user',
+        content: processedDocument
+    });
+    messages.push({
+        role: 'user',
+        content: `---USER PROMPT:\n${input.prompt}`
+    });
+
+    // Store edits that should be applied
+    const pendingEdits: LineEdit[] = [];
+
+    await generateText({
+        model: languageModel,
+        system: systemPromptWithMCP,
+        messages,
+        maxSteps: 5,  // Allow LLM to make multiple tool calls
+        tools: {
+            get_line_range: {
+                description: "Get specific lines from the document with line numbers. Lines are 1-indexed.",
+                parameters: z.object({
+                    start_line: z.number().int().positive().describe("Starting line number (1-indexed)"),
+                    end_line: z.number().int().positive().describe("Ending line number (1-indexed, inclusive)")
+                }),
+                execute: async ({ start_line, end_line }) => {
+                    const lines = input.document.split('\n');
+                    if (start_line > lines.length || end_line > lines.length || start_line > end_line) {
+                        return { error: `Invalid line range. Document has ${lines.length} lines. Requested: ${start_line}-${end_line}` };
+                    }
+                    const selectedLines = lines.slice(start_line - 1, end_line);
+                    return selectedLines
+                        .map((line, idx) => `${start_line + idx}: ${line}`)
+                        .join('\n');
+                }
+            },
+            replace_lines: {
+                description: "Replace a specific range of lines with new content. The range is inclusive (start_line to end_line).",
+                parameters: z.object({
+                    start_line: z.number().int().positive().describe("Starting line number (1-indexed)"),
+                    end_line: z.number().int().positive().describe("Ending line number (1-indexed, inclusive)"),
+                    new_content: z.string().describe("The new content to replace the lines with")
+                }),
+                execute: async ({ start_line, end_line, new_content }) => {
+                    const lines = input.document.split('\n');
+                    if (start_line > lines.length || end_line > lines.length || start_line > end_line) {
+                        return { error: `Invalid line range. Document has ${lines.length} lines.` };
+                    }
+                    // Queue this edit to be applied
+                    pendingEdits.push({
+                        type: 'replace',
+                        startLine: start_line,
+                        endLine: end_line,
+                        content: new_content
+                    });
+                    return {
+                        success: true,
+                        message: `Queued replacement of lines ${start_line}-${end_line}`
+                    };
+                }
+            },
+            insert_at_line: {
+                description: "Insert new content before the specified line number",
+                parameters: z.object({
+                    line: z.number().int().positive().describe("Line number to insert before (1-indexed)"),
+                    content: z.string().describe("The content to insert")
+                }),
+                execute: async ({ line, content }) => {
+                    const lines = input.document.split('\n');
+                    if (line > lines.length + 1) {
+                        return { error: `Invalid line number. Document has ${lines.length} lines.` };
+                    }
+                    // Queue this edit to be applied
+                    pendingEdits.push({
+                        type: 'insert',
+                        startLine: line,
+                        content: content
+                    });
+                    return {
+                        success: true,
+                        message: `Queued insertion at line ${line}`
+                    };
+                }
+            },
+            delete_lines: {
+                description: "Delete a range of lines from the document",
+                parameters: z.object({
+                    start_line: z.number().int().positive().describe("Starting line number (1-indexed)"),
+                    end_line: z.number().int().positive().describe("Ending line number (1-indexed, inclusive)")
+                }),
+                execute: async ({ start_line, end_line }) => {
+                    const lines = input.document.split('\n');
+                    if (start_line > lines.length || end_line > lines.length || start_line > end_line) {
+                        return { error: `Invalid line range. Document has ${lines.length} lines.` };
+                    }
+                    // Queue this edit to be applied
+                    pendingEdits.push({
+                        type: 'delete',
+                        startLine: start_line,
+                        endLine: end_line
+                    });
+                    return {
+                        success: true,
+                        message: `Queued deletion of lines ${start_line}-${end_line}`
+                    };
+                }
+            }
+        }
+    });
+
+    console.log(`LLM made ${pendingEdits.length} edit operations`);
+
+    return pendingEdits;
 }
