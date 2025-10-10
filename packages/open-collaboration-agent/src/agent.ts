@@ -9,7 +9,7 @@ import { ConnectionProvider, SocketIoTransportProvider, initializeProtocol } fro
 import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protocol';
 import { DocumentSync, DocumentChange } from './document-sync.js';
 import { executePromptWithMCP } from './prompt.js';
-import { animateLoadingIndicator, applyLineEdits } from './agent-util.js';
+import { animateLoadingIndicator, applyLineEditsAnimated } from './agent-util.js';
 
 export interface AgentOptions {
     server: string
@@ -167,7 +167,16 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
                                 currentContent = documentSync.getActiveDocumentContent() ?? docContent;
                             }
 
-                            // Remove the trigger line first
+                            // Apply line edits FIRST (they're based on the document with the trigger line)
+                            if (lineEdits.length > 0) {
+                                console.log(`Applying ${lineEdits.length} line edits to ${docPath}`);
+                                await applyLineEditsAnimated(docPath, currentContent, lineEdits, documentSync);
+
+                                // Update current content after edits
+                                currentContent = documentSync.getActiveDocumentContent() ?? currentContent;
+                            }
+
+                            // Remove the trigger line LAST (after all edits are applied)
                             const currentLines = currentContent.split('\n');
                             const triggerLineIndex = currentLines.findIndex(line => line.includes(trigger));
                             if (triggerLineIndex !== -1) {
@@ -178,17 +187,6 @@ export function runAgent(documentSync: DocumentSync, identity: Peer, options: Ag
 
                                 // Remove the trigger line
                                 documentSync.applyEdit(docPath, '', triggerLineOffset, triggerLineLength);
-
-                                // Update current content after removing trigger line
-                                currentContent =
-                                    currentContent.substring(0, triggerLineOffset) +
-                                    currentContent.substring(triggerLineOffset + triggerLineLength);
-                            }
-
-                            if (lineEdits.length > 0) {
-                                // Apply the line-based edits to the document
-                                console.log(`Applying ${lineEdits.length} line edits to ${docPath}`);
-                                applyLineEdits(docPath, currentContent, lineEdits, documentSync);
                             }
                         } catch (error) {
                             // Abort the animation in case of error
