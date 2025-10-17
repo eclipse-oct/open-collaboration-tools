@@ -8,19 +8,13 @@ import { type CoreMessage, generateText, streamText, StreamTextResult } from 'ai
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
+import type { LineEdit } from './document-operations.js';
 
 export interface PromptInput {
     document: string
     prompt: string
     promptOffset: number
     model: string
-}
-
-export interface LineEdit {
-    type: 'replace' | 'insert' | 'delete';
-    startLine: number;
-    endLine?: number;
-    content?: string;
 }
 
 export async function executePrompt(input: PromptInput): Promise<string[]> {
@@ -71,6 +65,87 @@ export function executePromptStreamed(input: PromptInput): StreamTextResult<neve
     });
 
     return result;
+}
+
+// ============================================================================
+// Direct LLM Execution (for built-in agent - no tool calls)
+// ============================================================================
+
+const systemPromptDirect = `
+You are a coding agent operating on a single source code file. Your task is to modify the code according to a user prompt.
+
+You must return your response as a JSON array of line edit operations. Each operation has the following structure:
+
+{
+  "type": "replace" | "insert" | "delete",
+  "startLine": number (1-indexed),
+  "endLine": number (1-indexed, inclusive, required for replace/delete),
+  "content": string (required for replace/insert)
+}
+
+IMPORTANT Rules:
+- Line numbers are 1-indexed (first line is line 1)
+- For "replace": Provide startLine, endLine, and content
+- For "insert": Provide startLine and content (inserts before the line)
+- For "delete": Provide startLine and endLine
+- You MUST mark all changes with comments (e.g., "// AI: description")
+- Use appropriate comment syntax for the file type
+- Return ONLY the JSON array, no other text
+
+Example response:
+[
+  {
+    "type": "replace",
+    "startLine": 5,
+    "endLine": 7,
+    "content": "// AI: Added error handling\\nfunction foo() {\\n  try {\\n    return x;\\n  } catch (err) {\\n    console.error(err);\\n  }\\n}"
+  }
+]
+`;
+
+/**
+ * Execute LLM directly without tool calls (for built-in agent).
+ * Returns structured LineEdit operations.
+ */
+export async function executeLLM(input: PromptInput): Promise<LineEdit[]> {
+    const provider = getProviderForModel(input.model);
+    const languageModel = provider(input.model);
+    const messages: CoreMessage[] = [];
+
+    const processedDocument = prepareDocumentForLLM(input.document, input.promptOffset);
+
+    // Add line numbers to help LLM identify locations
+    const numberedDocument = processedDocument
+        .split('\n')
+        .map((line, idx) => `${idx + 1}: ${line}`)
+        .join('\n');
+
+    messages.push({
+        role: 'user',
+        content: `Document with line numbers:\n${numberedDocument}`
+    });
+    messages.push({
+        role: 'user',
+        content: `---USER PROMPT:\n${input.prompt}`
+    });
+
+    const result = await generateText({
+        model: languageModel,
+        system: systemPromptDirect,
+        messages
+    });
+
+    // Parse JSON response
+    try {
+        const edits = JSON.parse(result.text);
+        if (!Array.isArray(edits)) {
+            throw new Error('Response is not an array');
+        }
+        return edits as LineEdit[];
+    } catch (error) {
+        console.error('Failed to parse LLM response as JSON:', result.text);
+        throw new Error(`LLM did not return valid JSON: ${error}`);
+    }
 }
 
 /**
