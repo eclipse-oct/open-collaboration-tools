@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "oct-collaboration": {
+      "command": "node",
+      "args": [
+        "./packages/open-collaboration-agent/bin/mcp-server"
+      ],
+      "env": {
+        "OCT_SERVER_URL": "https://api.open-collab.tools/"
+      }
+    }
+  }
+}

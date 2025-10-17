@@ -7,7 +7,8 @@
 import { Deferred } from 'open-collaboration-protocol';
 import type { IDocumentSync } from './document-sync.js';
 import { StreamTextResult } from 'ai';
-import type { LineEdit } from './prompt.js';
+import { LineEdit } from './document-operations.js';
+
 
 /**
  * Applies the text region changes returned by the LLM to the document.

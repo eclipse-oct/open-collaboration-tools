@@ -47,6 +47,8 @@ export class DocumentSync implements IDocumentSync {
     private activeDocumentPath?: string;
     private hostId?: string;
     private documentInitialized = false;
+    private hostIdPromise: Promise<string>;
+    private hostIdResolve?: (hostId: string) => void;
 
     private onDocumentContentChangeCallback?: (documentPath: string, content: string, changes: DocumentChange[]) => void;
     private onActiveDocumentChangeCallback?: (documentPath: string) => void;
@@ -54,6 +56,11 @@ export class DocumentSync implements IDocumentSync {
     constructor(private readonly connection: ProtocolBroadcastConnection) {
         this.yjs = new Y.Doc();
         this.yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
+
+        // Create promise for host ID
+        this.hostIdPromise = new Promise((resolve) => {
+            this.hostIdResolve = resolve;
+        });
 
         // Set up the Yjs provider
         this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness, {
@@ -84,6 +91,11 @@ export class DocumentSync implements IDocumentSync {
         connection.peer.onInit((_, initData) => {
             this.hostId = initData.host.id;
 
+            // Resolve the host ID promise
+            if (this.hostIdResolve) {
+                this.hostIdResolve(initData.host.id);
+            }
+
             // Now that we know the host, check if there's already a document to follow
             const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
             for (const state of states.values()) {
@@ -101,6 +113,14 @@ export class DocumentSync implements IDocumentSync {
      */
     setAgentPeerId(peerId: string): void {
         this.yjsAwareness.setLocalStateField('peer', peerId);
+    }
+
+    /**
+     * Waits for the host ID to be received from the connection
+     * @returns A promise that resolves with the host ID
+     */
+    async waitForHostId(): Promise<string> {
+        return this.hostIdPromise;
     }
 
     private followDocument(documentPath: string) {
