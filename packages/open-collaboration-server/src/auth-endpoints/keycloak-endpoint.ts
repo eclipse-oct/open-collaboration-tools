@@ -7,8 +7,9 @@
 import { AuthProvider } from 'open-collaboration-protocol';
 import { Strategy } from 'passport';
 import { OAuthEndpoint, ThirdParty } from './oauth-endpoint.js';
-import OAuth2Strategy, { VerifyCallback } from 'passport-oauth2';
+import { VerifyCallback } from 'passport-oauth2';
 import { injectable, postConstruct } from 'inversify';
+import { OIDCStrategy } from './generic-oauth-endpoint.js';
 
 @injectable()
 export class KeycloakOAuthEndpoint extends OAuthEndpoint {
@@ -61,7 +62,7 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
     }
 
     getStrategy(host: string, port: number): Strategy {
-        return new KeycloakStrategy({
+        return new OIDCStrategy({
             authorizationURL: `${this.keycloakBaseUrl}/protocol/openid-connect/auth`,
             tokenURL: `${this.keycloakBaseUrl}/protocol/openid-connect/token`,
             userInfoURL: `${this.keycloakBaseUrl}/protocol/openid-connect/userinfo`,
@@ -82,27 +83,3 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
 
 }
 
-type KeycloakStrategyOptions = OAuth2Strategy.StrategyOptions & {
-    userInfoURL: string;
-}
-
-class KeycloakStrategy extends OAuth2Strategy {
-
-    constructor(protected options: KeycloakStrategyOptions, verify: OAuth2Strategy.VerifyFunction) {
-        super(options, verify);
-    }
-
-    override async userProfile(accessToken: string, done: (err?: unknown, profile?: any) => void): Promise<void> {
-        fetch(this.options.userInfoURL, {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-        }).then(async response => {
-            if (!response.ok) {
-                throw new Error(`Failed to fetch user profile: ${response.statusText}`);
-            }
-            done(undefined, await response.json());
-        }).catch(err => done(err));
-
-    }
-}
