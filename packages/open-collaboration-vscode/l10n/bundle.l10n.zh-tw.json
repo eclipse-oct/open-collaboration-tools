@@ -46,6 +46,7 @@
   "{0} has joined the collaboration session": "{0} 已加入協作會議",
   "Collaboration session closed": "合作會議結束",
   "User {0} via {1} login wants to join the collaboration session": "使用者 {0} 透過 {1} 登入，想要加入協作會議",
+  "The user will be added to the [allowlist]({0}) upon acceptance.": "使用者接受後會被加入 [允許清單]({0})。",
   "Allow": "允許",
   "Deny": "拒絕",
   "No authentication method provided by the server.": "伺服器未提供驗證方法。",

@@ -46,6 +46,7 @@
   "{0} has joined the collaboration session": "{0} se připojil k relaci spolupráce",
   "Collaboration session closed": "Ukončení zasedání o spolupráci",
   "User {0} via {1} login wants to join the collaboration session": "Uživatel {0} se prostřednictvím přihlášení {1} chce připojit k relaci spolupráce",
+  "The user will be added to the [allowlist]({0}) upon acceptance.": "Uživatel bude po přijetí přidán do seznamu [allowlist]({0}).",
   "Allow": "Povolit",
   "Deny": "Odmítnout",
   "No authentication method provided by the server.": "Server neposkytuje žádnou metodu ověřování.",

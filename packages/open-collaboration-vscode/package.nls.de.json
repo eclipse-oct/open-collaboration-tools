@@ -14,10 +14,10 @@
   "oct.user.color": "Farbe für Benutzer in Collaboration-Sessions",
   "oct.joinAcceptMode": "Legt fest, wie Join-Anfragen von anderen Benutzern behandelt werden.",
   "oct.joinAcceptMode.prompt": "Prompt",
-  "oct.joinAcceptMode.whitelist": "Whitelist",
+  "oct.joinAcceptMode.allowlist": "Erlaubnisliste",
   "oct.joinAcceptMode.auto": "Automatisch",
   "oct.joinAcceptMode.prompt.description": "Aufforderung zur Annahme oder Ablehnung jeder Beitrittsanfrage.",
-  "oct.joinAcceptMode.whitelist.description": "Fügt Benutzer zu einer Whitelist hinzu, wenn ihre Beitrittsanfragen akzeptiert werden, damit sie in Zukunft automatisch beitreten können.",
+  "oct.joinAcceptMode.allowlist.description": "Fügt Benutzer zu einer Erlaubnisliste hinzu, wenn ihre Beitrittsanfragen akzeptiert werden, damit sie in Zukunft automatisch beitreten können.",
   "oct.joinAcceptMode.auto.description": "Automatische Annahme aller Beitrittsanfragen ohne Aufforderung.",
-  "oct.joinWhitelist": "Liste der Benutzer-E-Mails, die automatisch beitreten dürfen, wenn der Beitrittsannahmemodus \"Whitelist\" verwendet wird."
+  "oct.joinAllowlist": "Liste der Benutzer-E-Mails, die automatisch beitreten dürfen, wenn der Join-Accept-Modus \"Allowlist\" verwendet wird. Siehe auch `#oct.joinAcceptMode#`."
 }

@@ -46,6 +46,7 @@
   "{0} has joined the collaboration session": "{0} entrou na sessão de colaboração",
   "Collaboration session closed": "Encerramento da sessão de colaboração",
   "User {0} via {1} login wants to join the collaboration session": "O usuário {0} por meio do login {1} deseja participar da sessão de colaboração",
+  "The user will be added to the [allowlist]({0}) upon acceptance.": "O usuário será adicionado à [allowlist]({0}) após a aceitação.",
   "Allow": "Permitir",
   "Deny": "Negar",
   "No authentication method provided by the server.": "Nenhum método de autenticação fornecido pelo servidor.",

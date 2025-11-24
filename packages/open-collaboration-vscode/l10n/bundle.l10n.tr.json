@@ -46,6 +46,7 @@
   "{0} has joined the collaboration session": "{0} işbirliği oturumuna katıldı",
   "Collaboration session closed": "İşbirliği oturumu kapandı",
   "User {0} via {1} login wants to join the collaboration session": "1} oturum açma ile {0} kullanıcısı işbirliği oturumuna katılmak istiyor",
+  "The user will be added to the [allowlist]({0}) upon acceptance.": "Kullanıcı kabul edildikten sonra [allowlist]({0})'e eklenecektir.",
   "Allow": "İzin ver",
   "Deny": "Reddet",
   "No authentication method provided by the server.": "Sunucu tarafından sağlanan kimlik doğrulama yöntemi yok.",

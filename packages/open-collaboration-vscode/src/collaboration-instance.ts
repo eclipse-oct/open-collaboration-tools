@@ -371,21 +371,21 @@ export class CollaborationInstance implements vscode.Disposable {
             return true;
         }
         const userId = user.email;
-        const whitelistMode = !!userId && joinMode === Settings.JoinAcceptMode.Whitelist;
-        if (whitelistMode) {
-            const allowedUsers = Settings.getJoinWhitelist();
+        const allowlistMode = !!userId && joinMode === Settings.JoinAcceptMode.Allowlist;
+        if (allowlistMode) {
+            const allowedUsers = Settings.getJoinAllowlist();
             if (allowedUsers.includes(userId)) {
                 return true;
             }
         }
-        const allow = await this.showCancellableJoinRequest(user);
-        if (allow && whitelistMode) {
-            await Settings.addToJoinWhitelist(userId);
+        const allow = await this.showCancellableJoinRequest(user, allowlistMode);
+        if (allow && allowlistMode) {
+            await Settings.addToJoinAllowlist(userId);
         }
         return allow;
     }
 
-    private async showCancellableJoinRequest(user: types.User): Promise<boolean> {
+    private async showCancellableJoinRequest(user: types.User, allowlistMode: boolean): Promise<boolean> {
         const deferred = new Deferred<boolean>();
         const pendingUser: PendingUser = {
             nanoid: nanoid(),
@@ -394,11 +394,14 @@ export class CollaborationInstance implements vscode.Disposable {
         };
         this.pending.set(pendingUser.nanoid, pendingUser);
         this.onDidPendingChangeEmitter.fire();
-        const message = vscode.l10n.t(
+        let message = vscode.l10n.t(
             'User {0} via {1} login wants to join the collaboration session',
             user.email ? `${user.name} (${user.email})` : user.name,
             user.authProvider ?? 'unknown'
         );
+        if (allowlistMode) {
+            message += ' ' + vscode.l10n.t('The user will be added to the [allowlist]({0}) upon acceptance.', 'command:workbench.action.openSettings?' + encodeURIComponent('["oct.joinAllowlist"]'));
+        }
         const allow = vscode.l10n.t('Allow');
         const deny = vscode.l10n.t('Deny');
         vscode.window.showInformationMessage(message, allow, deny).then(result => {

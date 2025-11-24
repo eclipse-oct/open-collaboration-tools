@@ -14,10 +14,10 @@
   "oct.user.color": "協作會議中使用者的顏色",
   "oct.joinAcceptMode": "決定如何處理其他使用者的加入請求。",
   "oct.joinAcceptMode.prompt": "提示",
-  "oct.joinAcceptMode.whitelist": "白名單",
+  "oct.joinAcceptMode.allowlist": "允許列表",
   "oct.joinAcceptMode.auto": "自動",
   "oct.joinAcceptMode.prompt.description": "提示接受或拒絕每個加入請求。",
-  "oct.joinAcceptMode.whitelist.description": "當使用者的加入請求被接受時，將他們加入白名單，讓他們日後可以自動加入。",
+  "oct.joinAcceptMode.allowlist.description": "當使用者的加入請求被接受時，將他們加入允許清單，允許他們在未來自動加入。",
   "oct.joinAcceptMode.auto.description": "自動接受所有加入請求，無須提示。",
-  "oct.joinWhitelist": "使用「白名單」加入接受模式時，允許自動加入的使用者電子郵件清單。"
+  "oct.joinAllowlist": "使用「Allowlist」加入接受模式時，允許自動加入的使用者電子郵件清單。另請參閱 `#oct.joinAcceptMode#`。"
 }

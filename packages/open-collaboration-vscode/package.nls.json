@@ -14,10 +14,10 @@
   "oct.user.color": "Color for users in collaboration sessions",
   "oct.joinAcceptMode": "Determines how join requests from other users are handled.",
   "oct.joinAcceptMode.prompt": "Prompt",
-  "oct.joinAcceptMode.whitelist": "Whitelist",
+  "oct.joinAcceptMode.allowlist": "Allowlist",
   "oct.joinAcceptMode.auto": "Automatic",
   "oct.joinAcceptMode.prompt.description": "Prompt to accept or reject each join request.",
-  "oct.joinAcceptMode.whitelist.description": "Adds users to a whitelist when their join requests are accepted, allowing them to join automatically in the future.",
+  "oct.joinAcceptMode.allowlist.description": "Adds users to an allowlist when their join requests are accepted, allowing them to join automatically in the future.",
   "oct.joinAcceptMode.auto.description": "Automatically accept all join requests without prompting.",
-  "oct.joinWhitelist": "List of user emails allowed to join automatically when using 'Whitelist' join accept mode."
+  "oct.joinAllowlist": "List of user emails allowed to join automatically when using 'Allowlist' join accept mode. See also `#oct.joinAcceptMode#`."
 }

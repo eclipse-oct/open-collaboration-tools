@@ -46,6 +46,7 @@
   "{0} has joined the collaboration session": "{0}さんがコラボレーションセッションに参加しました",
   "Collaboration session closed": "共同作業部屋を終了しました",
   "User {0} via {1} login wants to join the collaboration session": "{0} さん ({1}) が共同作業部屋に参加しようとしています",
+  "The user will be added to the [allowlist]({0}) upon acceptance.": "承認されると、そのユーザは[allowlist]({0})に追加されます。",
   "Allow": "許可",
   "Deny": "拒否",
   "No authentication method provided by the server.": "サーバーが提供する認証方法がありません。",

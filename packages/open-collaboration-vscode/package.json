@@ -83,27 +83,27 @@
         },
         "oct.joinAcceptMode": {
           "type": "string",
-          "enum": ["prompt", "whitelist", "auto"],
+          "enum": ["prompt", "allowlist", "auto"],
           "default": "prompt",
-          "description": "%oct.joinAcceptMode%",
+          "markdownDescription": "%oct.joinAcceptMode%",
           "enumItemLabels": [
             "%oct.joinAcceptMode.prompt%",
-            "%oct.joinAcceptMode.whitelist%",
+            "%oct.joinAcceptMode.allowlist%",
             "%oct.joinAcceptMode.auto%"
           ],
-          "enumDescriptions": [
+          "markdownEnumDescriptions": [
             "%oct.joinAcceptMode.prompt.description%",
-            "%oct.joinAcceptMode.whitelist.description%",
+            "%oct.joinAcceptMode.allowlist.description%",
             "%oct.joinAcceptMode.auto.description%"
           ]
         },
-        "oct.joinWhitelist": {
+        "oct.joinAllowlist": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
-          "description": "%oct.joinWhitelist%"
+          "markdownDescription": "%oct.joinAllowlist%"
         }
       }
     },

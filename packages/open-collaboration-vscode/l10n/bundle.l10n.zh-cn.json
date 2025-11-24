@@ -46,6 +46,7 @@
   "{0} has joined the collaboration session": "{0} 已加入协作会议",
   "Collaboration session closed": "协作会话已关闭",
   "User {0} via {1} login wants to join the collaboration session": "通过 {1} 登录的用户 {0} 希望加入协作会话",
+  "The user will be added to the [allowlist]({0}) upon acceptance.": "用户接受后将被添加到 [允许列表]({0})。",
   "Allow": "允许",
   "Deny": "拒绝",
   "No authentication method provided by the server.": "服务器未提供验证方法。",

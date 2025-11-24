@@ -14,10 +14,10 @@
   "oct.user.color": "İşbirliği oturumlarında kullanıcılar için renk",
   "oct.joinAcceptMode": "Diğer kullanıcılardan gelen birleştirme isteklerinin nasıl ele alınacağını belirler.",
   "oct.joinAcceptMode.prompt": "İstem",
-  "oct.joinAcceptMode.whitelist": "Beyaz Liste",
+  "oct.joinAcceptMode.allowlist": "İzin listesi",
   "oct.joinAcceptMode.auto": "Otomatik",
   "oct.joinAcceptMode.prompt.description": "Her bir birleştirme isteğini kabul etme veya reddetme istemi.",
-  "oct.joinAcceptMode.whitelist.description": "Kullanıcıların katılım istekleri kabul edildiğinde onları beyaz listeye ekleyerek gelecekte otomatik olarak katılmalarını sağlar.",
+  "oct.joinAcceptMode.allowlist.description": "Kullanıcıların katılım istekleri kabul edildiğinde onları bir izin listesine ekler ve gelecekte otomatik olarak katılmalarını sağlar.",
   "oct.joinAcceptMode.auto.description": "Tüm katılma isteklerini sormadan otomatik olarak kabul edin.",
-  "oct.joinWhitelist": "'Beyaz Liste' katılma kabul modu kullanılırken otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi."
+  "oct.joinAllowlist": "'Allowlist' join accept modu kullanıldığında otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi. Ayrıca bakınız `#oct.joinAcceptMode#`."
 }

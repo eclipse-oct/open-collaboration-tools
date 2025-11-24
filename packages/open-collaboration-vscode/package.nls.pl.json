@@ -14,10 +14,10 @@
   "oct.user.color": "Kolor dla użytkowników w sesjach współpracy",
   "oct.joinAcceptMode": "Określa sposób obsługi żądań dołączenia od innych użytkowników.",
   "oct.joinAcceptMode.prompt": "Podpowiedź",
-  "oct.joinAcceptMode.whitelist": "Biała lista",
+  "oct.joinAcceptMode.allowlist": "Lista dozwolonych",
   "oct.joinAcceptMode.auto": "Automatyczny",
   "oct.joinAcceptMode.prompt.description": "Monit o zaakceptowanie lub odrzucenie każdego żądania połączenia.",
-  "oct.joinAcceptMode.whitelist.description": "Dodaje użytkowników do białej listy po zaakceptowaniu ich próśb o dołączenie, umożliwiając im automatyczne dołączenie w przyszłości.",
+  "oct.joinAcceptMode.allowlist.description": "Dodaje użytkowników do listy dozwolonych po zaakceptowaniu ich próśb o dołączenie, umożliwiając im automatyczne dołączenie w przyszłości.",
   "oct.joinAcceptMode.auto.description": "Automatycznie akceptuj wszystkie prośby o dołączenie bez wyświetlania monitu.",
-  "oct.joinWhitelist": "Lista adresów e-mail użytkowników dopuszczonych do automatycznego dołączania w trybie akceptacji dołączania \"Whitelist\"."
+  "oct.joinAllowlist": "Lista e-maili użytkowników, którzy mogą dołączyć automatycznie, gdy używany jest tryb akceptacji dołączania \"Allowlist\". Zobacz także `#oct.joinAcceptMode#`."
 }

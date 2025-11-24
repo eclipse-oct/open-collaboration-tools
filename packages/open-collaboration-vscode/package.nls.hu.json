@@ -14,10 +14,10 @@
   "oct.user.color": "Szín a felhasználók számára az együttműködési munkamenetekben",
   "oct.joinAcceptMode": "Meghatározza, hogyan kezeljük a más felhasználóktól érkező csatlakozási kérelmeket.",
   "oct.joinAcceptMode.prompt": "Prompt",
-  "oct.joinAcceptMode.whitelist": "Fehér lista",
+  "oct.joinAcceptMode.allowlist": "Allowlist",
   "oct.joinAcceptMode.auto": "Automatikus",
   "oct.joinAcceptMode.prompt.description": "Minden egyes csatlakozási kérelem elfogadására vagy elutasítására vonatkozó felszólítás.",
-  "oct.joinAcceptMode.whitelist.description": "Hozzáadja a felhasználókat egy fehér listához, amikor a csatlakozási kérelmüket elfogadják, így a jövőben automatikusan csatlakozhatnak.",
+  "oct.joinAcceptMode.allowlist.description": "Hozzáadja a felhasználókat egy engedélyezési listához, amikor a csatlakozási kérelmüket elfogadják, így a jövőben automatikusan csatlakozhatnak.",
   "oct.joinAcceptMode.auto.description": "Automatikusan, kérés nélkül elfogad minden csatlakozási kérelmet.",
-  "oct.joinWhitelist": "Azon felhasználói e-mailek listája, amelyekhez automatikusan csatlakozhat, ha a \"fehérlistás\" csatlakozási módot használja."
+  "oct.joinAllowlist": "Az automatikus csatlakozásra engedélyezett felhasználói e-mailek listája, ha az \"Allowlist\" csatlakozás elfogadási módot használja. Lásd még `#oct.joinAcceptMode#`."
 }
