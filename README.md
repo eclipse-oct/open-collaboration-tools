@@ -12,9 +12,9 @@ For more information about this project, please [read the announcement](https://
 
 A public instance of the collaboration server is available at [open-collab.tools](https://www.open-collab.tools/).
 
-[TypeFox](https://www.typefox.io/) offers this service with the intent to demonstrate the capabilities of the project and to support open source communities with it. However, we recommend all companies who wish to adopt this technology to deploy their own instance of it, secured with their existing access restrictions.
+The [Eclipse Foundation](https://www.eclipse.org/) offers this service with the intent to demonstrate the capabilities of the project and to support open source communities with it. However, we recommend all companies who wish to adopt this technology to deploy their own instance of it, secured with their existing access restrictions.
 
-Usage of the public instance is bound to its [Terms of Use](https://www.open-collab.tools/tos/). Please read them carefully and use our [Discussions](https://github.com/eclipse-oct/open-collaboration-tools/discussions) for any questions.
+Usage of the public instance is bound to the Eclipse Foundation's [Terms of Use](https://www.eclipse.org/legal/terms-of-use/). Please read them carefully and use our [Discussions](https://github.com/eclipse-oct/open-collaboration-tools/discussions) for any questions.
 
 ## IDE Extensions
 
