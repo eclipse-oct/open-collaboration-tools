@@ -11,5 +11,12 @@
   "oct.serverUrl": "Adres URL wystąpienia serwera Open Collaboration Tools Server dla sesji współpracy na żywo.",
   "oct.alwaysAskToOverrideServerUrl": "Zawsze należy poprosić o zastąpienie adresu URL serwera podczas dołączania do sesji współpracy przy użyciu określonego adresu URL serwera jako części identyfikatora sesji.",
   "oct.webClientUrl": "Szablon adresu URL dla klienta internetowego. Użyj ${roomId} jako symbolu zastępczego dla identyfikatora pokoju.",
-  "oct.user.color": "Kolor dla użytkowników w sesjach współpracy"
+  "oct.user.color": "Kolor dla użytkowników w sesjach współpracy",
+  "oct.joinAcceptMode": "Określa sposób obsługi żądań dołączenia od innych użytkowników.",
+  "oct.joinAcceptMode.prompt": "Podpowiedź",
+  "oct.joinAcceptMode.whitelist": "Biała lista",
+  "oct.joinAcceptMode.auto": "Automatyczny",
+  "oct.joinAcceptMode.prompt.description": "Monit o zaakceptowanie lub odrzucenie każdego żądania połączenia.",
+  "oct.joinAcceptMode.whitelist.description": "Dodaje użytkowników do białej listy po zaakceptowaniu ich próśb o dołączenie, umożliwiając im automatyczne dołączenie w przyszłości.",
+  "oct.joinAcceptMode.auto.description": "Automatycznie akceptuj wszystkie prośby o dołączenie bez wyświetlania monitu."
 }

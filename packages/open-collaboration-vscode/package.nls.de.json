@@ -11,5 +11,12 @@
   "oct.serverUrl": "URL der Open Collaboration Tools Server-Instanz für Live-Collaboration-Sessions.",
   "oct.alwaysAskToOverrideServerUrl": "Immer fragen, die Server-URL zu überschreiben, wenn einer Collaboration-Session mit einer bestimmten Server-URL als Teil der Sitzungs-ID beigetreten wird.",
   "oct.webClientUrl": "URL-Vorlage für den Web-Client. Verwenden Sie ${roomId} als Platzhalter für die Raum-ID.",
-  "oct.user.color": "Farbe für Benutzer in Collaboration-Sessions"
+  "oct.user.color": "Farbe für Benutzer in Collaboration-Sessions",
+  "oct.joinAcceptMode": "Legt fest, wie Join-Anfragen von anderen Benutzern behandelt werden.",
+  "oct.joinAcceptMode.prompt": "Prompt",
+  "oct.joinAcceptMode.whitelist": "Whitelist",
+  "oct.joinAcceptMode.auto": "Automatisch",
+  "oct.joinAcceptMode.prompt.description": "Aufforderung zur Annahme oder Ablehnung jeder Beitrittsanfrage.",
+  "oct.joinAcceptMode.whitelist.description": "Fügt Benutzer zu einer Whitelist hinzu, wenn ihre Beitrittsanfragen akzeptiert werden, damit sie in Zukunft automatisch beitreten können.",
+  "oct.joinAcceptMode.auto.description": "Automatische Annahme aller Beitrittsanfragen ohne Aufforderung."
 }

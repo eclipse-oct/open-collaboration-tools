@@ -11,5 +11,12 @@
   "oct.serverUrl": "实时协作会话的开放协作工具服务器实例 URL。",
   "oct.alwaysAskToOverrideServerUrl": "在使用特定服务器 URL 作为会话 ID 的一部分加入协作会话时，始终要求覆盖服务器 URL。",
   "oct.webClientUrl": "Web 客户端的 URL 模板。使用 ${roomId} 作为房间 ID 的占位符。",
-  "oct.user.color": "协作会话中用户的颜色"
+  "oct.user.color": "协作会话中用户的颜色",
+  "oct.joinAcceptMode": "决定如何处理其他用户的加入请求。",
+  "oct.joinAcceptMode.prompt": "提示",
+  "oct.joinAcceptMode.whitelist": "白名单",
+  "oct.joinAcceptMode.auto": "自动",
+  "oct.joinAcceptMode.prompt.description": "提示接受或拒绝每个加入请求。",
+  "oct.joinAcceptMode.whitelist.description": "当用户的加入请求被接受时，将其添加到白名单，使其今后能自动加入。",
+  "oct.joinAcceptMode.auto.description": "自动接受所有加入请求，无需提示。"
 }

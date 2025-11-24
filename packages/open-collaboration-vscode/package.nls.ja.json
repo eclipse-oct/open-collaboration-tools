@@ -11,5 +11,12 @@
   "oct.serverUrl": "Open Collaboration Tools サーバの URL",
   "oct.alwaysAskToOverrideServerUrl": "招待コードのみで参加させたい場合は、サーバーURL設定を上書きするように依頼してください。",
   "oct.webClientUrl": "WebクライアントのURLテンプレート。${roomId}を部屋IDのプレースホルダーとして使用してください。",
-  "oct.user.color": "共同作業部屋でのユーザーの色"
+  "oct.user.color": "共同作業部屋でのユーザーの色",
+  "oct.joinAcceptMode": "他のユーザーからの参加リクエストがどのように処理されるかを決定する。",
+  "oct.joinAcceptMode.prompt": "プロンプト",
+  "oct.joinAcceptMode.whitelist": "ホワイトリスト",
+  "oct.joinAcceptMode.auto": "自動",
+  "oct.joinAcceptMode.prompt.description": "各参加リクエストを受け入れるか拒否するかのプロンプト。",
+  "oct.joinAcceptMode.whitelist.description": "参加リクエストが受理されたユーザーをホワイトリストに追加し、次回から自動的に参加できるようにします。",
+  "oct.joinAcceptMode.auto.description": "プロンプトを表示することなく、すべての参加リクエストを自動的に受け付けます。"
 }

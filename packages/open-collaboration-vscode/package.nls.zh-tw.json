@@ -11,5 +11,12 @@
   "oct.serverUrl": "用於即時協作會話的 Open Collaboration Tools Server 實例的 URL。",
   "oct.alwaysAskToOverrideServerUrl": "加入使用特定伺服器 URL 作為階段 ID 一部分的協作階段時，請務必要求覆寫伺服器 URL。",
   "oct.webClientUrl": "Web 用戶端的 URL 範本。使用 ${roomId} 作為房間 ID 的預留位置。",
-  "oct.user.color": "協作會議中使用者的顏色"
+  "oct.user.color": "協作會議中使用者的顏色",
+  "oct.joinAcceptMode": "決定如何處理其他使用者的加入請求。",
+  "oct.joinAcceptMode.prompt": "提示",
+  "oct.joinAcceptMode.whitelist": "白名單",
+  "oct.joinAcceptMode.auto": "自動",
+  "oct.joinAcceptMode.prompt.description": "提示接受或拒絕每個加入請求。",
+  "oct.joinAcceptMode.whitelist.description": "當使用者的加入請求被接受時，將他們加入白名單，讓他們日後可以自動加入。",
+  "oct.joinAcceptMode.auto.description": "自動接受所有加入請求，無須提示。"
 }

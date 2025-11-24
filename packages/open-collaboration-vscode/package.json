@@ -80,6 +80,22 @@
           "type": "string",
           "default": "https://www.open-collab.tools/playground/?room=${roomId}",
           "description": "%oct.webClientUrl%"
+        },
+        "oct.joinAcceptMode": {
+          "type": "string",
+          "enum": ["prompt", "whitelist", "auto"],
+          "default": "prompt",
+          "description": "%oct.joinAcceptMode%",
+          "enumItemLabels": [
+            "%oct.joinAcceptMode.prompt%",
+            "%oct.joinAcceptMode.whitelist%",
+            "%oct.joinAcceptMode.auto%"
+          ],
+          "enumDescriptions": [
+            "%oct.joinAcceptMode.prompt.description%",
+            "%oct.joinAcceptMode.whitelist.description%",
+            "%oct.joinAcceptMode.auto.description%"
+          ]
         }
       }
     },

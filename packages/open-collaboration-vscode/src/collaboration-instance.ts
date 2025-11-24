@@ -18,6 +18,8 @@ import { removeWorkspaceFolders } from './utils/workspace.js';
 import { CollaborationUri } from './utils/uri.js';
 import { userColors } from './utils/package.js';
 import { nanoid } from 'nanoid';
+import { ExtensionContext } from './inversify.js';
+import { Settings } from './utils/settings.js';
 
 export interface PeerWithColor extends types.Peer {
     nanoid: string;
@@ -173,6 +175,9 @@ export type CollaborationInstanceFactory = (options: CollaborationInstanceOption
 @injectable()
 export class CollaborationInstance implements vscode.Disposable {
 
+    @inject(ExtensionContext)
+    protected readonly context: vscode.ExtensionContext;
+
     static Current: CollaborationInstance | undefined;
 
     private yjs: Y.Doc = new Y.Doc();
@@ -293,7 +298,7 @@ export class CollaborationInstance implements vscode.Disposable {
         this.toDispose.push(this.onDidDisposeEmitter);
 
         connection.peer.onJoinRequest(async (_, user) => {
-            const result = await this.showCancellableJoinRequest(user);
+            const result = await this.allowUserToJoin(user);
             const roots = vscode.workspace.workspaceFolders ?? [];
             return result ? {
                 workspace: {
@@ -324,6 +329,11 @@ export class CollaborationInstance implements vscode.Disposable {
             }
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
             this.onDidUsersChangeEmitter.fire();
+            let formatted = peer.name;
+            if (peer.email) {
+                formatted += ` (${peer.email})`;
+            }
+            vscode.window.showInformationMessage(vscode.l10n.t('User {0} joined the collaboration session', formatted));
         });
         connection.room.onLeave(async (_, peer) => {
             const disposable = this.peers.get(peer.id);
@@ -353,6 +363,30 @@ export class CollaborationInstance implements vscode.Disposable {
 
         this.registerFileEvents();
         this.registerEditorEvents();
+    }
+
+    private async allowUserToJoin(user: types.User): Promise<boolean> {
+        if (!this.options.host) {
+            // Sanity check: only the host can allow users to join
+            return false;
+        }
+        const joinMode = Settings.getJoinAcceptMode();
+        if (joinMode === Settings.JoinAcceptMode.Auto) {
+            return true;
+        }
+        const userId = `${user.authProvider ?? '<unknown>'}:${user.email ?? '<unknown>'}:${user.name}`;
+        const whitelistMode = joinMode === Settings.JoinAcceptMode.Whitelist;
+        if (whitelistMode) {
+            const allowedUsers = Settings.getJoinWhitelist(this.context);
+            if (allowedUsers.includes(userId)) {
+                return true;
+            }
+        }
+        const allow = await this.showCancellableJoinRequest(user);
+        if (allow && whitelistMode) {
+            await Settings.addToJoinWhitelist(this.context, userId);
+        }
+        return allow;
     }
 
     private async showCancellableJoinRequest(user: types.User): Promise<boolean> {
