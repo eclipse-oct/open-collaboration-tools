@@ -43,7 +43,7 @@
   "No": "Нет",
   "Never": "Никогда",
   "Connection error: {0}": "Ошибка подключения: {0}",
-  "User {0} joined the collaboration session": "Пользователь {0} присоединился к сеансу совместной работы",
+  "{0} has joined the collaboration session": "{0} присоединился к сессии сотрудничества",
   "Collaboration session closed": "Сессия по сотрудничеству закрыта",
   "User {0} via {1} login wants to join the collaboration session": "Пользователь {0} через логин {1} хочет присоединиться к сеансу совместной работы",
   "Allow": "Разрешить",

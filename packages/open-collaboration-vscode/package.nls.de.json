@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automatisch",
   "oct.joinAcceptMode.prompt.description": "Aufforderung zur Annahme oder Ablehnung jeder Beitrittsanfrage.",
   "oct.joinAcceptMode.whitelist.description": "Fügt Benutzer zu einer Whitelist hinzu, wenn ihre Beitrittsanfragen akzeptiert werden, damit sie in Zukunft automatisch beitreten können.",
-  "oct.joinAcceptMode.auto.description": "Automatische Annahme aller Beitrittsanfragen ohne Aufforderung."
+  "oct.joinAcceptMode.auto.description": "Automatische Annahme aller Beitrittsanfragen ohne Aufforderung.",
+  "oct.joinWhitelist": "Liste der Benutzer-E-Mails, die automatisch beitreten dürfen, wenn der Beitrittsannahmemodus \"Whitelist\" verwendet wird."
 }

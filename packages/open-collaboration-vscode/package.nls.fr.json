@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automatique",
   "oct.joinAcceptMode.prompt.description": "Invite à accepter ou à rejeter chaque demande de participation.",
   "oct.joinAcceptMode.whitelist.description": "Ajoute les utilisateurs à une liste blanche lorsque leurs demandes d'adhésion sont acceptées, ce qui leur permet de s'inscrire automatiquement à l'avenir.",
-  "oct.joinAcceptMode.auto.description": "Accepter automatiquement toutes les demandes d'adhésion sans y être invité."
+  "oct.joinAcceptMode.auto.description": "Accepter automatiquement toutes les demandes d'adhésion sans y être invité.",
+  "oct.joinWhitelist": "Liste des courriels d'utilisateurs autorisés à s'inscrire automatiquement lors de l'utilisation du mode d'acceptation de l'inscription \"Whitelist\"."
 }

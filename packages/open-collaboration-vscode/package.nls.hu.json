@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automatikus",
   "oct.joinAcceptMode.prompt.description": "Minden egyes csatlakozási kérelem elfogadására vagy elutasítására vonatkozó felszólítás.",
   "oct.joinAcceptMode.whitelist.description": "Hozzáadja a felhasználókat egy fehér listához, amikor a csatlakozási kérelmüket elfogadják, így a jövőben automatikusan csatlakozhatnak.",
-  "oct.joinAcceptMode.auto.description": "Automatikusan, kérés nélkül elfogad minden csatlakozási kérelmet."
+  "oct.joinAcceptMode.auto.description": "Automatikusan, kérés nélkül elfogad minden csatlakozási kérelmet.",
+  "oct.joinWhitelist": "Azon felhasználói e-mailek listája, amelyekhez automatikusan csatlakozhat, ha a \"fehérlistás\" csatlakozási módot használja."
 }

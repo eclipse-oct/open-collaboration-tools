@@ -43,7 +43,7 @@
   "No": "Hayır",
   "Never": "Asla",
   "Connection error: {0}": "Bağlantı hatası: {0}",
-  "User {0} joined the collaboration session": "Kullanıcı {0} işbirliği oturumuna katıldı",
+  "{0} has joined the collaboration session": "{0} işbirliği oturumuna katıldı",
   "Collaboration session closed": "İşbirliği oturumu kapandı",
   "User {0} via {1} login wants to join the collaboration session": "1} oturum açma ile {0} kullanıcısı işbirliği oturumuna katılmak istiyor",
   "Allow": "İzin ver",

@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "自动",
   "oct.joinAcceptMode.prompt.description": "提示接受或拒绝每个加入请求。",
   "oct.joinAcceptMode.whitelist.description": "当用户的加入请求被接受时，将其添加到白名单，使其今后能自动加入。",
-  "oct.joinAcceptMode.auto.description": "自动接受所有加入请求，无需提示。"
+  "oct.joinAcceptMode.auto.description": "自动接受所有加入请求，无需提示。",
+  "oct.joinWhitelist": "使用 \"白名单 \"加入接受模式时允许自动加入的用户电子邮件列表。"
 }

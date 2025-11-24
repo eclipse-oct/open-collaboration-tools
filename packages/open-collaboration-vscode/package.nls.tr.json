@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Otomatik",
   "oct.joinAcceptMode.prompt.description": "Her bir birleştirme isteğini kabul etme veya reddetme istemi.",
   "oct.joinAcceptMode.whitelist.description": "Kullanıcıların katılım istekleri kabul edildiğinde onları beyaz listeye ekleyerek gelecekte otomatik olarak katılmalarını sağlar.",
-  "oct.joinAcceptMode.auto.description": "Tüm katılma isteklerini sormadan otomatik olarak kabul edin."
+  "oct.joinAcceptMode.auto.description": "Tüm katılma isteklerini sormadan otomatik olarak kabul edin.",
+  "oct.joinWhitelist": "'Beyaz Liste' katılma kabul modu kullanılırken otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi."
 }

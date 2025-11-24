@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "自動",
   "oct.joinAcceptMode.prompt.description": "提示接受或拒絕每個加入請求。",
   "oct.joinAcceptMode.whitelist.description": "當使用者的加入請求被接受時，將他們加入白名單，讓他們日後可以自動加入。",
-  "oct.joinAcceptMode.auto.description": "自動接受所有加入請求，無須提示。"
+  "oct.joinAcceptMode.auto.description": "自動接受所有加入請求，無須提示。",
+  "oct.joinWhitelist": "使用「白名單」加入接受模式時，允許自動加入的使用者電子郵件清單。"
 }

@@ -43,7 +43,7 @@
   "No": "没有",
   "Never": "从不",
   "Connection error: {0}": "连接错误：{0}",
-  "User {0} joined the collaboration session": "用户 {0} 加入了协作会话",
+  "{0} has joined the collaboration session": "{0} 已加入协作会议",
   "Collaboration session closed": "协作会话已关闭",
   "User {0} via {1} login wants to join the collaboration session": "通过 {1} 登录的用户 {0} 希望加入协作会话",
   "Allow": "允许",

@@ -43,7 +43,7 @@
   "No": "Ne",
   "Never": "Nikdy",
   "Connection error: {0}": "Chyba připojení: {0}",
-  "User {0} joined the collaboration session": "Uživatel {0} se připojil k relaci spolupráce",
+  "{0} has joined the collaboration session": "{0} se připojil k relaci spolupráce",
   "Collaboration session closed": "Ukončení zasedání o spolupráci",
   "User {0} via {1} login wants to join the collaboration session": "Uživatel {0} se prostřednictvím přihlášení {1} chce připojit k relaci spolupráce",
   "Allow": "Povolit",

@@ -19,6 +19,7 @@ export namespace Settings {
     export const ALWAYS_ASK_TO_OVERRIDE_SERVER_URL = 'oct.alwaysAskToOverrideServerUrl';
     export const WEB_CLIENT_URL = 'oct.webClientUrl';
     export const JOIN_ACCEPT_MODE = 'oct.joinAcceptMode';
+    export const JOIN_WHITELIST = 'oct.joinWhitelist';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -59,15 +60,15 @@ export namespace Settings {
         return JoinAcceptMode.Prompt;
     }
 
-    export function getJoinWhitelist(context: vscode.ExtensionContext): string[] {
-        return context.globalState.get<string[]>('joinWhitelist', []);
+    export function getJoinWhitelist(): string[] {
+        return vscode.workspace.getConfiguration().get<string[]>(JOIN_WHITELIST, []);
     }
 
-    export async function addToJoinWhitelist(context: vscode.ExtensionContext, id: string): Promise<void> {
-        const whitelist = getJoinWhitelist(context);
+    export async function addToJoinWhitelist(id: string): Promise<void> {
+        const whitelist = getJoinWhitelist();
         if (!whitelist.includes(id)) {
             whitelist.push(id);
-            await context.globalState.update('joinWhitelist', whitelist);
+            await vscode.workspace.getConfiguration().update(JOIN_WHITELIST, whitelist, vscode.ConfigurationTarget.Global);
         }
     }
 

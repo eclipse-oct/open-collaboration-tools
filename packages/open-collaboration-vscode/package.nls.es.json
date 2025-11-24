@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automático",
   "oct.joinAcceptMode.prompt.description": "Pregunta para aceptar o rechazar cada solicitud de unión.",
   "oct.joinAcceptMode.whitelist.description": "Añade usuarios a una lista blanca cuando se aceptan sus solicitudes de adhesión, lo que les permite unirse automáticamente en el futuro.",
-  "oct.joinAcceptMode.auto.description": "Aceptar automáticamente todas las solicitudes de adhesión sin preguntar."
+  "oct.joinAcceptMode.auto.description": "Aceptar automáticamente todas las solicitudes de adhesión sin preguntar.",
+  "oct.joinWhitelist": "Lista de correos electrónicos de usuarios a los que se permite unirse automáticamente cuando se utiliza el modo de aceptación de unión \"Lista blanca\"."
 }

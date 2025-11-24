@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automatické",
   "oct.joinAcceptMode.prompt.description": "Výzva k přijetí nebo odmítnutí každé žádosti o připojení.",
   "oct.joinAcceptMode.whitelist.description": "Přidá uživatele na bílou listinu, když jsou jejich žádosti o připojení přijaty, a umožní jim tak automatické připojení v budoucnu.",
-  "oct.joinAcceptMode.auto.description": "Automaticky přijímat všechny žádosti o připojení bez vyzvání."
+  "oct.joinAcceptMode.auto.description": "Automaticky přijímat všechny žádosti o připojení bez vyzvání.",
+  "oct.joinWhitelist": "Seznam e-mailů uživatelů, kterým je povoleno automatické připojení při použití režimu přijímání připojení \"Whitelist\"."
 }

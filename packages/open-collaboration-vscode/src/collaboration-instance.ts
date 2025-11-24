@@ -18,7 +18,6 @@ import { removeWorkspaceFolders } from './utils/workspace.js';
 import { CollaborationUri } from './utils/uri.js';
 import { userColors } from './utils/package.js';
 import { nanoid } from 'nanoid';
-import { ExtensionContext } from './inversify.js';
 import { Settings } from './utils/settings.js';
 
 export interface PeerWithColor extends types.Peer {
@@ -175,9 +174,6 @@ export type CollaborationInstanceFactory = (options: CollaborationInstanceOption
 @injectable()
 export class CollaborationInstance implements vscode.Disposable {
 
-    @inject(ExtensionContext)
-    protected readonly context: vscode.ExtensionContext;
-
     static Current: CollaborationInstance | undefined;
 
     private yjs: Y.Doc = new Y.Doc();
@@ -333,7 +329,7 @@ export class CollaborationInstance implements vscode.Disposable {
             if (peer.email) {
                 formatted += ` (${peer.email})`;
             }
-            vscode.window.showInformationMessage(vscode.l10n.t('User {0} joined the collaboration session', formatted));
+            vscode.window.showInformationMessage(vscode.l10n.t('{0} has joined the collaboration session', formatted));
         });
         connection.room.onLeave(async (_, peer) => {
             const disposable = this.peers.get(peer.id);
@@ -374,17 +370,17 @@ export class CollaborationInstance implements vscode.Disposable {
         if (joinMode === Settings.JoinAcceptMode.Auto) {
             return true;
         }
-        const userId = `${user.authProvider ?? '<unknown>'}:${user.email ?? '<unknown>'}:${user.name}`;
-        const whitelistMode = joinMode === Settings.JoinAcceptMode.Whitelist;
+        const userId = user.email;
+        const whitelistMode = !!userId && joinMode === Settings.JoinAcceptMode.Whitelist;
         if (whitelistMode) {
-            const allowedUsers = Settings.getJoinWhitelist(this.context);
+            const allowedUsers = Settings.getJoinWhitelist();
             if (allowedUsers.includes(userId)) {
                 return true;
             }
         }
         const allow = await this.showCancellableJoinRequest(user);
         if (allow && whitelistMode) {
-            await Settings.addToJoinWhitelist(this.context, userId);
+            await Settings.addToJoinWhitelist(userId);
         }
         return allow;
     }

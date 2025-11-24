@@ -43,7 +43,7 @@
   "No": "No",
   "Never": "Mai",
   "Connection error: {0}": "Errore di connessione: {0}",
-  "User {0} joined the collaboration session": "L'utente {0} si è unito alla sessione di collaborazione",
+  "{0} has joined the collaboration session": "{0} si è unito alla sessione di collaborazione",
   "Collaboration session closed": "Chiusura della sessione di collaborazione",
   "User {0} via {1} login wants to join the collaboration session": "L'utente {0} tramite il login {1} vuole partecipare alla sessione di collaborazione",
   "Allow": "Consentire",

@@ -43,7 +43,7 @@
   "No": "Nie",
   "Never": "Nigdy",
   "Connection error: {0}": "Błąd połączenia: {0}",
-  "User {0} joined the collaboration session": "Użytkownik {0} dołączył do sesji współpracy",
+  "{0} has joined the collaboration session": "{0} dołączył do sesji współpracy",
   "Collaboration session closed": "Sesja współpracy została zamknięta",
   "User {0} via {1} login wants to join the collaboration session": "Użytkownik {0} za pośrednictwem loginu {1} chce dołączyć do sesji współpracy",
   "Allow": "Zezwalaj",

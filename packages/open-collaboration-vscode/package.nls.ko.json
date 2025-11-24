@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "자동",
   "oct.joinAcceptMode.prompt.description": "각 가입 요청을 수락하거나 거부할지 묻는 메시지를 표시합니다.",
   "oct.joinAcceptMode.whitelist.description": "가입 요청이 수락되면 화이트리스트에 사용자를 추가하여 향후 자동으로 가입할 수 있도록 합니다.",
-  "oct.joinAcceptMode.auto.description": "모든 가입 요청을 메시지 없이 자동으로 수락합니다."
+  "oct.joinAcceptMode.auto.description": "모든 가입 요청을 메시지 없이 자동으로 수락합니다.",
+  "oct.joinWhitelist": "'화이트리스트' 가입 허용 모드를 사용할 때 자동으로 가입할 수 있는 사용자 이메일 목록입니다."
 }

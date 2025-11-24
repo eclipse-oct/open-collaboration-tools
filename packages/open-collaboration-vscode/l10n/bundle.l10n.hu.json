@@ -43,7 +43,7 @@
   "No": "Nem",
   "Never": "Soha",
   "Connection error: {0}": "Csatlakozási hiba: {0}",
-  "User {0} joined the collaboration session": "Felhasználó {0} csatlakozott az együttműködési munkamenethez",
+  "{0} has joined the collaboration session": "{0} csatlakozott az együttműködési munkamenethez",
   "Collaboration session closed": "Együttműködési ülés lezárva",
   "User {0} via {1} login wants to join the collaboration session": "A {0} felhasználó {1} bejelentkezésen keresztül csatlakozni kíván az együttműködési munkamenethez.",
   "Allow": "Engedélyezze a",

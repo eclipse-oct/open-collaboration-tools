@@ -43,7 +43,7 @@
   "No": "いいえ",
   "Never": "常にいいえ",
   "Connection error: {0}": "接続エラー： {0}",
-  "User {0} joined the collaboration session": "ユーザー{0}がコラボレーションセッションに参加",
+  "{0} has joined the collaboration session": "{0}さんがコラボレーションセッションに参加しました",
   "Collaboration session closed": "共同作業部屋を終了しました",
   "User {0} via {1} login wants to join the collaboration session": "{0} さん ({1}) が共同作業部屋に参加しようとしています",
   "Allow": "許可",

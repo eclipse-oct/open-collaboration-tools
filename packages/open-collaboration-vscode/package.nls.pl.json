@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automatyczny",
   "oct.joinAcceptMode.prompt.description": "Monit o zaakceptowanie lub odrzucenie każdego żądania połączenia.",
   "oct.joinAcceptMode.whitelist.description": "Dodaje użytkowników do białej listy po zaakceptowaniu ich próśb o dołączenie, umożliwiając im automatyczne dołączenie w przyszłości.",
-  "oct.joinAcceptMode.auto.description": "Automatycznie akceptuj wszystkie prośby o dołączenie bez wyświetlania monitu."
+  "oct.joinAcceptMode.auto.description": "Automatycznie akceptuj wszystkie prośby o dołączenie bez wyświetlania monitu.",
+  "oct.joinWhitelist": "Lista adresów e-mail użytkowników dopuszczonych do automatycznego dołączania w trybie akceptacji dołączania \"Whitelist\"."
 }

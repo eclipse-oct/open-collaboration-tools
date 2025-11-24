@@ -43,7 +43,7 @@
   "No": "沒有",
   "Never": "從不",
   "Connection error: {0}": "連線錯誤：{0}",
-  "User {0} joined the collaboration session": "使用者 {0} 加入協作會議",
+  "{0} has joined the collaboration session": "{0} 已加入協作會議",
   "Collaboration session closed": "合作會議結束",
   "User {0} via {1} login wants to join the collaboration session": "使用者 {0} 透過 {1} 登入，想要加入協作會議",
   "Allow": "允許",

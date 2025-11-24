@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automatic",
   "oct.joinAcceptMode.prompt.description": "Prompt to accept or reject each join request.",
   "oct.joinAcceptMode.whitelist.description": "Adds users to a whitelist when their join requests are accepted, allowing them to join automatically in the future.",
-  "oct.joinAcceptMode.auto.description": "Automatically accept all join requests without prompting."
+  "oct.joinAcceptMode.auto.description": "Automatically accept all join requests without prompting.",
+  "oct.joinWhitelist": "List of user emails allowed to join automatically when using 'Whitelist' join accept mode."
 }

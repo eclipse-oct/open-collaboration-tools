@@ -18,5 +18,6 @@
   "oct.joinAcceptMode.auto": "Automático",
   "oct.joinAcceptMode.prompt.description": "Prompt para aceitar ou rejeitar cada solicitação de ingresso.",
   "oct.joinAcceptMode.whitelist.description": "Adiciona usuários a uma lista branca quando suas solicitações de associação são aceitas, permitindo que eles se associem automaticamente no futuro.",
-  "oct.joinAcceptMode.auto.description": "Aceitar automaticamente todas as solicitações de associação sem aviso prévio."
+  "oct.joinAcceptMode.auto.description": "Aceitar automaticamente todas as solicitações de associação sem aviso prévio.",
+  "oct.joinWhitelist": "Lista de e-mails de usuários com permissão para ingressar automaticamente ao usar o modo de aceitação de ingresso \"Whitelist\"."
 }

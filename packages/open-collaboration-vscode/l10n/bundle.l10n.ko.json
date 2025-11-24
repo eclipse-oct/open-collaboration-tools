@@ -43,7 +43,7 @@
   "No": "아니요",
   "Never": "절대로",
   "Connection error: {0}": "연결 오류가 발생했습니다: {0}",
-  "User {0} joined the collaboration session": "사용자 {0}이(가) 공동 작업 세션에 참여했습니다.",
+  "{0} has joined the collaboration session": "{0}이(가) 공동 작업 세션에 참가했습니다.",
   "Collaboration session closed": "공동 작업 세션이 종료되었습니다.",
   "User {0} via {1} login wants to join the collaboration session": "1} 로그인을 사용하는 {0} 사용자가 공동 작업 세션에 참여하려고 합니다.",
   "Allow": "허용",

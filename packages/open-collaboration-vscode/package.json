@@ -96,6 +96,14 @@
             "%oct.joinAcceptMode.whitelist.description%",
             "%oct.joinAcceptMode.auto.description%"
           ]
+        },
+        "oct.joinWhitelist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%oct.joinWhitelist%"
         }
       }
     },

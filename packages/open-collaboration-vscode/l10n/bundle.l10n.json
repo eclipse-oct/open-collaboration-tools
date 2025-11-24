@@ -43,7 +43,7 @@
   "No": "No",
   "Never": "Never",
   "Connection error: {0}": "Connection error: {0}",
-  "User {0} joined the collaboration session": "User {0} joined the collaboration session",
+  "{0} has joined the collaboration session": "{0} has joined the collaboration session",
   "Collaboration session closed": "Collaboration session closed",
   "User {0} via {1} login wants to join the collaboration session": "User {0} via {1} login wants to join the collaboration session",
   "Allow": "Allow",
