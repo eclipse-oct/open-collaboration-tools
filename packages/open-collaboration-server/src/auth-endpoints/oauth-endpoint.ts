@@ -125,7 +125,7 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
 
     protected createRedirectUrl(host: string, port: number, path: string): string {
         const baseURL = this.baseURL ?? `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
-        return new URL(path, baseURL).toString();
+        return new URL(path.startsWith('/') ? path.substring(1) : path, baseURL).toString();
     }
 }
 
