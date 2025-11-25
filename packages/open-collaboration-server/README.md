@@ -4,7 +4,7 @@ Open Collaboration Tools is a collection of open source tools, libraries and ext
 
 This package is the server implementation for Open Collaboration Tools. All participants of a collaboration session must connect to the same server.
 
-You can run this package directly or use the public container image [oct-server](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server). If you'd like to customize the server, use this package as a TypeScript library and build your own application.
+You can run this package directly or use the public container image [oct-server-dev](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server-dev). If you'd like to customize the server, use this package as a TypeScript library and build your own application.
 
 ## The Public Instance
 
