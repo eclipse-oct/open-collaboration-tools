@@ -18,6 +18,7 @@ import { removeWorkspaceFolders } from './utils/workspace.js';
 import { CollaborationUri } from './utils/uri.js';
 import { userColors } from './utils/package.js';
 import { nanoid } from 'nanoid';
+import { Settings } from './utils/settings.js';
 
 export interface PeerWithColor extends types.Peer {
     nanoid: string;
@@ -293,7 +294,7 @@ export class CollaborationInstance implements vscode.Disposable {
         this.toDispose.push(this.onDidDisposeEmitter);
 
         connection.peer.onJoinRequest(async (_, user) => {
-            const result = await this.showCancellableJoinRequest(user);
+            const result = await this.allowUserToJoin(user);
             const roots = vscode.workspace.workspaceFolders ?? [];
             return result ? {
                 workspace: {
@@ -324,6 +325,11 @@ export class CollaborationInstance implements vscode.Disposable {
             }
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
             this.onDidUsersChangeEmitter.fire();
+            let formatted = peer.name;
+            if (peer.email) {
+                formatted += ` (${peer.email})`;
+            }
+            vscode.window.showInformationMessage(vscode.l10n.t('{0} has joined the collaboration session', formatted));
         });
         connection.room.onLeave(async (_, peer) => {
             const disposable = this.peers.get(peer.id);
@@ -355,7 +361,31 @@ export class CollaborationInstance implements vscode.Disposable {
         this.registerEditorEvents();
     }
 
-    private async showCancellableJoinRequest(user: types.User): Promise<boolean> {
+    private async allowUserToJoin(user: types.User): Promise<boolean> {
+        if (!this.options.host) {
+            // Sanity check: only the host can allow users to join
+            return false;
+        }
+        const joinMode = Settings.getJoinAcceptMode();
+        if (joinMode === Settings.JoinAcceptMode.Auto) {
+            return true;
+        }
+        const userId = user.email;
+        const allowlistMode = !!userId && joinMode === Settings.JoinAcceptMode.Allowlist;
+        if (allowlistMode) {
+            const allowedUsers = Settings.getJoinAllowlist();
+            if (allowedUsers.includes(userId)) {
+                return true;
+            }
+        }
+        const allow = await this.showCancellableJoinRequest(user, allowlistMode);
+        if (allow && allowlistMode) {
+            await Settings.addToJoinAllowlist(userId);
+        }
+        return allow;
+    }
+
+    private async showCancellableJoinRequest(user: types.User, allowlistMode: boolean): Promise<boolean> {
         const deferred = new Deferred<boolean>();
         const pendingUser: PendingUser = {
             nanoid: nanoid(),
@@ -364,11 +394,14 @@ export class CollaborationInstance implements vscode.Disposable {
         };
         this.pending.set(pendingUser.nanoid, pendingUser);
         this.onDidPendingChangeEmitter.fire();
-        const message = vscode.l10n.t(
+        let message = vscode.l10n.t(
             'User {0} via {1} login wants to join the collaboration session',
             user.email ? `${user.name} (${user.email})` : user.name,
             user.authProvider ?? 'unknown'
         );
+        if (allowlistMode) {
+            message += ' ' + vscode.l10n.t('The user will be added to the [allowlist]({0}) upon acceptance.', 'command:workbench.action.openSettings?' + encodeURIComponent('["oct.joinAllowlist"]'));
+        }
         const allow = vscode.l10n.t('Allow');
         const deny = vscode.l10n.t('Deny');
         vscode.window.showInformationMessage(message, allow, deny).then(result => {

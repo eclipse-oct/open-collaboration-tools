@@ -11,5 +11,13 @@
   "oct.serverUrl": "URL de la instancia del Open Collaboration Tools Server para sesiones de colaboración en directo.",
   "oct.alwaysAskToOverrideServerUrl": "Solicite siempre anular la URL del servidor cuando se una a una sesión de colaboración utilizando una URL de servidor específica como parte del ID de sesión.",
   "oct.webClientUrl": "Plantilla de URL para el cliente web. Use ${roomId} como marcador de posición para el ID de la sala.",
-  "oct.user.color": "Color para los usuarios en las sesiones de colaboración"
+  "oct.user.color": "Color para los usuarios en las sesiones de colaboración",
+  "oct.joinAcceptMode": "Determina cómo se gestionan las peticiones de unión de otros usuarios.",
+  "oct.joinAcceptMode.prompt": "Pregunte a",
+  "oct.joinAcceptMode.allowlist": "Lista de permisos",
+  "oct.joinAcceptMode.auto": "Automático",
+  "oct.joinAcceptMode.prompt.description": "Pregunta para aceptar o rechazar cada solicitud de unión.",
+  "oct.joinAcceptMode.allowlist.description": "Añade usuarios a una lista de permitidos cuando se aceptan sus solicitudes de adhesión, lo que les permite unirse automáticamente en el futuro.",
+  "oct.joinAcceptMode.auto.description": "Aceptar automáticamente todas las solicitudes de adhesión sin preguntar.",
+  "oct.joinAllowlist": "Lista de correos electrónicos de usuarios a los que se permite unirse automáticamente cuando se utiliza el modo de aceptación de uniones 'Allowlist'. Véase también `#oct.joinAcceptMode#`."
 }

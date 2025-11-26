@@ -11,5 +11,13 @@
   "oct.serverUrl": "Adresa URL instance serveru Open Collaboration Tools Server pro živé relace spolupráce.",
   "oct.alwaysAskToOverrideServerUrl": "Při připojování k relaci spolupráce pomocí konkrétní adresy URL serveru jako součásti ID relace vždy požádejte o přepsání adresy URL serveru.",
   "oct.webClientUrl": "Šablona URL pro webového klienta. Použijte ${roomId} jako zástupný symbol pro ID místnosti.",
-  "oct.user.color": "Barva pro uživatele v relacích spolupráce"
+  "oct.user.color": "Barva pro uživatele v relacích spolupráce",
+  "oct.joinAcceptMode": "Určuje, jak budou zpracovávány požadavky na připojení od jiných uživatelů.",
+  "oct.joinAcceptMode.prompt": "Prompt",
+  "oct.joinAcceptMode.allowlist": "Seznam povolení",
+  "oct.joinAcceptMode.auto": "Automatické",
+  "oct.joinAcceptMode.prompt.description": "Výzva k přijetí nebo odmítnutí každé žádosti o připojení.",
+  "oct.joinAcceptMode.allowlist.description": "Přidá uživatele do seznamu povolených uživatelů, když jsou jejich žádosti o připojení přijaty, a umožní jim tak automatické připojení v budoucnu.",
+  "oct.joinAcceptMode.auto.description": "Automaticky přijímat všechny žádosti o připojení bez vyzvání.",
+  "oct.joinAllowlist": "Seznam e-mailů uživatelů, kteří se mohou automaticky připojit při použití režimu \"Allowlist\". Viz také `#oct.joinAcceptMode#`."
 }

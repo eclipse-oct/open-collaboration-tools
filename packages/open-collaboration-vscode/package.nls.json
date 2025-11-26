@@ -11,5 +11,13 @@
   "oct.serverUrl": "URL of the Open Collaboration Tools Server instance for live collaboration sessions.",
   "oct.alwaysAskToOverrideServerUrl": "Always ask to override the server URL when joining a collaboration session using a specific server URL as part of the session ID.",
   "oct.webClientUrl": "URL template for the web client. Use ${roomId} as a placeholder for the room ID.",
-  "oct.user.color": "Color for users in collaboration sessions"
+  "oct.user.color": "Color for users in collaboration sessions",
+  "oct.joinAcceptMode": "Determines how join requests from other users are handled.",
+  "oct.joinAcceptMode.prompt": "Prompt",
+  "oct.joinAcceptMode.allowlist": "Allowlist",
+  "oct.joinAcceptMode.auto": "Automatic",
+  "oct.joinAcceptMode.prompt.description": "Prompt to accept or reject each join request.",
+  "oct.joinAcceptMode.allowlist.description": "Adds users to an allowlist when their join requests are accepted, allowing them to join automatically in the future.",
+  "oct.joinAcceptMode.auto.description": "Automatically accept all join requests without prompting.",
+  "oct.joinAllowlist": "List of user emails allowed to join automatically when using 'Allowlist' join accept mode. See also `#oct.joinAcceptMode#`."
 }

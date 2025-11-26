@@ -11,5 +11,13 @@
   "oct.serverUrl": "Canlı işbirliği oturumları için Open Collaboration Tools Server örneğinin URL'si.",
   "oct.alwaysAskToOverrideServerUrl": "Oturum kimliğinin bir parçası olarak belirli bir sunucu URL'si kullanarak bir işbirliği oturumuna katılırken her zaman sunucu URL'sini geçersiz kılmayı isteyin.",
   "oct.webClientUrl": "Web istemcisi için URL şablonu. Oda kimliği için yer tutucu olarak ${roomId} kullanın.",
-  "oct.user.color": "İşbirliği oturumlarında kullanıcılar için renk"
+  "oct.user.color": "İşbirliği oturumlarında kullanıcılar için renk",
+  "oct.joinAcceptMode": "Diğer kullanıcılardan gelen birleştirme isteklerinin nasıl ele alınacağını belirler.",
+  "oct.joinAcceptMode.prompt": "İstem",
+  "oct.joinAcceptMode.allowlist": "İzin listesi",
+  "oct.joinAcceptMode.auto": "Otomatik",
+  "oct.joinAcceptMode.prompt.description": "Her bir birleştirme isteğini kabul etme veya reddetme istemi.",
+  "oct.joinAcceptMode.allowlist.description": "Kullanıcıların katılım istekleri kabul edildiğinde onları bir izin listesine ekler ve gelecekte otomatik olarak katılmalarını sağlar.",
+  "oct.joinAcceptMode.auto.description": "Tüm katılma isteklerini sormadan otomatik olarak kabul edin.",
+  "oct.joinAllowlist": "'Allowlist' join accept modu kullanıldığında otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi. Ayrıca bakınız `#oct.joinAcceptMode#`."
 }
