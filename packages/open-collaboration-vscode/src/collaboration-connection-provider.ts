@@ -113,7 +113,8 @@ export class CollaborationConnectionProvider {
             }
         }
 
-        const endpointUrl = vscode.Uri.parse(serverUrl).with({ path: provider.endpoint });
+        const parsedServerUrl = vscode.Uri.parse(serverUrl);
+        const endpointUrl = vscode.Uri.joinPath(parsedServerUrl, provider.endpoint);
         const response = await this.fetch(endpointUrl.toString(), {
             method: 'POST',
             body: JSON.stringify(values),
@@ -130,7 +131,8 @@ export class CollaborationConnectionProvider {
     }
 
     private async handleWebAuth(token: string, provider: WebAuthProvider, serverUrl: string): Promise<boolean> {
-        const endpointUrl = vscode.Uri.parse(serverUrl).with({ path: provider.endpoint, query: `token=${token}` });
+        const parsedServerUrl = vscode.Uri.parse(serverUrl);
+        const endpointUrl = vscode.Uri.joinPath(parsedServerUrl, provider.endpoint).with({ query: `token=${token}` });
         return await vscode.env.openExternal(endpointUrl);
     }
 }
