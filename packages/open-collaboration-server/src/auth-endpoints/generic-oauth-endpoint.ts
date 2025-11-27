@@ -30,8 +30,8 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
     init() {
         super.initialize();
 
-        this.label = this.configuration.getValue('oct-oauth-name') ?? 'Generic OAuth';
-        this.authURL = this.configuration.getValue('oct-oauth-auth-url');
+        this.label = this.configuration.getValue('oct-oauth-clientlabel') ?? 'Generic OAuth';
+        this.authURL = this.configuration.getValue('oct-oauth-url');
         this.tokenURL = this.configuration.getValue('oct-oauth-token-url');
         this.userInfoUrl = this.configuration.getValue('oct-oauth-userinfo-url');
         this.clientID = this.configuration.getValue('oct-oauth-clientid');

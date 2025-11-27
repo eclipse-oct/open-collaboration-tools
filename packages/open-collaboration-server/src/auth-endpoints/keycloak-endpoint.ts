@@ -32,12 +32,12 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
 
     @postConstruct()
     init() {
-        this.host = this.configuration.getValue('keycloak-host');
-        this.realm = this.configuration.getValue('keycloak-realm');
-        this.clientID = this.configuration.getValue('keycloak-client-id');
-        this.clientSecret = this.configuration.getValue('keycloak-client-secret');
-        this.userNameClaim = this.configuration.getValue('keycloak-username-claim');
-        this.label = this.configuration.getValue('keycloak-client-label') ?? 'Keycloak';
+        this.host = this.configuration.getValue('oct-oauth-keycloak-url');
+        this.realm = this.configuration.getValue('oct-oauth-keycloak-realm');
+        this.clientID = this.configuration.getValue('oct-oauth-keycloak-clientid');
+        this.clientSecret = this.configuration.getValue('oct-oauth-keycloak-clientsecret');
+        this.userNameClaim = this.configuration.getValue('oct-oauth-keycloak-usernameclaim');
+        this.label = this.configuration.getValue('oct-oauth-keycloak-clientlabel') ?? 'Keycloak';
 
         this.keycloakBaseUrl = `${this.host}/realms/${this.realm}`;
         super.initialize();
