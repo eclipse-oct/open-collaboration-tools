@@ -32,6 +32,10 @@ export class CollaborationInstance implements types.Disposable {
     isDisposed = false;
 
     constructor(public octConnection: types.ProtocolBroadcastConnection, protected clientConnection: MessageConnection, protected isHost: boolean, workspace?: types.Workspace) {
+        process.on('beforeExit', () => {
+            this.leaveRoom();
+        });
+
         if(isHost && !workspace) {
             throw new Error('Host must provide workspace');
         }
@@ -273,6 +277,7 @@ export class CollaborationInstance implements types.Disposable {
 
     async leaveRoom(): Promise<void> {
         await this.octConnection.room.leave();
+        await new Promise(resolve => setTimeout(resolve, 100));
         this.dispose();
     }
 
