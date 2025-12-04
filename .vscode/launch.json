@@ -8,7 +8,8 @@
           "type": "node",
           "request": "attach",
           "name": "Attach to Service Process",
-          "port": 23698,
+          "port": "${input:attachPort}",
+
         },
         {
             "type": "node",
@@ -90,6 +91,14 @@
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "attachPort",
+            "type": "promptString",
+            "description": "What port should the application use for debugging?",
+            "default": "23698"
         }
     ]
 }
