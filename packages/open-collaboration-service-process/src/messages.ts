@@ -150,7 +150,7 @@ export namespace BinaryData {
     }
 
     export function shouldConvert(message: unknown): boolean {
-        if (typeof message !== 'object' && message !== null) {
+        if (typeof message !== 'object' || message === null) {
             return false;
         }
 
@@ -162,7 +162,7 @@ export namespace BinaryData {
             return message.some((item) => shouldConvert(item));
         }
 
-        return Object.keys(message!).some((key) => shouldConvert((message as Record<string, unknown>)[key]));
+        return Object.keys(message).some((key) => shouldConvert((message as Record<string, unknown>)[key]));
     }
 }
 

@@ -23,9 +23,9 @@ node ./lib/process.js --server-address http://localhost:8100 --auth-token <your-
 ### Communication Protocol
 
 All communication happens via JSON-RPC 2.0 messages over stdin/stdout.
-See [messages.ts](src/messages.ts) for service process specific awarness or lifecycle messages. Other messages follow the open-collaboration-protocol.
+See [messages.ts](src/messages.ts) for service process specific awareness or lifecycle messages. Other messages follow the open-collaboration-protocol.
 
-For specific examples see `service.process.test.ts` or the [IntellIj integration](https://github.com/eclipse-oct/oct-intellij)
+For specific examples see `service.process.test.ts` or the [IntellIJ integration](https://github.com/eclipse-oct/oct-intellij)
 
 ### Sending and Receiving Binary Data
 

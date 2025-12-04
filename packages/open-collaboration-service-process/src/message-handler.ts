@@ -65,7 +65,7 @@ export class MessageHandler {
                     return fromBinaryMessage(param.data);
                 }
                 return param;
-            });;
+            });
 
             if(metaDataParam === 'broadcast') {
                 this.currentCollaborationInstance?.octConnection.sendBroadcast(method, ...messageParams);
