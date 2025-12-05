@@ -7,6 +7,8 @@ This package is a standalone Node.js application, which helps to simplify integr
 It takes over encryption, session lifecycle management, and includes Yjs integration for collision-free real-time editing of documents,
 so client applications do not need to implement these complex features themselves.
 
+The artifact needs to be cjs to be able to be bundled and made into an SEA because of socket.io's dynamic requires.
+
 ## Usage
 
 ### Starting the Service Process
