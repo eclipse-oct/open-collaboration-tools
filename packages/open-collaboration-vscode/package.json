@@ -83,7 +83,11 @@
         },
         "oct.joinAcceptMode": {
           "type": "string",
-          "enum": ["prompt", "allowlist", "auto"],
+          "enum": [
+            "prompt",
+            "allowlist",
+            "auto"
+          ],
           "default": "prompt",
           "markdownDescription": "%oct.joinAcceptMode%",
           "enumItemLabels": [
@@ -272,19 +276,20 @@
   "dependencies": {
     "async-mutex": "~0.5.0",
     "inversify": "~6.2.2",
-    "reflect-metadata": "~0.2.2",
-    "open-collaboration-yjs": "0.3.1",
-    "open-collaboration-protocol": "0.3.1",
     "lodash": "~4.17.21",
     "nanoid": "~5.1.5",
-    "node-fetch": "~3.3.2"
+    "node-fetch": "~3.3.2",
+    "open-collaboration-protocol": "0.3.1",
+    "open-collaboration-yjs": "0.3.1",
+    "reflect-metadata": "~0.2.2"
   },
   "devDependencies": {
     "@types/node-fetch": "~2.6.12",
     "@types/vscode": "^1.73.0",
     "@vscode/l10n-dev": "~0.0.35",
     "@vscode/vsce": "^3.0.0",
-    "deepl-node": "~1.17.3"
+    "deepl-node": "~1.17.3",
+    "esbuild": "^0.25.2"
   },
   "volta": {
     "node": "22.14.0",
