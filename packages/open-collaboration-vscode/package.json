@@ -104,6 +104,16 @@
           },
           "default": [],
           "markdownDescription": "%oct.joinAllowlist%"
+        },
+        "oct.files.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/.env"
+          ],
+          "markdownDescription": "%oct.files.exclude%"
         }
       }
     },
