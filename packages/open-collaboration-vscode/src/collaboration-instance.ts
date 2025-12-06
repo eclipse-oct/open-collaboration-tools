@@ -461,7 +461,7 @@ export class CollaborationInstance implements vscode.Disposable {
         });
         connection.fs.onReaddir(async (_, path) => {
             if (this.isPathExcluded(path)) {
-                return {};
+                throw vscode.FileSystemError.FileNotFound(path);
             }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
