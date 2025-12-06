@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "Aufforderung zur Annahme oder Ablehnung jeder Beitrittsanfrage.",
   "oct.joinAcceptMode.allowlist.description": "Fügt Benutzer zu einer Erlaubnisliste hinzu, wenn ihre Beitrittsanfragen akzeptiert werden, damit sie in Zukunft automatisch beitreten können.",
   "oct.joinAcceptMode.auto.description": "Automatische Annahme aller Beitrittsanfragen ohne Aufforderung.",
-  "oct.joinAllowlist": "Liste der Benutzer-E-Mails, die automatisch beitreten dürfen, wenn der Join-Accept-Modus \"Allowlist\" verwendet wird. Siehe auch `#oct.joinAcceptMode#`."
+  "oct.joinAllowlist": "Liste der Benutzer-E-Mails, die automatisch beitreten dürfen, wenn der Join-Accept-Modus \"Allowlist\" verwendet wird. Siehe auch `#oct.joinAcceptMode#`.",
+  "oct.files.exclude": "Eine Liste von Glob-Mustern für Dateien, die nicht in einer Kooperationssitzung freigegeben werden sollen."
 }

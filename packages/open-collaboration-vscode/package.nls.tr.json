@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "Her bir birleştirme isteğini kabul etme veya reddetme istemi.",
   "oct.joinAcceptMode.allowlist.description": "Kullanıcıların katılım istekleri kabul edildiğinde onları bir izin listesine ekler ve gelecekte otomatik olarak katılmalarını sağlar.",
   "oct.joinAcceptMode.auto.description": "Tüm katılma isteklerini sormadan otomatik olarak kabul edin.",
-  "oct.joinAllowlist": "'Allowlist' join accept modu kullanıldığında otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi. Ayrıca bakınız `#oct.joinAcceptMode#`."
+  "oct.joinAllowlist": "'Allowlist' join accept modu kullanıldığında otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi. Ayrıca bakınız `#oct.joinAcceptMode#`.",
+  "oct.files.exclude": "Bir işbirliği oturumunda paylaşılmaması gereken dosyalar için glob kalıplarının bir listesi."
 }

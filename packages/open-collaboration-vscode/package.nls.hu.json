@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "Minden egyes csatlakozási kérelem elfogadására vagy elutasítására vonatkozó felszólítás.",
   "oct.joinAcceptMode.allowlist.description": "Hozzáadja a felhasználókat egy engedélyezési listához, amikor a csatlakozási kérelmüket elfogadják, így a jövőben automatikusan csatlakozhatnak.",
   "oct.joinAcceptMode.auto.description": "Automatikusan, kérés nélkül elfogad minden csatlakozási kérelmet.",
-  "oct.joinAllowlist": "Az automatikus csatlakozásra engedélyezett felhasználói e-mailek listája, ha az \"Allowlist\" csatlakozás elfogadási módot használja. Lásd még `#oct.joinAcceptMode#`."
+  "oct.joinAllowlist": "Az automatikus csatlakozásra engedélyezett felhasználói e-mailek listája, ha az \"Allowlist\" csatlakozás elfogadási módot használja. Lásd még `#oct.joinAcceptMode#`.",
+  "oct.files.exclude": "Azon fájlok glob-mintáinak listája, amelyeket nem szabad megosztani egy együttműködési munkamenetben."
 }

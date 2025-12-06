@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "각 가입 요청을 수락하거나 거부할지 묻는 메시지를 표시합니다.",
   "oct.joinAcceptMode.allowlist.description": "가입 요청이 수락되면 사용자를 허용 목록에 추가하여 향후 자동으로 가입할 수 있도록 합니다.",
   "oct.joinAcceptMode.auto.description": "모든 가입 요청을 메시지 없이 자동으로 수락합니다.",
-  "oct.joinAllowlist": "'허용 목록' 가입 허용 모드를 사용할 때 자동으로 가입할 수 있는 사용자 이메일 목록입니다. '#oct.joinAcceptMode#'도 참조하세요."
+  "oct.joinAllowlist": "'허용 목록' 가입 허용 모드를 사용할 때 자동으로 가입할 수 있는 사용자 이메일 목록입니다. '#oct.joinAcceptMode#'도 참조하세요.",
+  "oct.files.exclude": "공동 작업 세션에서 공유해서는 안 되는 파일에 대한 글로브 패턴 목록입니다."
 }
