@@ -19,7 +19,7 @@ import { CollaborationUri } from './utils/uri.js';
 import { userColors } from './utils/package.js';
 import { nanoid } from 'nanoid';
 import { Settings } from './utils/settings.js';
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 
 export interface PeerWithColor extends types.Peer {
     nanoid: string;
