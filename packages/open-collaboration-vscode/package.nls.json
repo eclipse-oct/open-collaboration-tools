@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "Prompt to accept or reject each join request.",
   "oct.joinAcceptMode.allowlist.description": "Adds users to an allowlist when their join requests are accepted, allowing them to join automatically in the future.",
   "oct.joinAcceptMode.auto.description": "Automatically accept all join requests without prompting.",
-  "oct.joinAllowlist": "List of user emails allowed to join automatically when using 'Allowlist' join accept mode. See also `#oct.joinAcceptMode#`."
+  "oct.joinAllowlist": "List of user emails allowed to join automatically when using 'Allowlist' join accept mode. See also `#oct.joinAcceptMode#`.",
+  "oct.files.exclude": "A list of glob patterns for files that should not be shared in a collaboration session."
 }

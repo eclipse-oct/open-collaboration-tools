@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "各参加リクエストを受け入れるか拒否するかのプロンプト。",
   "oct.joinAcceptMode.allowlist.description": "参加リクエストが受理されたときにユーザーを許可リストに追加し、将来自動的に参加できるようにする。",
   "oct.joinAcceptMode.auto.description": "プロンプトを表示することなく、すべての参加リクエストを自動的に受け付けます。",
-  "oct.joinAllowlist": "Allowlist'参加受付モードを使用している場合に自動参加を許可するユーザーメールのリスト。`#oct.joinAcceptMode#`も参照。"
+  "oct.joinAllowlist": "Allowlist'参加受付モードを使用している場合に自動参加を許可するユーザーメールのリスト。`#oct.joinAcceptMode#`も参照。",
+  "oct.files.exclude": "コラボレーションセッションで共有すべきでないファイルのグロブパターンのリスト。"
 }

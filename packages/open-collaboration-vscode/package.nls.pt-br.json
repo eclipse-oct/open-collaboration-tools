@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "Prompt para aceitar ou rejeitar cada solicitação de ingresso.",
   "oct.joinAcceptMode.allowlist.description": "Adiciona usuários a uma lista de permissões quando suas solicitações de associação são aceitas, permitindo que eles se associem automaticamente no futuro.",
   "oct.joinAcceptMode.auto.description": "Aceitar automaticamente todas as solicitações de associação sem aviso prévio.",
-  "oct.joinAllowlist": "Lista de e-mails de usuários com permissão para ingressar automaticamente ao usar o modo de aceitação de ingresso \"Allowlist\". Consulte também `#oct.joinAcceptMode#`."
+  "oct.joinAllowlist": "Lista de e-mails de usuários com permissão para ingressar automaticamente ao usar o modo de aceitação de ingresso \"Allowlist\". Consulte também `#oct.joinAcceptMode#`.",
+  "oct.files.exclude": "Uma lista de padrões glob para arquivos que não devem ser compartilhados em uma sessão de colaboração."
 }

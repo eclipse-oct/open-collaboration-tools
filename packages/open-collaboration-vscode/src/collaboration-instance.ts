@@ -19,6 +19,7 @@ import { CollaborationUri } from './utils/uri.js';
 import { userColors } from './utils/package.js';
 import { nanoid } from 'nanoid';
 import { Settings } from './utils/settings.js';
+import { minimatch } from 'minimatch';
 
 export interface PeerWithColor extends types.Peer {
     nanoid: string;
@@ -426,9 +427,25 @@ export class CollaborationInstance implements vscode.Disposable {
         this.pending.get(id)?.deferred.resolve(true);
     }
 
+    private isPathExcluded(path: string): boolean {
+        if (!this.host) {
+            return false;
+        }
+        const excludePatterns = Settings.getFilesExclude();
+        for (const pattern of excludePatterns) {
+            if (minimatch(path, pattern, { dot: true })) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private registerFileEvents() {
         const connection = this.connection;
         connection.fs.onStat(async (_, path) => {
+            if (this.isPathExcluded(path)) {
+                throw vscode.FileSystemError.FileNotFound(path);
+            }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
                 const stat = await vscode.workspace.fs.stat(uri);
@@ -443,15 +460,22 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.fs.onReaddir(async (_, path) => {
+            if (this.isPathExcluded(path)) {
+                throw vscode.FileSystemError.FileNotFound(path);
+            }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
                 const result = await vscode.workspace.fs.readDirectory(uri);
-                return result.reduce((acc, [name, type]) => { acc[name] = type; return acc; }, {} as types.FileSystemDirectory);
+                const filtered = result.filter(([name]) => !this.isPathExcluded(path ? `${path}/${name}` : name));
+                return filtered.reduce((acc, [name, type]) => { acc[name] = type; return acc; }, {} as types.FileSystemDirectory);
             } else {
                 throw new Error('Could not read directory');
             }
         });
         connection.fs.onReadFile(async (_, path) => {
+            if (this.isPathExcluded(path)) {
+                throw vscode.FileSystemError.FileNotFound(path);
+            }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
                 const content = await vscode.workspace.fs.readFile(uri);
@@ -463,6 +487,9 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.fs.onDelete(async (_, path) => {
+            if (this.isPathExcluded(path)) {
+                throw vscode.FileSystemError.FileNotFound(path);
+            }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
                 await vscode.workspace.fs.delete(uri, { recursive: true });
@@ -471,6 +498,9 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.fs.onRename(async (_, oldPath, newPath) => {
+            if (this.isPathExcluded(oldPath) || this.isPathExcluded(newPath)) {
+                throw vscode.FileSystemError.FileNotFound(oldPath);
+            }
             const oldUri = CollaborationUri.getResourceUri(oldPath);
             const newUri = CollaborationUri.getResourceUri(newPath);
             if (oldUri && newUri) {
@@ -480,6 +510,9 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.fs.onMkdir(async (_, path) => {
+            if (this.isPathExcluded(path)) {
+                throw vscode.FileSystemError.NoPermissions(path);
+            }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
                 await vscode.workspace.fs.createDirectory(uri);
@@ -503,6 +536,9 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
         connection.fs.onWriteFile(async (_, path, content) => {
+            if (this.isPathExcluded(path)) {
+                throw vscode.FileSystemError.FileNotFound(path);
+            }
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
                 const document = this.findDocument(uri);
@@ -659,7 +695,7 @@ export class CollaborationInstance implements vscode.Disposable {
         });
         const pushChange = (uri: vscode.Uri, type: types.FileChangeEventType) => {
             const path = CollaborationUri.getProtocolPath(uri);
-            if (path) {
+            if (path && !this.isPathExcluded(path)) {
                 queue.push({
                     path,
                     type

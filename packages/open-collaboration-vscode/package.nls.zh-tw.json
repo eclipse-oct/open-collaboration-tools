@@ -19,5 +19,6 @@
   "oct.joinAcceptMode.prompt.description": "提示接受或拒絕每個加入請求。",
   "oct.joinAcceptMode.allowlist.description": "當使用者的加入請求被接受時，將他們加入允許清單，允許他們在未來自動加入。",
   "oct.joinAcceptMode.auto.description": "自動接受所有加入請求，無須提示。",
-  "oct.joinAllowlist": "使用「Allowlist」加入接受模式時，允許自動加入的使用者電子郵件清單。另請參閱 `#oct.joinAcceptMode#`。"
+  "oct.joinAllowlist": "使用「Allowlist」加入接受模式時，允許自動加入的使用者電子郵件清單。另請參閱 `#oct.joinAcceptMode#`。",
+  "oct.files.exclude": "不應該在協作會話中共用的檔案的 glob 模式清單。"
 }
