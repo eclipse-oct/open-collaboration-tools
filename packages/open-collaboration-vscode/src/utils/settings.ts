@@ -20,6 +20,7 @@ export namespace Settings {
     export const WEB_CLIENT_URL = 'oct.webClientUrl';
     export const JOIN_ACCEPT_MODE = 'oct.joinAcceptMode';
     export const JOIN_ALLOWLIST = 'oct.joinAllowlist';
+    export const FILES_EXCLUDE = 'oct.files.exclude';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -62,6 +63,10 @@ export namespace Settings {
 
     export function getJoinAllowlist(): string[] {
         return vscode.workspace.getConfiguration().get<string[]>(JOIN_ALLOWLIST, []);
+    }
+
+    export function getFilesExclude(): string[] {
+        return vscode.workspace.getConfiguration().get<string[]>(FILES_EXCLUDE, ['**/.env']);
     }
 
     export async function addToJoinAllowlist(id: string): Promise<void> {
