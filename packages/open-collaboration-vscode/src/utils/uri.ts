@@ -10,8 +10,15 @@ export namespace CollaborationUri {
 
     export const SCHEME = 'oct';
 
-    export function create(workspace: string, path?: string): vscode.Uri {
-        return vscode.Uri.parse(`${SCHEME}:///${workspace}${path ? '/' + path : ''}`);
+    export function createWorkspaceUri(sessionId: string): vscode.Uri {
+        return vscode.Uri.parse(`${SCHEME}://${sessionId}/`);
+    }
+
+    export function getWorkspaceId(uri: vscode.Uri): string | undefined {
+        if (uri.scheme !== SCHEME) {
+            return undefined;
+        }
+        return uri.authority;
     }
 
     export function getProtocolPath(uri?: vscode.Uri): string | undefined {

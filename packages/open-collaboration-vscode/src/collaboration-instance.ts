@@ -161,6 +161,7 @@ export interface CollaborationInstanceOptions {
     host: boolean;
     hostId?: string;
     roomId: string;
+    folders: string[];
 }
 
 export interface PendingUser {
@@ -253,7 +254,8 @@ export class CollaborationInstance implements vscode.Disposable {
     @inject(CollaborationInstanceOptions)
     private readonly options: CollaborationInstanceOptions;
 
-    private fileSystemManager?: FileSystemManager;
+    @inject(FileSystemManager)
+    private fileSystemManager: FileSystemManager;
 
     @postConstruct()
     protected init(): void {
@@ -267,8 +269,12 @@ export class CollaborationInstance implements vscode.Disposable {
             resyncTimer: 10_000 // resync every 10 seconds
         });
         if (this.options.hostId) {
-            this.fileSystemManager = new FileSystemManager(connection, this.yjs, this.options.hostId);
-            this.toDispose.push(this.fileSystemManager);
+            this.fileSystemManager.initialize({
+                connection,
+                yjs: this.yjs,
+                hostId: this.options.hostId,
+                folders: this.options.folders
+            });
         }
         this.yjsProvider.connect();
         this.toDispose.push(connection);
@@ -1011,7 +1017,6 @@ export class CollaborationInstance implements vscode.Disposable {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
         this._permissions = data.permissions;
-        this.fileSystemManager.registerFileSystemProvider(data.permissions.readonly);
         this.onDidUsersChangeEmitter.fire();
         this._ready.resolve();
     }

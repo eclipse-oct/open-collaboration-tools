@@ -7,7 +7,6 @@
 import * as vscode from 'vscode';
 import { CollaborationUri } from './uri.js';
 import { nanoid } from 'nanoid';
-import { isWeb } from './system.js';
 
 export function removeWorkspaceFolders() {
     const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
@@ -38,9 +37,19 @@ export interface CodeWorkspaceFolder {
     uri: string;
 }
 
+export function workspaceFileContent(folders: Folder[]): string {
+    const workspace: CodeWorkspace = {
+        folders: folders.map(folder => ({
+            name: folder.name,
+            uri: folder.uri.toString(true)
+        }))
+    };
+    return JSON.stringify(workspace, undefined, 2);
+}
+
 export async function storeWorkspace(folders: Folder[], storageUri: vscode.Uri): Promise<vscode.Uri | undefined> {
     const canWrite = vscode.workspace.fs.isWritableFileSystem(storageUri.scheme);
-    if (!canWrite || isWeb()) {
+    if (!canWrite || vscode.env.uiKind === vscode.UIKind.Web) {
         return undefined;
     }
     try {

@@ -11,12 +11,11 @@ import { CollaborationUri, RoomUri } from './utils/uri.js';
 import { inject, injectable } from 'inversify';
 import { CollaborationConnectionProvider } from './collaboration-connection-provider.js';
 import { localizeInfo } from './utils/l10n.js';
-import { isWeb } from './utils/system.js';
+import { isWeb, timeout } from './utils/system.js';
 import { Settings } from './utils/settings.js';
 import { RoomData, SecretStorage } from './secret-storage.js';
-import { storeWorkspace } from './utils/workspace.js';
-import { ExtensionContext } from './inversify.js';
 import { CodeCommands } from './commands-list.js';
+import { FileSystemManager } from './collaboration-file-system.js';
 
 @injectable()
 export class CollaborationRoomService {
@@ -27,11 +26,11 @@ export class CollaborationRoomService {
     @inject(CollaborationInstanceFactory)
     private instanceFactory: CollaborationInstanceFactory;
 
-    @inject(ExtensionContext)
-    private context: vscode.ExtensionContext;
-
     @inject(SecretStorage)
     private secretStore: SecretStorage;
+
+    @inject(FileSystemManager)
+    private fileSystemManager: FileSystemManager;
 
     private readonly onDidJoinRoomEmitter = new vscode.EventEmitter<CollaborationInstance>();
     readonly onDidJoinRoom = this.onDidJoinRoomEmitter.event;
@@ -39,7 +38,15 @@ export class CollaborationRoomService {
     private tokenSource = new vscode.CancellationTokenSource();
 
     async tryConnect(): Promise<CollaborationInstance | undefined> {
-        const roomData = await this.secretStore.consumeRoomData();
+        this.fileSystemManager.registerFileSystemProvider(false);
+        // Wait a short moment to ensure that the file system has been registered on the client
+        await timeout(200);
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            this.fileSystemManager.dispose();
+            return undefined;
+        }
+        const roomData = await this.secretStore.retrieveSessionDataFromUri(workspaceFolder.uri);
         if (roomData) {
             const connectionProvider = await this.connectionProvider.createConnection(roomData.serverUrl);
             const connection = await connectionProvider.connect(roomData.roomToken, roomData.host);
@@ -48,11 +55,13 @@ export class CollaborationRoomService {
                 serverUrl: roomData.serverUrl,
                 host: false,
                 roomId: roomData.roomId,
-                hostId: roomData.host.id
+                hostId: roomData.host.id,
+                folders: roomData.workspace.folders
             });
             this.onDidJoinRoomEmitter.fire(instance);
             return instance;
         }
+        this.fileSystemManager.dispose();
         return undefined;
     }
 
@@ -76,7 +85,8 @@ export class CollaborationRoomService {
                         serverUrl: url,
                         connection,
                         host: true,
-                        roomId: roomClaim.roomId
+                        roomId: roomClaim.roomId,
+                        folders: []
                     });
                     await vscode.env.clipboard.writeText(roomClaim.roomId);
                     const copyToClipboard = vscode.l10n.t('Copy to Clipboard');
@@ -138,31 +148,33 @@ export class CollaborationRoomService {
                             await this.secretStore.storeUserToken(url, userToken);
                         }
                         const roomData: RoomData = {
+                            timestamp: Date.now(),
                             serverUrl: url,
                             roomToken: roomClaim.roomToken,
                             roomId: roomClaim.roomId,
-                            host: roomClaim.host
+                            host: roomClaim.host,
+                            workspace: roomClaim.workspace
                         };
-                        await this.secretStore.storeRoomData(roomData);
-                        const workspaceFolders = (vscode.workspace.workspaceFolders ?? []);
-                        const workspace = roomClaim.workspace;
-                        const newFolders = workspace.folders.map(folder => ({
-                            name: folder,
-                            uri: CollaborationUri.create(workspace.name, folder)
-                        }));
-                        const uri = await storeWorkspace(newFolders, this.context.globalStorageUri);
-                        if (uri) {
-                            // We were able to store the workspace folders in a file
-                            // We now attempt to load that workspace file
-                            await vscode.commands.executeCommand(CodeCommands.OpenFolder, uri, {
-                                forceNewWindow: false,
-                                forceReuseWindow: true,
-                                noRecentEntry: true
-                            });
-                            return true;
-                        } else {
-                            return vscode.workspace.updateWorkspaceFolders(0, workspaceFolders.length, ...newFolders);
-                        }
+                        const sessionId = await this.secretStore.storeSessionData(roomData);
+                        const workspaceUri = CollaborationUri.createWorkspaceUri(sessionId);
+                        // if (vscode.env.uiKind === vscode.UIKind.Web) {
+                        //     // On web, we need to open the workspace as an update to the current window
+                        //     return vscode.workspace.updateWorkspaceFolders(0, vscode.workspace.workspaceFolders?.length ?? 0, { uri: workspaceUri, name: roomData.workspace.name });
+                        // } else {
+                        //     // On desktop we simply open the workspace folder
+                        //     await vscode.commands.executeCommand(CodeCommands.OpenFolder, workspaceUri, {
+                        //         forceNewWindow: false,
+                        //         forceReuseWindow: true,
+                        //         noRecentEntry: true
+                        //     });
+                        //     return true;
+                        // }
+                        await vscode.commands.executeCommand(CodeCommands.OpenFolder, workspaceUri, {
+                            forceNewWindow: false,
+                            forceReuseWindow: true,
+                            noRecentEntry: true
+                        });
+                        return true;
                     } catch (error) {
                         this.showError(false, error, outerToken, cancelToken);
                     }

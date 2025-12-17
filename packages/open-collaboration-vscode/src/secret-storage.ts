@@ -7,21 +7,29 @@
 import * as vscode from 'vscode';
 import { inject, injectable } from 'inversify';
 import { ExtensionContext } from './inversify.js';
-import type { Peer } from 'open-collaboration-protocol';
+import type { Peer, Workspace } from 'open-collaboration-protocol';
+import { nanoid } from 'nanoid';
+import { CollaborationUri } from './utils/uri.js';
 
 export interface UserTokens {
     [serverUrl: string]: string | undefined;
 }
 
+export interface SessionData {
+    [id: string]: RoomData;
+}
+
 export interface RoomData {
+    timestamp: number;
     serverUrl: string;
     roomToken: string;
     roomId: string;
     host: Peer;
+    workspace: Workspace;
 }
 
 const USER_TOKEN_KEY = 'oct.userTokens';
-const ROOM_TOKEN_KEY = 'oct.roomToken';
+const SESSION_TOKEN_KEY = 'oct.sessionTokens';
 
 @injectable()
 export class SecretStorage {
@@ -32,7 +40,7 @@ export class SecretStorage {
     async deleteAll(): Promise<void> {
         await Promise.all([
             this.context.secrets.delete(USER_TOKEN_KEY),
-            this.context.secrets.delete(ROOM_TOKEN_KEY)
+            this.context.secrets.delete(SESSION_TOKEN_KEY)
         ]);
     }
 
@@ -56,33 +64,46 @@ export class SecretStorage {
     }
 
     async retrieveUserTokens(): Promise<UserTokens> {
-        return (await this.retrieveJsonToken<UserTokens>(USER_TOKEN_KEY)) ?? {};
+        return (await this.retrieveJsonToken<UserTokens>(USER_TOKEN_KEY, {}));
     }
 
-    async consumeRoomData(): Promise<RoomData | undefined> {
-        const roomToken = await this.retrieveRoomData();
-        // Instantly delete the room token - it will become invalid after the first connection attempt
-        await this.storeRoomData(undefined);
-        return roomToken;
+    async storeSessionData(data: RoomData): Promise<string> {
+        const id = nanoid();
+        const sessions = await this.retrieveJsonToken<SessionData>(SESSION_TOKEN_KEY, {});
+        sessions[id] = data;
+        await this.storeJsonToken(SESSION_TOKEN_KEY, sessions);
+        return id;
     }
 
-    async storeRoomData(token: RoomData | undefined): Promise<void> {
-        if (token === undefined) {
-            await this.context.secrets.delete(ROOM_TOKEN_KEY);
-        } else {
-            await this.storeJsonToken(ROOM_TOKEN_KEY, token);
+    async retrieveSessionData(id: string): Promise<RoomData | undefined> {
+        const sessions = await this.retrieveJsonToken<SessionData>(SESSION_TOKEN_KEY, {});
+        let needSave = false;
+        for (const [key, session] of Object.entries(sessions)) {
+            // Clean up sessions older than 24 hours
+            if (session.timestamp + 24 * 60 * 60 * 1000 < Date.now()) {
+                delete sessions[key];
+                needSave = true;
+            }
         }
+        if (needSave) {
+            await this.storeJsonToken(SESSION_TOKEN_KEY, sessions);
+        }
+        return sessions[id];
     }
 
-    async retrieveRoomData(): Promise<RoomData | undefined> {
-        return this.retrieveJsonToken<RoomData>(ROOM_TOKEN_KEY);
+    async retrieveSessionDataFromUri(uri: vscode.Uri): Promise<RoomData | undefined> {
+        const id = CollaborationUri.getWorkspaceId(uri);
+        if (!id) {
+            return undefined;
+        }
+        return this.retrieveSessionData(id);
     }
 
     private async storeJsonToken(key: string, token: object): Promise<void> {
         await this.context.secrets.store(key, JSON.stringify(token));
     }
 
-    private async retrieveJsonToken<T>(key: string): Promise<T | undefined> {
+    private async retrieveJsonToken<T>(key: string, def: T): Promise<T> {
         const token = await this.context.secrets.get(key);
         if (token) {
             try {
@@ -90,9 +111,9 @@ export class SecretStorage {
             } catch {
                 // If the secret is not a valid JSON, delete it.
                 await this.context.secrets.delete(key);
-                return undefined;
+                return def;
             }
         }
-        return undefined;
+        return def;
     }
 }
