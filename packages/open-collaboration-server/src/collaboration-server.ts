@@ -94,7 +94,7 @@ export class CollaborationServer {
                 methods: ['GET', 'POST']
             }
         });
-        io.on('connection', async socket => {
+        const connectionFn: Parameters<typeof io.on>[1] = async socket => {
             const headers = socket.request.headers as Record<string, string>;
             try {
                 await this.connectChannel(headers, new SocketIoChannel(socket));
@@ -102,7 +102,11 @@ export class CollaborationServer {
                 socket.disconnect(true);
                 this.logger.error('Socket IO connection failed', error);
             }
-        });
+        };
+        // Handle all namespaces (not just the default one)
+        // This ensures that users accessing the server via a path still get connected
+        io.on('connection', connectionFn);
+        io.of(/.+/).on('connection', connectionFn);
         httpServer.listen(Number(opts.port), String(opts.hostname));
 
         for (const authEndpoint of this.authEndpoints) {

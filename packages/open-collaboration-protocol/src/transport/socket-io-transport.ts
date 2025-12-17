@@ -12,7 +12,15 @@ import { io, Socket } from 'socket.io-client';
 export const SocketIoTransportProvider: MessageTransportProvider = {
     id: 'socket.io',
     createTransport: (url, headers) => {
+        const parsedUrl = new URL(url);
+        let path = parsedUrl.pathname;
+        if (path && !path.endsWith('/')) {
+            path += '/';
+        }
+        // Path always ends in .../socket.io
+        path += 'socket.io';
         const socket = io(url, {
+            path,
             extraHeaders: headers
         });
         const transport = new SocketIoTransport(socket);
@@ -44,6 +52,7 @@ export class SocketIoTransport implements MessageTransport {
 
     constructor(protected socket: Socket) {
         this.socket.on('disconnect', (_reason, _description) => {
+            this.ready.reject();
             this.ready = new Deferred();
             // Give it 30 seconds to reconnect before firing the disconnect event
             this.disconnectTimeout = setTimeout(() => {
@@ -59,8 +68,19 @@ export class SocketIoTransport implements MessageTransport {
             }
             this.onReconnectEmitter.fire();
         });
-        this.socket.on('error', () => this.onErrorEmitter.fire('Websocket connection closed unexpectedly.'));
-        this.socket.on('connect', () => this.ready.resolve());
+        const timeout = setTimeout(() => {
+            this.onErrorEmitter.fire('Websocket connection timed out.');
+            this.ready.reject();
+        }, 30_000);
+        this.socket.on('error', () => {
+            this.onErrorEmitter.fire('Websocket connection closed unexpectedly.');
+            this.ready.reject();
+            clearTimeout(timeout);
+        });
+        this.socket.on('connect', () => {
+            this.ready.resolve();
+            clearTimeout(timeout);
+        });
     }
 
     async write(data: Uint8Array): Promise<void> {
