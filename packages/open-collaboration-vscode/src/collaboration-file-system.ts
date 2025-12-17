@@ -65,8 +65,20 @@ export class CollaborationFileSystemProvider implements vscode.FileSystemProvide
     }
     async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
         const path = this.getHostPath(uri);
-        const stat = await this.connection.fs.stat(this.hostId, path);
-        return stat;
+        try {
+            const stat = await this.connection.fs.stat(this.hostId, path);
+            return stat;
+        } catch (err) {
+            if (err instanceof vscode.FileSystemError) {
+                throw err;
+            }
+            // throw again as FileNotFound so vscode treats it as "path doesn't exist" rather than a fatal error
+            // allows mkdir to happen after the stat fails
+            if (err instanceof Error && (err.message.includes('ENOENT') || err.message.includes('not found'))) {
+                throw vscode.FileSystemError.FileNotFound(uri);
+            }
+            throw vscode.FileSystemError.Unavailable(`Failed to stat ${uri.toString()}: ${err}`);
+        }
     }
     async readDirectory(uri: vscode.Uri): Promise<Array<[string, vscode.FileType]>> {
         const path = this.getHostPath(uri);
