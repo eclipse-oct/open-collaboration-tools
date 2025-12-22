@@ -77,6 +77,10 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
         return this.userInfoUrl ? new OIDCStrategy(options, verify) : new OAuth2Strategy(options, verify);
     }
 
+    override isProvider(providerName: string): boolean {
+        return providerName === this.label;
+    }
+
 }
 
 export type ODICOptions = OAuth2Strategy.StrategyOptions & {

@@ -127,6 +127,8 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
         const baseURL = this.baseURL ?? `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
         return new URL(path.startsWith('/') ? path.substring(1) : path, baseURL).toString();
     }
+
+    abstract isProvider(providerName: string): boolean;
 }
 
 @injectable()
@@ -166,6 +168,10 @@ export class GitHubOAuthEndpoint extends OAuthEndpoint {
             };
             done(undefined, userInfo);
         });
+    }
+
+    override isProvider(providerName: string): boolean {
+        return providerName === 'GitHub';
     }
 }
 
@@ -207,5 +213,9 @@ export class GoogleOAuthEndpoint extends OAuthEndpoint {
             };
             done(undefined, userInfo);
         });
+    }
+
+    override isProvider(providerName: string): boolean {
+        return providerName === 'Google';
     }
 }

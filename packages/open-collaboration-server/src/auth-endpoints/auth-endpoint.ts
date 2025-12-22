@@ -21,4 +21,5 @@ export interface AuthEndpoint {
     onStart(app: Express, hostname: string, port: number): void;
     onDidAuthenticate: Event<AuthSuccessEvent>;
     getProtocolProvider(): AuthProvider;
+    isProvider(providerName: string): boolean;
 }

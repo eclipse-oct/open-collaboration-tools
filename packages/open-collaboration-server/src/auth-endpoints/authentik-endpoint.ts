@@ -75,6 +75,10 @@ export class AuthentikOAuthEndpoint extends OAuthEndpoint {
 
     }
 
+    override isProvider(providerName: string): boolean {
+        return providerName === this.label;
+    }
+
 }
 
 type AuthentikStrategyOptions = OAuth2Strategy.StrategyOptions & {

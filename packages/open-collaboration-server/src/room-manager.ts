@@ -73,7 +73,8 @@ export class RoomManager {
             user: {
                 id: user.id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                authProvider: user.authProvider
             },
             host: true,
             roomClock: 0

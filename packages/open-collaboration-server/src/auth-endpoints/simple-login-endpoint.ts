@@ -94,4 +94,8 @@ export class SimpleLoginEndpoint implements AuthEndpoint {
             }
         });
     }
+
+    isProvider(providerName: string): boolean {
+        return providerName === 'Unverified';
+    }
 }

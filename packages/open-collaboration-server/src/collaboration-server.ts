@@ -165,6 +165,15 @@ export class CollaborationServer {
         const auth = (req.headers['x-oct-jwt'] ?? req.cookies?.['oct-jwt']) as string;
         try {
             const user = await this.credentials.getUser(auth);
+            // Confirm that the provider used for authentication is still active
+            if (user) {
+                const provider = user.authProvider;
+                const found = this.authEndpoints.find(endpoint => endpoint.shouldActivate() && endpoint.isProvider(provider));
+                if (!found) {
+                    // Provider is no longer active
+                    return undefined;
+                }
+            }
             return user;
         } catch {
             return undefined;

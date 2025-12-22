@@ -78,7 +78,10 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
             };
             done(undefined, userInfo);
         });
+    }
 
+    override isProvider(providerName: string): boolean {
+        return providerName === this.label;
     }
 
 }
