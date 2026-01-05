@@ -128,7 +128,7 @@ export abstract class OAuthEndpoint implements AuthEndpoint {
         return new URL(path.startsWith('/') ? path.substring(1) : path, baseURL).toString();
     }
 
-    abstract isProvider(providerName: string): boolean;
+    abstract getName(): string;
 }
 
 @injectable()
@@ -164,14 +164,14 @@ export class GitHubOAuthEndpoint extends OAuthEndpoint {
             const userInfo: UserInfo = {
                 name: profile.displayName,
                 email: profile.emails?.[0]?.value,
-                authProvider: 'Github'
+                authProvider: this.getName()
             };
             done(undefined, userInfo);
         });
     }
 
-    override isProvider(providerName: string): boolean {
-        return providerName === 'GitHub';
+    override getName(): string {
+        return 'GitHub';
     }
 }
 
@@ -209,13 +209,13 @@ export class GoogleOAuthEndpoint extends OAuthEndpoint {
             const userInfo: UserInfo = {
                 name: profile.displayName,
                 email: profile.emails?.find(mail => mail.verified)?.value,
-                authProvider: 'Google'
+                authProvider: this.getName()
             };
             done(undefined, userInfo);
         });
     }
 
-    override isProvider(providerName: string): boolean {
-        return providerName === 'Google';
+    override getName(): string {
+        return 'Google';
     }
 }

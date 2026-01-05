@@ -63,6 +63,8 @@ export class CollaborationServer {
     @multiInject(AuthEndpoint)
     protected readonly authEndpoints: AuthEndpoint[];
 
+    protected readonly activeAuthProviders = new Set<string>();
+
     startServer(opts: CollaborationServerOptions): void {
         this.logger.debug('Starting Open Collaboration Server ...');
 
@@ -120,6 +122,7 @@ export class CollaborationServer {
                         throw new Error('Failed to confirm user');
                     }
                 });
+                this.activeAuthProviders.add(authEndpoint.getName());
             }
         }
 
@@ -168,8 +171,7 @@ export class CollaborationServer {
             // Confirm that the provider used for authentication is still active
             if (user) {
                 const provider = user.authProvider;
-                const found = this.authEndpoints.find(endpoint => endpoint.shouldActivate() && endpoint.isProvider(provider));
-                if (!found) {
+                if (!this.activeAuthProviders.has(provider)) {
                     // Provider is no longer active
                     return undefined;
                 }
