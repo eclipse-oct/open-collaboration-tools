@@ -210,7 +210,7 @@ function calculateOffset(text: string, line: number): number {
     const lines = text.split('\n');
     let offset = 0;
 
-    for (let i = 0; i < line; i++) {
+    for (let i = 0; i < line && i < lines.length; i++) {
         offset += lines[i].length + 1; // +1 for the newline character
     }
 

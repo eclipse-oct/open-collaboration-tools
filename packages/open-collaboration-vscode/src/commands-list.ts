@@ -12,6 +12,7 @@ export namespace OctCommands {
     export const CreateRoom = 'oct.createRoom';
     export const CloseConnection = 'oct.closeConnection';
     export const SignOut = 'oct.signOut';
+    export const StartAgent = 'oct.startAgent';
     export const DevFuzzing = 'oct.dev.fuzzing';
 }
 

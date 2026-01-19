@@ -228,6 +228,7 @@ export class DocumentSync implements IDocumentSync {
         if (this.onDocumentContentChangeCallback) {
             throw new Error('Document change callback already registered');
         }
+        console.debug('[DEBUG] Registering document change callback');
         this.onDocumentContentChangeCallback = callback;
     }
 
