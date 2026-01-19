@@ -7,19 +7,15 @@
 
 The **Agent Client Protocol (ACP)** is a communication standard that allows an **AI Agent** (like Claude Code, a custom CLI agent, or an IDE plugin) to connect directly to an **Open Collaboration Tools (OCT) Session** as a first-class participant.
 
-## The "Switch" Architecture
+## Architecture
 
-The `oct-agent` CLI tool will serve as the primary entry point and "switch" for users, offering two distinct modes of operation:
+The `oct-agent` CLI connects exclusively via **ACP** (Agent Client Protocol):
 
-### Mode A: Embedded Agent (Default)
-*   **Technology:** Vercel AI SDK (built-in).
-*   **Behavior:** The agent runs entirely within the `oct-agent` process. It listens for triggers and executes them using the configured LLM (e.g., OpenAI, Anthropic) directly.
-*   **Use Case:** Fast, simple, standalone usage without needing external tools.
-
-### Mode B: ACP Bridge (External Agent)
 *   **Technology:** Agent Client Protocol (ACP).
-*   **Behavior:** The `oct-agent` acts as a **dumb bridge**. It connects to the OCT session and forwards all triggers/events to an external entity via ACP.
-*   **Use Case:** Connecting complex, external agents like **Claude Code**, **Cursor**, or custom enterprise agents that cannot run inside the simple CLI process.
+*   **Behavior:** The `oct-agent` acts as a **bridge**. It connects to the OCT session and forwards all triggers/events to an external ACP agent (default: `npx @zed-industries/claude-code-acp`). Override with `--acp-agent` to use any ACP-capable agent.
+*   **Use Case:** Claude Code, Cursor, or custom enterprise agents; model and API keys are configured in the ACP agent, not in oct-agent.
+
+*(Previously, a built-in Embedded mode existed; it was removed in favor of ACP-only.)*
 
 ## Integration with `zed-industries/claude-code-acp`
 
@@ -31,7 +27,7 @@ This simplifies our architecture significantly!
 
 1.  **User starts OCT Agent:**
     ```bash
-    oct-agent --room <ROOM_ID> --mode claude-code
+    oct-agent --room <ROOM_ID>
     ```
 
 2.  **OCT Agent (The Bridge):**
@@ -105,7 +101,7 @@ The VSCode extension now provides a convenient command to start the agent direct
 - **Development:** Uses local build from mono-repo (`../open-collaboration-agent/bin/agent`)
 - **Production:** Uses `npx open-collaboration-agent`
 - **Agent runs** in workspace directory via VSCode terminal
-- **All configuration** (room ID, server URL, mode) passed automatically
+- **All configuration** (room ID, server URL) passed automatically
 
 ### Workspace Requirement
 
@@ -134,37 +130,27 @@ sequenceDiagram
     Command->>Command: Check workspace is local
     Command->>Command: Detect dev/prod mode
     Command->>Terminal: Create in workspace dir
-    Terminal->>Agent: Spawn with --room, --server, --mode acp
+    Terminal->>Agent: Spawn with --room, --server
     Agent->>Agent: Authenticate (browser)
     Agent->>Agent: Join OCT session
     Agent->>VSCode: Ready to process @agent triggers
 ```
 
-## Implementation Strategy
+## Implementation
 
-### 1. CLI Updates (`oct-agent`)
-*   Add a flag: `--mode <embedded|claude-code>` (default: `embedded`).
+The `oct-agent` always uses the ACP bridge:
 
-### 2. Mode Logic
-
-#### Mode A: Embedded (Default)
-*   **Logic:** Uses the existing `executeLLM` function with Vercel AI SDK.
-*   **Flow:** `DocumentSync` -> `Trigger Detection` -> `Vercel AI SDK` -> `DocumentSync`.
-
-#### Mode B: Claude Code (`--mode claude-code`)
-*   **Logic:** Spawns `npx @zed-industries/claude-code-acp` as a child process.
+*   **Logic:** Spawns the ACP agent (default: `npx @zed-industries/claude-code-acp`) as a child process. Override with `--acp-agent`.
 *   **Flow:**
     1.  `DocumentSync` detects trigger.
     2.  `oct-agent` converts trigger to ACP JSON message (`agent/trigger`).
     3.  `oct-agent` writes JSON to child process `stdin`.
-    4.  Child process (Zed Adapter) calls Claude Code SDK.
+    4.  Child process (e.g. Zed Adapter) calls Claude Code SDK.
     5.  Child process writes response JSON (`agent/action`) to `stdout`.
     6.  `oct-agent` reads JSON and applies edits via `DocumentSync`.
 
-This approach keeps the CLI simple and opinionated for now, focusing on the two primary use cases. We can introduce a generic plugin interface later if needed.
-
 ## Benefits
 
-1.  **Simplicity:** Users just choose between "Built-in" or "Claude Code".
-2.  **Zero Config:** No need to construct complex command strings.
-3.  **Unified CLI:** One tool (`oct-agent`) handles everything.
+1.  **Simplicity:** One code path; no mode switch.
+2.  **Flexibility:** Any ACP-capable agent via `--acp-agent`.
+3.  **Unified CLI:** One tool (`oct-agent`) for all ACP-based integrations.

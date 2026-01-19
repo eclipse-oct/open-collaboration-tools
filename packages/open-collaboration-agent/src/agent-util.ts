@@ -6,7 +6,6 @@
 
 import { Deferred } from 'open-collaboration-protocol';
 import type { IDocumentSync } from './document-sync.js';
-import { StreamTextResult } from 'ai';
 import { LineEdit } from './document-operations.js';
 
 
@@ -41,43 +40,6 @@ export function applyChanges(docPath: string, docContent: string, docLines: stri
 
             // Update the lines array
             currentLines = currentContent.split('\n');
-        }
-    }
-}
-
-export async function applyChangesStreamed(docPath: string, docContent: string, docLines: string[], documentSync: IDocumentSync, completedLine: string, streamedChanges: StreamTextResult<never, string>): Promise<void> {
-    streamedChanges.usage.then(usage => {
-        console.log(usage.completionTokens, usage.promptTokens, usage.totalTokens);
-    });
-    // console.log('docPath', docPath);
-    // console.log('docContent', docContent);
-    // console.log('docLines', docLines);
-    // console.log('documentSync', documentSync);
-
-    // Find the initial insertion point - we'll determine where to start inserting based on the completed line
-    // For now, let's append to the end of the document
-    let currentContent = docContent;
-    let insertionOffset = currentContent.length;
-
-    for await (const chunk of streamedChanges.textStream) {
-        console.log('streamed chunk', chunk);
-
-        // Break chunk into individual characters for more human-like typing
-        for (const char of chunk) {
-
-            // Insert the character at the current insertion point
-            documentSync.applyEdit(docPath, char, insertionOffset, 0);
-
-            // Update our local content and insertion offset for the next character
-            currentContent = currentContent.substring(0, insertionOffset) + char + currentContent.substring(insertionOffset);
-            insertionOffset += 1;
-
-            // Add a small delay to simulate human typing speed
-            // Adjust the delay based on character type for more realism
-            const delay = getTypingDelay(char);
-            if (delay > 0) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
         }
     }
 }

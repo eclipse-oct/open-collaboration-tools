@@ -5,10 +5,7 @@
 
 ## Overview
 
-The open-collaboration-agent enables AI agents to participate in Open Collaboration Tools (OCT) sessions as first-class peers, with real-time code editing capabilities. The agent can operate in two modes:
-
-- **Embedded Mode**: Direct LLM integration (Anthropic, OpenAI) with hardwired workflow
-- **ACP Mode**: External agent integration via Agent Client Protocol (e.g., Claude Code)
+The open-collaboration-agent enables AI agents to participate in Open Collaboration Tools (OCT) sessions as first-class peers, with real-time code editing capabilities. The agent connects exclusively via **ACP** (Agent Client Protocol) to external agents (e.g. Claude Code via `@zed-industries/claude-code-acp`). The ACP agent is configurable via `--acp-agent`.
 
 ## Architectural Layers
 
@@ -25,7 +22,6 @@ flowchart TB
     end
 
     subgraph mode [Agent Mode Layer 4]
-        Embedded[Embedded Agent]
         ACP[ACP Bridge]
     end
 
@@ -47,9 +43,7 @@ flowchart TB
     VSCode -->|oct.startAgent| Terminal
     Terminal -->|spawns| TriggerDetect
     TriggerDetect -->|"@agent detected"| Animation
-    Animation -->|route to mode| Embedded
-    Animation -->|route to mode| ACP
-    Embedded -->|executeLLM| DocOps
+    Animation -->|onTrigger| ACP
     ACP -->|tool calls| DocOps
     DocOps -->|apply edits| Yjs
     Yjs -->|sync| Provider
@@ -117,37 +111,15 @@ interface DocumentOperations {
 
 **Benefits:**
 - Single source of truth for document operations
-- Shared by embedded agent, ACP bridge, and MCP server
+- Shared by ACP bridge and MCP server
 - Animated cursor movement during edits
 - Line-based editing (easier for LLMs than character offsets)
 
 **Code Location:** `src/document-operations.ts`
 
-## Layer 4: Agent Modes
+## Layer 4: Agent Mode (ACP)
 
-### Mode A: Embedded Agent
-
-**Purpose:** Direct LLM integration with hardwired workflow (optimized for efficiency)
-
-**Flow:**
-```
-Trigger → executeLLM() → LineEdit[] → applyEditsAnimated() → removeTriggerLine()
-```
-
-**Components:**
-- `runAgent()` in `src/agent.ts`
-- `executeLLM()` in `src/prompt.ts`
-- Direct API calls to Anthropic/OpenAI
-
-**Advantages:**
-- Faster execution (no tool call overhead)
-- Lower token usage (direct JSON response)
-- Simpler prompt engineering
-- Ideal for standalone CLI usage
-
-**Code Location:** `src/agent.ts` (lines 293-310)
-
-### Mode B: ACP Bridge
+### ACP Bridge
 
 **Purpose:** Bridge to external agents via Agent Client Protocol
 
@@ -204,7 +176,7 @@ if (change.type === 'insert' && change.text === '\n') {
 2. Detect newline insertion after `@agent` pattern
 3. Extract prompt text
 4. Start loading animation at trigger position
-5. Route to appropriate agent mode (embedded or ACP)
+5. Invoke ACP handler (onTrigger)
 6. Apply edits with animated cursor
 7. Remove trigger line
 8. Clear cursor position
@@ -229,40 +201,14 @@ User runs command → VSCode creates terminal → Agent starts in workspace dire
 - Detects development vs production environment
 - Development: Uses local build path
 - Production: Uses `npx open-collaboration-agent`
-- Automatically passes room ID, server URL, and mode
+- Automatically passes room ID and server URL
 - Agent runs in workspace directory (`cwd: workspaceFolder.uri.fsPath`)
 
 **Code Location:** `packages/open-collaboration-vscode/src/commands.ts` (lines 221-265)
 
 ## Data Flow Diagrams
 
-### Embedded Mode: Trigger Processing
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant VSCode
-    participant DocSync as DocumentSync
-    participant Agent as Embedded Agent
-    participant LLM
-    participant Yjs
-    participant OCT as OCT Session
-
-    User->>VSCode: Write "@agent add validation\n"
-    VSCode->>DocSync: Document change (insert '\n')
-    DocSync->>Agent: onDocumentChange callback
-    Agent->>Agent: Detect trigger pattern
-    Agent->>DocSync: Start loading animation
-    Agent->>LLM: executeLLM(prompt, context)
-    LLM->>Agent: LineEdit[] (JSON response)
-    Agent->>DocSync: applyEditsAnimated(edits)
-    DocSync->>Yjs: Apply edits to Y.Text
-    Yjs->>OCT: Broadcast changes
-    Agent->>DocSync: removeTriggerLine()
-    Agent->>DocSync: Clear cursor position
-```
-
-### ACP Mode: Trigger Processing
+### Trigger Processing (ACP)
 
 ```mermaid
 sequenceDiagram
@@ -343,7 +289,6 @@ sequenceDiagram
 | `acp-bridge.ts` | ACP protocol bridge for external agents | `src/acp-bridge.ts` |
 | `document-sync.ts` | Yjs-based document synchronization | `src/document-sync.ts` |
 | `document-operations.ts` | Shared document manipulation interface | `src/document-operations.ts` |
-| `prompt.ts` | LLM execution for embedded mode | `src/prompt.ts` |
 | `agent-util.ts` | Cursor tracking, loading animations | `src/agent-util.ts` |
 | `acp-trigger-handler.ts` | ACP response processing | `src/acp-trigger-handler.ts` |
 
@@ -357,15 +302,11 @@ oct-agent --room <room-id> [options]
 
 **Options:**
 - `-s, --server <url>` - OCT server URL (default: https://api.open-collab.tools/)
-- `-m, --model <model>` - LLM model (default: claude-3-5-sonnet-latest)
-- `--mode <embedded|acp>` - Agent mode (default: embedded)
 - `--acp-agent <command>` - ACP agent command (default: npx @zed-industries/claude-code-acp)
 
 ### Environment Variables
 
-Required for embedded mode:
-- `ANTHROPIC_API_KEY` - For Claude models
-- `OPENAI_API_KEY` - For GPT models
+API keys and model selection are configured in the ACP agent (e.g. Claude Code), not in oct-agent.
 
 ## Deployment Scenarios
 
@@ -460,19 +401,12 @@ Required for embedded mode:
 
 ## Performance Characteristics
 
-### Embedded Mode
-
-- **Latency:** ~2-5 seconds per trigger (LLM inference time)
-- **Token Usage:** ~500-2000 tokens per trigger
-- **Memory:** ~50-100 MB (Node.js + Yjs)
-- **Network:** Minimal (only Yjs operations, ~1-10 KB per edit)
-
 ### ACP Mode
 
-- **Latency:** ~3-7 seconds per trigger (additional IPC overhead)
-- **Token Usage:** Similar to embedded (depends on ACP agent)
-- **Memory:** ~100-200 MB (agent + child process)
-- **Network:** Same as embedded
+- **Latency:** ~3-7 seconds per trigger (LLM inference + IPC overhead)
+- **Token Usage:** Depends on the connected ACP agent
+- **Memory:** ~100-200 MB (oct-agent + ACP child process)
+- **Network:** Minimal from oct-agent (Yjs operations, ~1-10 KB per edit); ACP agent may call LLM APIs
 
 ## Future Enhancements
 
@@ -506,7 +440,7 @@ Required for embedded mode:
 - Pattern is exactly `@agent <prompt>\n`
 - Agent name matches (check with `oct_get_session_info()`)
 
-### Agent can't read files (ACP mode)
+### Agent can't read files
 
 **Check:**
 - Agent is running in workspace directory
@@ -534,7 +468,7 @@ Required for embedded mode:
 The open-collaboration-agent architecture is designed for:
 
 - **Real-time collaboration** via Yjs CRDT
-- **Flexible agent modes** (embedded for efficiency, ACP for capabilities)
+- **ACP-only design** – connect any ACP-capable agent via `--acp-agent`
 - **IDE integration** for seamless developer experience
 - **Local-first design** with workspace filesystem access
 - **Extensibility** through shared document operations abstraction

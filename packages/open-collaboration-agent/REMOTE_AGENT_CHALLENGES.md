@@ -19,8 +19,7 @@ The agent directly reads files from the local filesystem:
 let content = fs.readFileSync(absolutePath, 'utf8');
 ```
 
-**In Embedded Agent:**
-The LLM receives document content through `DocumentSync`, which reads from Yjs CRDT state, not from filesystem directly. However, for multi-file context, it would need filesystem access.
+The ACP agent receives document context via the bridge; file reads for multi-file or workspace access use the local filesystem. The MCP server (oct-mcp-server) uses `DocumentSync` (Yjs) for document content.
 
 ### Why This Matters
 

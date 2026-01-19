@@ -254,13 +254,13 @@ export class Commands {
         }
 
         // Build full command with arguments
-        const fullCommand = `${agentCommand} --room ${instance.roomId} --server ${instance.serverUrl} --mode acp`;
+        const fullCommand = `${agentCommand} --room ${instance.roomId} --server ${instance.serverUrl}`;
 
         // Create and show terminal
         const terminal = vscode.window.createTerminal({
             name: 'OCT Agent',
             cwd: workspaceFolder.uri.fsPath,
-            message: vscode.l10n.t('Starting OCT Agent in ACP mode...')
+            message: vscode.l10n.t('Starting OCT Agent...')
         });
 
         terminal.show();

@@ -8,7 +8,6 @@ import { webcrypto } from 'node:crypto';
 import { ConnectionProvider, SocketIoTransportProvider, initializeProtocol } from 'open-collaboration-protocol';
 import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protocol';
 import { DocumentSync, DocumentChange, type DocumentInsert } from './document-sync.js';
-import { executeLLM } from './prompt.js';
 import { animateLoadingIndicator } from './agent-util.js';
 import { DocumentSyncOperations } from './document-operations.js';
 import { ACPBridge } from './acp-bridge.js';
@@ -17,8 +16,6 @@ import { processACPResponse } from './acp-trigger-handler.js';
 export interface AgentOptions {
     server: string
     room: string
-    model: string
-    mode?: 'embedded' | 'acp'
     acpAgent?: string
 }
 
@@ -64,7 +61,7 @@ export async function startCLIAgent(options: AgentOptions): Promise<void> {
     // Connect to the room using the room token
     const connection = await connectionProvider.connect(joinResponse.roomToken);
 
-    // Store ACP bridge for cleanup (if in ACP mode)
+    // Store ACP bridge for cleanup
     let acpBridge: ACPBridge | undefined;
 
     // Register signal handlers for graceful shutdown
@@ -113,27 +110,21 @@ export async function startCLIAgent(options: AgentOptions): Promise<void> {
     // Set the agent's peer ID in the awareness state so its cursor is visible
     documentSync.setAgentPeerId(identity.id);
 
-    // Route to appropriate mode
-    const mode = options.mode || 'embedded';
-    if (mode === 'acp') {
-        acpBridge = await runACPAgent(documentSync, identity, options);
-    } else {
-        runAgent(documentSync, identity, options);
-    }
+    // Run ACP agent (connects to external agent via ACP bridge)
+    acpBridge = await runACPAgent(documentSync, identity, options);
 }
 
 export interface TriggerDetectionOptions {
     agentName: string
-    model?: string // Optional for ACP mode
     documentSync: DocumentSync
     documentOps: DocumentSyncOperations
-    onTrigger?: (params: {
+    onTrigger: (params: {
         docPath: string
         docContent: string
         prompt: string
         change: DocumentInsert // Only insert changes can trigger (newline detection)
         animationAbort: AbortController
-    }) => Promise<void> // Optional custom trigger handler (for ACP mode)
+    }) => Promise<void>
 }
 
 /**
@@ -152,7 +143,7 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
         animationAbort: undefined
     };
 
-    const { agentName, model, documentSync, documentOps, onTrigger } = options;
+    const { agentName, documentSync, onTrigger } = options;
     const trigger = `@${agentName}`;
 
     const activeChangeHandler = (documentPath: string) => {
@@ -200,59 +191,16 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
                             const animationOffset = change.offset - 1; // Position before the newline
                             const animation = animateLoadingIndicator(docPath, animationOffset, documentSync, state.animationAbort.signal);
 
-                            // Use custom trigger handler if provided (ACP mode), otherwise use embedded LLM
-                            if (onTrigger) {
-                                await onTrigger({
-                                    docPath,
-                                    docContent,
-                                    prompt,
-                                    change,
-                                    animationAbort: state.animationAbort,
-                                });
-                                // Abort the animation after custom handler completes
-                                state.animationAbort?.abort();
-                                await animation;
-                            } else {
-                                // Embedded mode: Use direct LLM execution (no tool calls)
-                                if (!model) {
-                                    throw new Error('Model is required for embedded mode');
-                                }
-                                const lineEdits = await executeLLM({
-                                    document: docContent,
-                                    prompt,
-                                    promptOffset: change.offset,
-                                    model
-                                });
-
-                                // Abort the animation
-                                state.animationAbort?.abort();
-                                await animation;
-
-                                // Get current content in case it changed during execution
-                                let currentContent = docContent;
-                                if (state.documentChanged) {
-                                    currentContent = documentSync.getActiveDocumentContent() ?? docContent;
-                                }
-
-                                // Apply line edits FIRST (they're based on the document with the trigger line)
-                                if (lineEdits.length > 0) {
-                                    console.error(`Applying ${lineEdits.length} line edits to ${docPath}`);
-                                    // Set initial cursor position at the start of the first edit
-                                    const firstEdit = lineEdits[0];
-                                    const initialOffset = firstEdit.startLine > 0
-                                        ? currentContent.split('\n').slice(0, firstEdit.startLine - 1).reduce((acc, line) => acc + line.length + 1, 0)
-                                        : 0;
-                                    documentOps.updateCursor(docPath, initialOffset);
-
-                                    await documentOps.applyEditsAnimated(docPath, lineEdits);
-                                }
-
-                                // Remove the trigger line LAST (after all edits are applied)
-                                documentOps.removeTriggerLine(docPath, trigger);
-
-                                // Clear the agent's cursor position after all work is done
-                                documentOps.updateCursor(docPath, 0);
-                            }
+                            await onTrigger({
+                                docPath,
+                                docContent,
+                                prompt,
+                                change,
+                                animationAbort: state.animationAbort,
+                            });
+                            // Abort the animation after handler completes
+                            state.animationAbort?.abort();
+                            await animation;
                         } catch (error) {
                             // Abort the animation in case of error
                             state.animationAbort?.abort();
@@ -290,27 +238,8 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
     };
 }
 
-export function runAgent(documentSync: DocumentSync, identity: Peer, options: AgentOptions): void {
-    // Create document operations wrapper
-    const documentOps = new DocumentSyncOperations(documentSync, {
-        roomId: options.room,
-        agentId: identity.id,
-        agentName: identity.name,
-        hostId: '', // Will be set when connection is established
-        serverUrl: options.server
-    });
-
-    // Setup trigger detection
-    setupTriggerDetection({
-        agentName: identity.name,
-        model: options.model,
-        documentSync,
-        documentOps
-    });
-}
-
 /**
- * Run agent in ACP mode - connects to external agent via ACP bridge
+ * Run agent - connects to external agent via ACP bridge
  * @returns The ACP bridge instance for cleanup
  */
 export async function runACPAgent(documentSync: DocumentSync, identity: Peer, options: AgentOptions): Promise<ACPBridge> {
@@ -328,8 +257,7 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
     });
 
     // Create and start ACP bridge
-    // Mode B: Claude Code (or other ACP adapters via --acp-agent flag)
-    // Default spawns npx @zed-industries/claude-code-acp, but can be overridden
+    // Default spawns npx @zed-industries/claude-code-acp; override with --acp-agent for other ACP adapters
     const acpAgentCommand = options.acpAgent || 'npx @zed-industries/claude-code-acp';
     const acpBridge = new ACPBridge(acpAgentCommand, documentOps);
 

@@ -145,9 +145,9 @@ The current Solution C (Hybrid) implementation works but is essentially a workar
 
 ### Recommendation
 
-**For new implementations:** Use ACP mode (`--mode acp`) for proper bidirectional communication.
+**For new implementations:** Use the oct-agent; it connects via ACP by default and provides proper bidirectional communication. Override the ACP agent with `--acp-agent` if needed.
 
-**For MCP mode:** Understand it's a compromise that works but isn't architecturally ideal. The hybrid approach is the best we can do within MCP's limitations.
+**For MCP mode (oct-mcp-server):** Understand it's a compromise that works but isn't architecturally ideal. The hybrid approach is the best we can do within MCP's limitations.
 
 ## Proposed Solutions
 

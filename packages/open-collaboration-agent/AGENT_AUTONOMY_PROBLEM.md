@@ -6,9 +6,9 @@
 
 > **Historischer Kontext:** Dieses Dokument beschreibt ein architektonisches Problem
 > bei der Integration des OCT Agenten mit Claude Code über MCP (Model Context Protocol).
-> Das Problem führte zur Entwicklung der ACP Bridge Lösung, die in der aktuellen
-> Implementierung beide Modi unterstützt (Embedded + ACP). Die hier beschriebenen
-> Limitierungen gelten für die **MCP-basierte Integration nicht mehr**.
+> Das Problem führte zur ACP-Bridge-Lösung. Der Agent läuft heute ausschließlich über
+> ACP (Embedded-Modus wurde entfernt). Die hier beschriebenen Limitierungen gelten
+> für die **MCP-basierte Integration nicht mehr**.
 
 ## Problem Statement
 
@@ -397,10 +397,8 @@ The implementation is correct and complete. The limitation is in the Claude Code
 
 Dieses Problem wurde durch die Entwicklung der **ACP Bridge Architektur** gelöst:
 
-- **Lösung:** Der OCT Agent verwendet nun ACP (Agent Client Protocol) statt MCP
-- **Modi:** Zwei Betriebsmodi verfügbar:
-  - **Embedded Mode**: Direkte LLM-Integration ohne externe Agents
-  - **ACP Mode**: Integration mit externen Agents über standardisiertes Protokoll
+- **Lösung:** Der OCT Agent verwendet ACP (Agent Client Protocol) statt MCP
+- **Aktuell:** Nur noch ACP-Modus (Embedded wurde entfernt); beliebige ACP-Agenten über `--acp-agent`
 - **Ergebnis:** Das Task Agent Lifecycle Problem existiert nicht mehr
 
 **Siehe:**

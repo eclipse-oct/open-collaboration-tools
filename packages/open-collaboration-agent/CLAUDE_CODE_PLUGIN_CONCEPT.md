@@ -2,30 +2,25 @@
 
 ## Overview
 
-This plugin enables Claude Code to join Open Collaboration Tools (OCT) sessions as a peer using a **dual-mode architecture**: a built-in CLI agent with hardwired workflow for efficiency, and an MCP (Model Context Protocol) server that exposes OCT functionality to external AI agents like Claude Code. The aim is to enable collaborative, AI-powered code assistance in real-time developer sessions.
+This plugin enables Claude Code to join Open Collaboration Tools (OCT) sessions as a peer. The main integration is **oct-agent** via **ACP** (Agent Client Protocol): it spawns an ACP-capable agent (e.g. `@zed-industries/claude-code-acp`) and bridges triggers to it. Separately, an **MCP server** (`oct-mcp-server`) offers an alternative integration path for MCP-based clients. The aim is to enable collaborative, AI-powered code assistance in real-time developer sessions.
 
 ## Architecture
 
-### Dual-Mode Approach
-
-The implementation supports **two execution modes** sharing the same core functionality:
-
-#### Mode 1: Built-in CLI Agent (Hardwired)
+### oct-agent (ACP)
 
 **Location:** `packages/open-collaboration-agent/src/agent.ts`
 
--   **Purpose:** Standalone agent optimized for direct CLI usage
--   **Execution:** Hardwired workflow - no tool calls, direct LLM → edits pipeline
--   **Efficiency:** Faster execution, fewer tokens, no tool call overhead
--   **Usage:** `oct-agent --room <room-id> --model <model>`
+-   **Purpose:** Bridge to external ACP agents (default: Claude Code via `npx @zed-industries/claude-code-acp`)
+-   **Usage:** `oct-agent --room <room-id>`; override with `--acp-agent` for other ACP adapters
 -   **Workflow:**
     1. Detect `@agent` trigger in document
-    2. Call LLM with `executeLLM()` → returns `LineEdit[]` directly (JSON response)
-    3. Apply edits via `DocumentSyncOperations`
-    4. Remove trigger line
-    5. Update cursor position
+    2. Send trigger to ACP agent via `ACPBridge.sendTrigger()`
+    3. ACP agent returns edits; bridge applies them via `DocumentSyncOperations`
+    4. Remove trigger line and update cursor
 
-#### Mode 2: MCP Server for External Agents (Dynamic)
+Model and API keys are configured in the ACP agent, not in oct-agent.
+
+### MCP Server for External Agents (Alternative)
 
 **Location:** `packages/open-collaboration-agent/src/mcp-server.ts`
 
@@ -49,7 +44,7 @@ The implementation supports **two execution modes** sharing the same core functi
 
 **Location:** `packages/open-collaboration-agent/src/document-operations.ts`
 
-Both modes use the same underlying functionality:
+The ACP bridge and MCP server use the same underlying functionality:
 
 ```typescript
 interface DocumentOperations {
@@ -73,7 +68,7 @@ class DocumentSyncOperations implements DocumentOperations {
 
 **Benefits:**
 
--   Built-in agent: Direct, efficient execution
+-   ACP bridge: Connects any ACP-capable agent
 -   MCP server: Flexible, AI-agnostic, standard protocol
 -   Shared code: Single source of truth for OCT operations
 
@@ -124,12 +119,12 @@ class DocumentSyncOperations implements DocumentOperations {
 16. Changes sync via Yjs to all session participants
 ```
 
-### Communication Flow (Built-in CLI Agent)
+### Communication Flow (oct-agent with ACP)
 
 ```
 1. User runs: oct-agent --room <room-id>
          ↓
-2. Agent authenticates (browser login)
+2. Agent spawns ACP adapter (e.g. claude-code-acp), authenticates (browser login)
          ↓
 3. Agent joins OCT room as peer
          ↓
@@ -137,13 +132,11 @@ class DocumentSyncOperations implements DocumentOperations {
          ↓
 5. DocumentSync detects trigger
          ↓
-6. Agent calls executeLLM() → receives LineEdit[] JSON
+6. Agent sends trigger to ACP agent → receives edits → applies via DocumentSyncOperations
          ↓
-7. Agent applies edits via DocumentSyncOperations
+7. Agent removes trigger line
          ↓
-8. Agent removes trigger line
-         ↓
-9. Changes sync via Yjs to all session participants
+8. Changes sync via Yjs to all session participants
 ```
 
 ## Current Implementation
@@ -179,11 +172,11 @@ function registerUser(email, password) {
     - Agent identity is registered (e.g., "my-agent")
     - Trigger pattern becomes `@my-agent`
 
-    **Setup & Connection (Built-in CLI Agent)**
+    **Setup & Connection (oct-agent with ACP)**
 
-    - User runs `oct-agent --room <room-id> --model <model>`
-    - Agent authenticates (browser login) and joins directly
-    - Hardwired workflow begins monitoring for triggers
+    - User runs `oct-agent --room <room-id>`
+    - Agent spawns ACP adapter (default: claude-code-acp), authenticates (browser login), and joins
+    - ACP bridge monitors for triggers and forwards them to the ACP agent
 
 2. **Real-time Code Editing**
 
@@ -380,7 +373,7 @@ def process_data(filename):
     - Display authentication URL if needed
     - Confirm successful connection
 
-### Setup for Built-in CLI Agent
+### Setup for oct-agent (ACP)
 
 1. **Build the agent package**
 
@@ -393,18 +386,14 @@ def process_data(filename):
 2. **Run the agent**
 
     ```bash
-    oct-agent --room <room-id> --model claude-3-5-sonnet-latest
+    oct-agent --room <room-id>
     ```
 
-    The agent will:
-
-    - Prompt for browser authentication
-    - Join the room as a peer
-    - Monitor for `@agent` triggers
+    The agent will spawn the ACP adapter (default: `npx @zed-industries/claude-code-acp`), prompt for browser authentication, join the room as a peer, and monitor for `@agent` triggers. Model and API keys are configured in the ACP agent’s environment.
 
 ### Authentication
 
-**CRITICAL WORKFLOW STEP**: Authentication is required for both modes and follows this pattern:
+**CRITICAL WORKFLOW STEP**: Authentication is required for oct-agent and MCP and follows this pattern:
 
 #### MCP Mode (Claude Code)
 
@@ -424,7 +413,7 @@ def process_data(filename):
 4. The tool call remains active and waits for browser authentication
 5. Once the user authenticates in their browser, the connection completes successfully
 
-#### Built-in CLI Agent
+#### oct-agent (ACP)
 
 1. When you run `oct-agent --room <room-id>`, the agent prints a login URL to stderr:
     ```
@@ -471,13 +460,13 @@ The MCP server (integrated in this package) is **AI-agnostic** and can be used w
 ```
 packages/open-collaboration-agent/
 ├── src/
-│   ├── agent.ts              # Built-in CLI agent (hardwired)
+│   ├── agent.ts              # ACP bridge, trigger detection
+│   ├── acp-bridge.ts         # ACP protocol bridge
 │   ├── mcp-server.ts         # MCP server for external clients
 │   ├── mcp-tools.ts          # MCP tool implementations
 │   ├── mcp-resources.ts      # MCP resource providers
 │   ├── document-operations.ts # Shared abstraction layer
 │   ├── document-sync.ts      # Yjs document sync
-│   ├── prompt.ts             # LLM execution (both modes)
 │   ├── agent-util.ts         # Cursor tracking, animations
 │   └── main.ts               # CLI entry point
 ├── bin/
@@ -495,20 +484,16 @@ packages/open-collaboration-agent/
 
 ## Conclusion
 
-This dual-mode architecture provides the best of both worlds:
+**oct-agent (ACP):**
 
-**Built-in CLI Agent:**
-
--   Optimized for direct usage with hardwired workflow
--   Faster execution without tool call overhead
--   Simpler prompt engineering (direct JSON response)
--   Ideal for dedicated agent deployments
+-   Connects to any ACP-capable agent (default: Claude Code)
+-   Override with `--acp-agent` for other adapters
+-   Model and API keys live in the ACP agent
 
 **MCP Server:**
 
 -   Standard protocol for AI-agnostic integration
 -   Works with Claude Code, Cursor, and other MCP clients
 -   Dynamic tool discovery and flexible workflows
--   Ideal for developer-driven collaborative sessions
 
-Both modes share the same `DocumentOperations` core, ensuring consistent behavior and maintainability. The `/connect-to-oct` slash command makes it natural to join sessions on-demand without hardcoded configuration. The in-document `@agent` trigger system works today, with chat-based triggering planned for future releases when the OCT protocol adds chat support.
+Both share the same `DocumentOperations` core. The `/connect-to-oct` slash command makes it natural to join sessions on-demand. The in-document `@agent` trigger system works today, with chat-based triggering planned when the OCT protocol adds chat support.

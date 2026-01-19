@@ -10,14 +10,7 @@ An AI agent for Open Collaboration Tools (OCT) sessions that runs in your local 
     npm run build
     ```
 
-2. Create a `.env` file in `packages/open-collaboration-agent` with your API keys:
-
-    ```
-    ANTHROPIC_API_KEY=your_key_here
-    OPENAI_API_KEY=your_key_here
-    ```
-
-    The `.env` file is auto-loaded by the CLI.
+2. Configure your ACP agent: The oct-agent connects to an external ACP-capable agent (e.g. Claude Code via `npx @zed-industries/claude-code-acp`). API keys and model selection are configured in that ACP agent’s environment, not in the oct-agent package.
 
 3. Create a collaboration session in your IDE and copy the room ID.
 
@@ -54,24 +47,13 @@ node /path/to/oct-project/packages/open-collaboration-agent/bin/agent -r {room-i
 
 -   `-r, --room <string>`: Room ID to join (required)
 -   `-s, --server <string>`: OCT server URL (default: `https://api.open-collab.tools/`)
--   `-m, --model <string>`: LLM model to use (default: `claude-3-5-sonnet-latest`)
--   `--mode <embedded|acp>`: Agent mode (default: `embedded`)
-    -   `embedded`: Direct LLM integration
-    -   `acp`: Use external agent via Agent Client Protocol (e.g., Claude Code)
--   `--acp-agent <command>`: Command for ACP agent (default: `npx @zed-industries/claude-code-acp`)
+-   `--acp-agent <command>`: Command to run the ACP agent (default: `npx @zed-industries/claude-code-acp`). Use this to connect any ACP-capable agent.
 
-### Example: Embedded Mode
+### Example
 
 ```bash
 cd ~/my-project
-node ~/oct-tools/packages/open-collaboration-agent/bin/agent -r my-room-id -m gpt-4o
-```
-
-### Example: ACP Mode with Claude Code
-
-```bash
-cd ~/my-project
-node ~/oct-tools/packages/open-collaboration-agent/bin/agent -r my-room-id --mode acp
+node ~/oct-tools/packages/open-collaboration-agent/bin/agent -r my-room-id
 ```
 
 ## Workspace Context (IMPORTANT)
@@ -132,9 +114,9 @@ The agent MUST run in the workspace directory because:
 ## How It Works
 
 ```
-Local Workspace → Agent (process.cwd())
+Local Workspace → oct-agent (process.cwd())
                     ↓
-                ACP Agent (if using ACP mode)
+                ACP Agent (e.g. Claude Code)
                     ↓
                 Local File Operations
                     ↓
@@ -143,22 +125,6 @@ Local Workspace → Agent (process.cwd())
                 All Participants See Changes
 ```
 
-## Modes
+## ACP
 
-### Embedded Mode (Default)
-
-Direct integration with LLM APIs (Anthropic, OpenAI). Best for:
-
--   Simple tasks
--   Quick prototyping
--   Direct control over model selection
-
-### ACP Mode
-
-Connects to external agents via Agent Client Protocol. Best for:
-
--   Using specialized agents (Claude Code, etc.)
--   Advanced tooling support
--   Custom agent implementations
-
-The ACP agent has access to your full local workspace while synchronizing changes back to the OCT session.
+The agent connects to an external ACP-capable agent (Agent Client Protocol), such as Claude Code via `npx @zed-industries/claude-code-acp`. You can use any ACP adapter by overriding `--acp-agent`. The ACP agent has access to your full local workspace while synchronizing changes back to the OCT session.

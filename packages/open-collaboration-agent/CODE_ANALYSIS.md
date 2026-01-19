@@ -29,8 +29,8 @@ The `open-collaboration-agent` is an AI-powered coding assistant that joins coll
 - **Purpose**: CLI setup using Commander.js
 - **Configuration**:
   - `-s, --server`: OCT server URL (default: `https://api.open-collab.tools/`)
-  - `-m, --model`: LLM model selection (default: `claude-3-5-sonnet-latest`)
   - `-r, --room`: Room ID (required)
+  - `--acp-agent`: ACP agent command (default: `npx @zed-industries/claude-code-acp`)
 - **Action**: Calls `startCLIAgent()` from `agent.ts`
 
 ### 2. Agent Initialization: `src/agent.ts:startCLIAgent()`
@@ -47,36 +47,25 @@ The `open-collaboration-agent` is an AI-powered coding assistant that joins coll
 4. **Signal Handlers**: Sets up graceful shutdown on SIGINT/SIGTERM
 5. **Document Sync**: Creates `DocumentSync` instance
 6. **Identity**: Waits for peer info to determine agent's username
-7. **Agent Loop**: Calls `runAgent()` to start listening for prompts
+7. **Agent**: Calls `runACPAgent()` to start ACP bridge and trigger detection
 
-### 3. Agent Main Loop: `src/agent.ts:runAgent()`
-**Core Logic** (lines 104-203):
-
-```typescript
-State {
-  executing: boolean        // Prevents concurrent executions
-  documentChanged: boolean  // Tracks if document changed during execution
-  animationAbort: AbortController | undefined
-}
-```
+### 3. Agent: `src/agent.ts:runACPAgent()` and `setupTriggerDetection()`
+**Core Logic**: `runACPAgent()` creates the ACP bridge, starts the ACP child process, and calls `setupTriggerDetection()` with an `onTrigger` handler that sends triggers to the ACP agent and applies the returned edits.
 
 **Event Handlers**:
 
-**a) Active Document Change** (line 116):
+**a) Active Document Change**:
 - Logs when host switches to a different file
 
-**b) Document Content Change** (lines 121-202):
+**b) Document Content Change**:
 - **Trigger Detection**: Looks for newline insertions containing `@{agent-name}`
 - **Extraction**: Parses the prompt text after the trigger
 - **Execution Guard**: Skips if already executing (sets `documentChanged = true`)
 - **Loading Animation**: Shows spinning indicator at prompt location
-- **LLM Invocation**: Calls `executePrompt()` with:
-  - Document content
-  - Prompt text
-  - Prompt offset (for context windowing)
-  - Model ID
-- **Change Application**: Applies returned code changes via `applyChanges()`
+- **ACP Handler**: `onTrigger` sends trigger to `ACPBridge.sendTrigger()`; ACP agent returns edits; `processACPResponse()` and `documentOps` apply them
 - **State Cleanup**: Resets execution flags
+
+*(Embedded mode and `executeLLM`/`prompt.ts` were removed; the agent runs only via ACP.)*
 
 ### 4. Document Synchronization: `src/document-sync.ts`
 **Purpose**: Manages real-time document collaboration using Yjs CRDT
@@ -105,21 +94,9 @@ State {
 - Applies text edits to Yjs document
 - Special case for single-char replacements (flicker-free animation)
 
-### 5. LLM Interaction: `src/prompt.ts`
+### 5. LLM / ACP
 
-**a) `executePrompt()` (lines 18-41)**:
-- **Provider Selection**: Detects Anthropic (claude-*) vs OpenAI (gpt-*, o*)
-- **Context Preparation**:
-  - Calls `prepareDocumentForLLM()` to window content around prompt (12k chars before/after)
-  - Sends document + user prompt as separate messages
-- **System Prompt** (lines 81-110): Instructs LLM to return either:
-  1. **Full file replacement**: Entire updated code
-  2. **Partial changes**: Modified regions with context, separated by `==========`
-- **Parsing**: `parseOutputRegions()` splits response by `==========` delimiter
-
-**b) `executePromptStreamed()` (lines 43-66)**:
-- Same as above but returns `StreamTextResult` for streaming responses
-- Currently commented out in agent.ts (lines 159-171)
+LLM execution is performed by the **ACP agent** (e.g. Claude Code via `@zed-industries/claude-code-acp`), not by oct-agent. The `prompt.ts` module and `executeLLM`/`executePrompt` were removed when embedded mode was dropped. Model and API keys are configured in the ACP agent.
 
 ### 6. Change Application: `src/agent-util.ts`
 
@@ -178,7 +155,7 @@ State {
 6. **Cursor Awareness**: Agent cursor visible and moves in real-time using CRDT-based relative positions
 7. **Character-by-Character Animation**: Edits applied progressively with natural typing delays for collaborative feel
 8. **Loading Animation**: Provides visual feedback during LLM processing (spinning indicator)
-9. **Streaming Support**: Infrastructure exists but currently disabled (lines 159-171 in `agent.ts`)
+9. **Streaming Support**: Was part of the removed embedded flow; ACP agent handles output
 
 ## MCP (Model Context Protocol) Integration
 
@@ -189,8 +166,8 @@ State {
 ### How It Works
 
 1. User types `@agent <prompt>` in the document
-2. Agent calls `executePromptWithMCP()` (`src/prompt.ts:226-350`)
-3. LLM uses 4 tools to inspect and modify the document:
+2. *(Main oct-agent:)* `onTrigger` sends the trigger to `ACPBridge.sendTrigger()`; the ACP agent (e.g. Claude Code) performs the LLM work. *(MCP server / oct-mcp-server:)* uses sampling or tools. The former `executePromptWithMCP()` in `prompt.ts` was removed with embedded mode.
+3. The ACP agent (or MCP client) uses tools to inspect and modify the document:
    - `get_line_range`: Read specific lines with line numbers
    - `replace_lines`: Replace a range of lines
    - `insert_at_line`: Insert content at a specific line
@@ -241,7 +218,7 @@ The agent now shows a visible cursor that moves in real-time during edits, makin
 
 ### Legacy String Matching Approach
 
-The old `executePrompt()` and `applyChanges()` functions (`src/prompt.ts:26-49`, `src/agent-util.ts:15-44`) still exist but are **no longer used**. They had fragile string-matching limitations:
+The old `executePrompt()` and `prompt.ts` were **removed** with embedded mode. `applyChanges()` in `src/agent-util.ts` still exists but is not used in the ACP flow. They had fragile string-matching limitations:
 
 The `locateChangeInDocument()` function (`src/agent-util.ts:144-202`) uses prefix/suffix string matching to locate where changes should be applied. This approach is **fragile** and breaks in several scenarios:
 
@@ -387,13 +364,15 @@ The `locateChangeInDocument()` function (`src/agent-util.ts:144-202`) uses prefi
    - If lines changed, tool can report conflict
    - User gets clear error message if line numbers invalid
 
-### Implementation Path
+### Implementation Path (Historical)
 
-#### 1. Add MCP SDK Integration
+*The following described adding MCP tools to `executePrompt()` in `prompt.ts`. `prompt.ts` and embedded mode have been removed; the main agent uses ACP. Kept for historical context.*
 
-**File**: `src/prompt.ts`
+#### 1. Add MCP SDK Integration (obsolete: prompt.ts removed)
 
-Modify `executePrompt()` to include tool definitions:
+**File**: *was* `src/prompt.ts`
+
+*Previously:* Modify `executePrompt()` to include tool definitions:
 
 ```typescript
 import { z } from 'zod';
@@ -560,20 +539,14 @@ function processToolCallResults(result: GenerateTextResult): LineEdit[] {
 }
 ```
 
-#### 4. Modify Agent to Apply Line-Based Edits
+#### 4. Modify Agent to Apply Line-Based Edits (obsolete: ACP flow)
 
-Update `src/agent.ts` to use line-based edits instead of string regions:
+*Current:* `src/agent.ts` uses `onTrigger` which calls `ACPBridge.sendTrigger()`; `processACPResponse()` and `documentOps.applyEditsAnimated()` apply the ACP agent’s edits. `executePromptWithMCP` and `runAgent` no longer exist.
 
+*Historical example:*
 ```typescript
-// In runAgent() after executePrompt() call
-const lineEdits = await executePromptWithMCP({
-    document: docContent,
-    prompt,
-    promptOffset: change.offset,
-    model: options.model
-});
-
-// Apply line-based edits with precise offsets
+// Previously in runAgent() after executePrompt() call
+const lineEdits = await executePromptWithMCP({...});
 applyLineEdits(docPath, currentContent, lineEdits, documentSync);
 ```
 
@@ -703,7 +676,7 @@ No additional MCP-specific packages needed - Vercel AI SDK (`ai` package) alread
                                │
                                ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                    runAgent() Event Handler                      │
+│            setupTriggerDetection() / onTrigger                   │
 │  • Detects newline insertion                                    │
 │  • Checks for @agent trigger                                    │
 │  • Extracts prompt text                                         │
@@ -712,18 +685,16 @@ No additional MCP-specific packages needed - Vercel AI SDK (`ai` package) alread
                                │
                                ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      executePrompt()                             │
-│  • Windows document context (±12k chars)                        │
-│  • Sends to Anthropic/OpenAI API                                │
-│  • Returns change regions or full file                          │
+│            ACPBridge.sendTrigger() / processACPResponse()        │
+│  • Sends trigger to ACP agent (e.g. Claude Code)                │
+│  • ACP agent returns edits                                      │
+│  • documentOps.applyEditsAnimated() applies LineEdit[]          │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
                                ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                        applyChanges()                            │
-│  • Parses LLM output regions                                    │
-│  • Locates each change by matching context                      │
-│  • Calculates character offsets                                 │
+│                  documentOps / DocumentSync                      │
+│  • applyEditsAnimated, removeTriggerLine, updateCursor          │
 │  • Applies edits to Yjs document                                │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
@@ -776,16 +747,18 @@ User        Host Editor    OCT Server    Agent    DocumentSync    LLM API
  |               |              | Show |   |            |            |
  |               |<--------------------------|            |            |
  |               |              |          |            |            |
- |               |              |          | executePrompt()         |
+ |               |              |          | onTrigger: ACPBridge.   |
+ |               |              |          |   sendTrigger()         |
  |               |              |          |-----------------------→|
- |               |              |          |            |            |
- |               |              |          |            |  LLM Response
+ |               |              |          |   (ACP agent / LLM)     |
+ |               |              |          |   Edits / response      |
  |               |              |          |<-----------------------|
  |               |              |          |            |            |
  |               |              |          | Stop animation          |
  |               |              |          |----------->|            |
  |               |              |          |            |            |
- |               |              |          | applyChanges()          |
+ |               |              |          | processACPResponse,    |
+ |               |              |          | documentOps.apply...   |
  |               |              |          |----------->|            |
  |               |              |          |            |            |
  |               |              |          |  applyEdit()|            |
@@ -820,10 +793,10 @@ User        Host Editor    OCT Server    Agent    DocumentSync    LLM API
 │  └──────────────────────┬────────────────────────────────────┘  │
 │                         │                                        │
 │  ┌──────────────────────▼─────────────────────────────────────┐ │
-│  │              runAgent()                                    │ │
-│  │  • Event loop                                             │ │
-│  │  • Trigger detection                                      │ │
-│  │  • Execution orchestration                                │ │
+│  │              runACPAgent() / setupTriggerDetection()        │ │
+│  │  • ACP bridge, onTrigger                                   │ │
+│  │  • Trigger detection                                       │ │
+│  │  • ACP sendTrigger / processACPResponse                    │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                              │
@@ -831,16 +804,14 @@ User        Host Editor    OCT Server    Agent    DocumentSync    LLM API
            │                 │                 │
            ↓                 ↓                 ↓
 ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-│  document-sync.ts│ │  prompt.ts   │ │  agent-util.ts   │
+│  document-sync.ts│ │ acp-bridge.ts│ │  agent-util.ts   │
 ├──────────────────┤ ├──────────────┤ ├──────────────────┤
-│ DocumentSync     │ │ executePrompt│ │ applyChanges     │
-│ • Yjs setup      │ │ • Provider   │ │ • Locate changes │
-│ • Host following │ │   selection  │ │ • Apply edits    │
-│ • Change events  │ │ • Context    │ │ • Animation      │
-│ • Edit apply     │ │   windowing  │ │                  │
-└──────────────────┘ │ • LLM call   │ └──────────────────┘
-                     │ • Parse      │
-                     └──────────────┘
+│ DocumentSync     │ │ ACPBridge    │ │ applyChanges     │
+│ • Yjs setup      │ │ • sendTrigger│ │ • Locate changes │
+│ • Host following │ │ • stdio IPC  │ │ • Animation      │
+│ • Change events  │ │ • tool calls │ │ • applyLineEdits*│
+│ • Edit apply     │ │ • to ACP     │ │   *used by docOps│
+└──────────────────┘ └──────────────┘ └──────────────────┘
 ```
 
 ## State Machine: Agent Execution State
@@ -936,6 +907,7 @@ OPENAI_API_KEY=sk-...
 ```
 
 ### Supported Models
+Model selection is configured in the ACP agent (e.g. Claude Code), not in oct-agent. The following applied to the removed embedded mode:
 - **Anthropic**: Any model starting with `claude-` (e.g., `claude-3-5-sonnet-latest`)
 - **OpenAI**: Models starting with `gpt-` or `o` (e.g., `gpt-4o`, `o1-preview`)
 
@@ -943,10 +915,9 @@ OPENAI_API_KEY=sk-...
 
 Based on commented code and TODOs:
 
-1. **Streaming Output** (lines 159-171 in agent.ts):
+1. **Streaming Output** (historical: was in removed embedded/agent.ts):
    - Character-by-character typing animation
-   - Infrastructure exists but disabled
-   - Would require careful handling of document state
+   - ACP flow uses `applyEditsAnimated`; streaming would be in the ACP agent
 
 2. **Better Concurrency Handling**:
    - Queue prompts instead of dropping them

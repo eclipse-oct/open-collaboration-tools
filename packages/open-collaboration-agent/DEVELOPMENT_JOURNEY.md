@@ -13,7 +13,7 @@ The OCT Agent is an AI-powered participant in collaborative coding sessions that
 - Join OCT sessions as a peer
 - Respond to `@agent` triggers in shared documents
 - Make real-time code edits visible to all participants
-- Operate in two modes: **Embedded** (direct LLM) or **ACP** (external agent integration)
+- Connect to external agents exclusively via **ACP** (Agent Client Protocol)
 
 ## Development Timeline
 
@@ -29,6 +29,8 @@ gantt
     section Phase 3 Final Implementation
     Architecture finalized :milestone, 2026-01-19, 0d
     Deployment analysis completed :milestone, 2026-01-19, 0d
+    section Phase 4 Simplification
+    Embedded mode removed, ACP only :milestone, 2026-01-20, 0d
 ```
 
 ## Phase 1: MCP Integration Attempts (October 2025)
@@ -163,23 +165,15 @@ sequenceDiagram
     Yjs->>Dev: Changes visible in real-time
 ```
 
-### The "Switch" Architecture
+### The ACP-Only Architecture
 
-The solution was to make the OCT Agent a **dual-mode system**:
+The solution was to integrate external agents via **ACP (Agent Client Protocol)**. Initially, the OCT Agent supported two modes (Embedded: direct LLM, and ACP Bridge). In a later simplification, **Embedded was removed**; the agent now runs only via the ACP Bridge.
 
-**Mode A: Embedded Agent**
-- Direct LLM integration (Anthropic, OpenAI)
-- No external dependencies
-- Fast, efficient for simple tasks
-- Hardwired workflow
-
-**Mode B: ACP Bridge**
-- Integration with external agents (Claude Code, etc.)
+**ACP Bridge (current):**
+- Integration with external agents (Claude Code, etc.) via `--acp-agent`
 - Bidirectional communication via ACP
-- Advanced capabilities
-- Flexible tool-based workflows
-
-**Key innovation:** The OCT Agent CLI became a "switch" that routes to the appropriate backend based on user preference.
+- Advanced capabilities and flexible tool-based workflows
+- Any ACP-capable agent can be connected
 
 ## Phase 3: Final Architecture (January 2026)
 
@@ -200,8 +194,7 @@ flowchart TB
         TriggerDetect[Trigger Detection]
     end
 
-    subgraph Layer4 [Layer 4 Agent Modes]
-        Embedded[Embedded Agent]
+    subgraph Layer4 [Layer 4 Agent Mode]
         ACP[ACP Bridge]
     end
 
@@ -218,15 +211,13 @@ flowchart TB
     end
 
     VSCode-->TriggerDetect
-    TriggerDetect-->Embedded
     TriggerDetect-->ACP
-    Embedded-->DocOps
     ACP-->DocOps
     DocOps-->Yjs
     Yjs-->Connection
 ```
 
-**Unified interface:** Both modes share the same `DocumentOperations` abstraction, ensuring consistency regardless of which mode is used.
+**Unified interface:** The ACP bridge and MCP server share the same `DocumentOperations` abstraction.
 
 ### Deployment Considerations
 
@@ -243,6 +234,16 @@ flowchart TB
 - ❌ Remote agent server (no workspace access)
 
 **Design philosophy:** Local-first architecture for simplicity, performance, and security.
+
+### Phase 4: Simplification – ACP Only (January 2026)
+
+**Milestone:** January 20, 2026
+
+Embedded mode (direct LLM via `executeLLM`/`prompt.ts`) was removed. The agent now runs exclusively via the ACP bridge. Benefits:
+
+- **Single code path:** No `--mode` switch; fewer branches and dependencies
+- **Thinner agent:** Removed `@ai-sdk/*`, `ai`, `zod`; no `prompt.ts`
+- **Same flexibility:** Any ACP-capable agent can be connected with `--acp-agent`
 
 ## Documentation Roadmap
 
@@ -295,7 +296,7 @@ What we learned:
 **Lesson:** Shared abstractions enable flexibility.
 
 The `DocumentOperations` interface:
-- Allows both Embedded and ACP modes to coexist
+- Is shared by the ACP bridge and MCP server
 - Makes testing easier (mock the interface)
 - Enables future additions without breaking existing code
 
@@ -329,6 +330,7 @@ Trade-off: Remote deployment requires different approach, but that's okay.
 | 2025-10-21 | Agent Autonomy Problem identified | Understood fundamental architectural mismatch |
 | 2025-11-21 | ACP Concept developed | Found the right protocol for the job |
 | 2026-01-19 | Architecture finalized | Dual-mode system with shared abstractions |
+| 2026-01-20 | Embedded mode removed, ACP only | Simplified to single code path; any ACP-capable agent connectable via `--acp-agent` |
 
 ## Evolution Summary
 
@@ -345,14 +347,12 @@ flowchart LR
     end
 
     subgraph final [Final Design]
-        Dual[Dual-Mode System]-->Emb[Embedded Mode]
-        Dual-->ACP2[ACP Mode]
-        Emb-->Shared[Shared DocumentOperations]
-        ACP2-->Shared
+        ACPOnly[ACP-Only]-->ACP2[ACP Bridge]
+        ACP2-->Shared[Shared DocumentOperations]
     end
 
     Auto-->ACP
-    Session-->Dual
+    Session-->ACPOnly
 
     style Notif fill:#f99
     style Auto fill:#f99
@@ -367,7 +367,7 @@ The OCT Agent development journey demonstrates that:
 
 1. **First solutions aren't always the best solutions** - MCP seemed ideal but had fundamental limitations
 2. **Understanding protocols deeply matters** - Knowing the difference between MCP and ACP was crucial
-3. **Flexibility through abstraction pays off** - The dual-mode system serves different use cases
+3. **Simplicity through single code path** - ACP-only avoids mode switches; `--acp-agent` keeps flexibility
 4. **Documentation is a gift to future developers** - This journey guide helps others understand the "why"
 
 The current architecture is not just the result of implementation, but the result of learning, iterating, and finding the right tools for the job.
