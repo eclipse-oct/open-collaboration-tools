@@ -75,6 +75,9 @@ export class Commands {
                 await vscode.commands.executeCommand(OctCommands.CloseConnection);
                 await this.secretStorage.deleteUserTokens();
                 vscode.window.showInformationMessage(vscode.l10n.t('Signed out successfully!'));
+            }),
+            vscode.commands.registerCommand(OctCommands.StartAgent, async () => {
+                await this.startAgent();
             })
         );
         if (typeof process === 'object' && process && process.env?.DEVELOPMENT === 'true') {
@@ -220,5 +223,51 @@ export class Commands {
         } else if (result === 'readwrite') {
             instance.setPermissions({ readonly: false });
         }
+    }
+
+    private async startAgent(): Promise<void> {
+        const instance = CollaborationInstance.Current;
+        if (!instance) {
+            vscode.window.showErrorMessage(vscode.l10n.t('No active collaboration session. Please create or join a room first.'));
+            return;
+        }
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder || workspaceFolder.uri.scheme !== 'file') {
+            vscode.window.showErrorMessage(vscode.l10n.t('No local workspace folder open. Agent requires a file system workspace.'));
+            return;
+        }
+
+        // Determine agent command based on environment
+        const isDevelopment = typeof process === 'object' && process && process.env?.DEVELOPMENT === 'true';
+        let agentCommand: string;
+
+        if (isDevelopment) {
+            // Development: Use local build (assumes mono-repo structure)
+            // Path is relative from extension to the agent package
+            const extensionPath = this.context.extensionPath;
+            const agentPath = `${extensionPath}/../open-collaboration-agent/bin/agent`;
+            agentCommand = `node "${agentPath}"`;
+        } else {
+            // Production: Use npx to run published package
+            agentCommand = 'npx open-collaboration-agent';
+        }
+
+        // Build full command with arguments
+        const fullCommand = `${agentCommand} --room ${instance.roomId} --server ${instance.serverUrl} --mode acp`;
+
+        // Create and show terminal
+        const terminal = vscode.window.createTerminal({
+            name: 'OCT Agent',
+            cwd: workspaceFolder.uri.fsPath,
+            message: vscode.l10n.t('Starting OCT Agent in ACP mode...')
+        });
+
+        terminal.show();
+        terminal.sendText(fullCommand);
+
+        vscode.window.showInformationMessage(
+            vscode.l10n.t('OCT Agent started in terminal. Please authenticate when prompted.')
+        );
     }
 }

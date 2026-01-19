@@ -1,7 +1,14 @@
 # Agent Autonomy Problem
 
 **Date:** 2025-10-21
-**Status:** ❌ BLOCKED - Architectural limitation in Claude Code
+**Status:** ⚠️ HISTORICAL - Problem gelöst durch ACP Bridge Architektur
+**Nachfolger:** Siehe [ARCHITECTURE.md](ARCHITECTURE.md) und [ACP_CONCEPT.md](ACP_CONCEPT.md)
+
+> **Historischer Kontext:** Dieses Dokument beschreibt ein architektonisches Problem
+> bei der Integration des OCT Agenten mit Claude Code über MCP (Model Context Protocol).
+> Das Problem führte zur Entwicklung der ACP Bridge Lösung, die in der aktuellen
+> Implementierung beide Modi unterstützt (Embedded + ACP). Die hier beschriebenen
+> Limitierungen gelten für die **MCP-basierte Integration nicht mehr**.
 
 ## Problem Statement
 
@@ -383,3 +390,22 @@ interface ServerState {
 - Long-term: Wait for sampling support in Claude Code
 
 The implementation is correct and complete. The limitation is in the Claude Code agent architecture itself, not in the OCT MCP server code.
+
+---
+
+## Update 2026-01-19
+
+Dieses Problem wurde durch die Entwicklung der **ACP Bridge Architektur** gelöst:
+
+- **Lösung:** Der OCT Agent verwendet nun ACP (Agent Client Protocol) statt MCP
+- **Modi:** Zwei Betriebsmodi verfügbar:
+  - **Embedded Mode**: Direkte LLM-Integration ohne externe Agents
+  - **ACP Mode**: Integration mit externen Agents über standardisiertes Protokoll
+- **Ergebnis:** Das Task Agent Lifecycle Problem existiert nicht mehr
+
+**Siehe:**
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Aktuelle Implementierung
+- [ACP_CONCEPT.md](ACP_CONCEPT.md) - ACP Bridge Design
+- [DEVELOPMENT_JOURNEY.md](DEVELOPMENT_JOURNEY.md) - Vollständige Entwicklungsgeschichte
+
+Die MCP-Integration wurde als **historisch wertvoll** dokumentiert, zeigt aber einen Ansatz, der durch die bessere ACP-Lösung ersetzt wurde.

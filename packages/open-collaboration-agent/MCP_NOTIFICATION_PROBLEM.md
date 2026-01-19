@@ -60,6 +60,95 @@ But there's no standard MCP mechanism for:
 
 Claude Code receives the notification but has no built-in mechanism to automatically launch an agent in response to MCP resource update notifications.
 
+## Why MCP Is Not Ideal for Agent Integration
+
+### MCP Protocol Design Philosophy
+
+MCP (Model Context Protocol) is designed for a specific interaction model:
+
+**Intended Use Case:**
+- AI Agent (Client) requests information from external tools (Server)
+- Client controls the flow - decides when to call which tools
+- Server responds to client requests
+- **Unidirectional flow: Client → Server**
+
+**What MCP Is Good For:**
+- Exposing external data sources to AI agents (databases, APIs, file systems)
+- Providing tools that agents can call on-demand
+- Client-driven workflows where agent decides what to do
+
+### The Bidirectional Communication Problem
+
+Our use case requires **bidirectional communication**:
+
+**What We Need:**
+- External event (code change) triggers AI agent action
+- Server needs to "push" work to the agent
+- **Bidirectional flow: Server → Agent AND Agent → Server**
+
+**Why MCP Struggles:**
+
+1. **No Server-Initiated Agent Invocation**
+   - MCP notifications are passive information updates
+   - Claude Code receives notifications but doesn't automatically invoke agents
+   - No standard mechanism for "notification → trigger agent task"
+
+2. **Workarounds Have Limitations**
+   - Solution A (Blocking Wait): Requires long-running background agent
+   - Solution B (Sampling): Not yet supported by Claude Code
+   - Solution C (Hybrid): Combines both, but still a workaround
+
+3. **Architecture Mismatch**
+   - MCP expects client to drive the workflow
+   - Our workflow is event-driven (code changes trigger agent)
+   - We're trying to make a pull-based protocol work for push-based events
+
+### Why ACP (Agent Client Protocol) Is Better
+
+The ACP (Agent Client Protocol) mode using `@zed-industries/claude-code-acp` provides proper bidirectional communication:
+
+**ACP Advantages:**
+- ✅ **Designed for bidirectional communication**: Server can send requests to agent
+- ✅ **Event-driven architecture**: External events naturally trigger agent actions
+- ✅ **Direct stdio communication**: Lower latency, simpler flow
+- ✅ **Session-based**: Proper lifecycle management for long-running agents
+- ✅ **Tool call model**: Agent gets proper context and can respond with structured edits
+
+**ACP vs MCP Comparison:**
+
+| Aspect | MCP | ACP |
+|--------|-----|-----|
+| Communication | Unidirectional (Client → Server) | Bidirectional (Both ways) |
+| Event Handling | Passive notifications | Active requests |
+| Agent Lifecycle | Client-managed | Session-managed |
+| Trigger Flow | Workarounds needed | Native support |
+| Use Case Fit | Tools/Resources for agents | Agent collaboration |
+
+### Current MCP Implementation: A Compromise
+
+The current Solution C (Hybrid) implementation works but is essentially a workaround:
+
+1. **Not true bidirectional communication** - we're simulating it with:
+   - Background agent polling via blocking tool call
+   - Notification as a "wake-up signal" (but agent must already be running)
+
+2. **Requires manual agent setup**:
+   - User must launch background monitoring agent
+   - Agent must call `oct_wait_for_trigger()` in a loop
+   - Additional complexity compared to native event handling
+
+3. **Why we still implemented it**:
+   - Works with current Claude Code MCP client
+   - Better than purely manual triggering
+   - Provides automatic operation (once agent is running)
+   - Will automatically upgrade when sampling support arrives
+
+### Recommendation
+
+**For new implementations:** Use ACP mode (`--mode acp`) for proper bidirectional communication.
+
+**For MCP mode:** Understand it's a compromise that works but isn't architecturally ideal. The hybrid approach is the best we can do within MCP's limitations.
+
 ## Proposed Solutions
 
 ### Solution A: Long-running Agent with Blocking Wait
