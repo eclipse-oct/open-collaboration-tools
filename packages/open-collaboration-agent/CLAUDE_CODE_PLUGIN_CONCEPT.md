@@ -1,8 +1,10 @@
 # Claude Code Plugin: OCT Collaboration Agent Integration
 
+> **Note:** This document contains historical information about MCP integration. The MCP server code has been simplified to a minimal skeleton for reference. The main integration path is **oct-agent via ACP exclusively**.
+
 ## Overview
 
-This plugin enables Claude Code to join Open Collaboration Tools (OCT) sessions as a peer. The main integration is **oct-agent** via **ACP** (Agent Client Protocol): it spawns an ACP-capable agent (e.g. `@zed-industries/claude-code-acp`) and bridges triggers to it. Separately, an **MCP server** (`oct-mcp-server`) offers an alternative integration path for MCP-based clients. The aim is to enable collaborative, AI-powered code assistance in real-time developer sessions.
+This plugin enables Claude Code to join Open Collaboration Tools (OCT) sessions as a peer. The main integration is **oct-agent** via **ACP** (Agent Client Protocol): it spawns an ACP-capable agent (e.g. `@zed-industries/claude-code-acp`) and bridges triggers to it. The MCP server sections below describe historical integration attempts and remain as reference for potential future MCP-based extensions.
 
 ## Architecture
 
@@ -20,20 +22,22 @@ This plugin enables Claude Code to join Open Collaboration Tools (OCT) sessions 
 
 Model and API keys are configured in the ACP agent, not in oct-agent.
 
-### MCP Server for External Agents (Alternative)
+### MCP Server Skeleton (Historical/Reference)
+
+> **Historical Note:** The MCP server has been simplified to a minimal skeleton (~250 lines). It no longer includes OCT integration but serves as a reference for future MCP-based extensions.
 
 **Location:** `packages/open-collaboration-agent/src/mcp-server.ts`
 
--   **Purpose:** Bridge for MCP-compatible AI clients (Claude Code, Cursor, etc.)
--   **Execution:** Dynamic tool calls - AI agent decides when to call which tools
--   **Flexibility:** Standard MCP protocol, works with any compatible client
--   **Usage:** Start server via `.claude/settings.json`, connect via `/connect-to-oct <room-id>`
--   **Trigger Detection:** MCP server monitors document changes via `DocumentSync` and exposes triggers as MCP resources
--   **Workflow:**
+-   **Current Status:** Minimal skeleton with example tools and resources
+-   **Purpose:** Reference implementation showing MCP protocol patterns
+-   **Content:** Basic server setup, example tools (`oct_echo`, `oct_get_version`), example resource (`oct://server/info`)
+-   **Usage:** Can be extended with OCT integration for specialized use cases
+
+**Historical Workflow (no longer implemented):**
     1. AI client connects via `oct_connect` tool
-    2. **MCP server detects `@agent` trigger** via `setupMCPTriggerDetection()` using `DocumentSync`
-    3. **MCP server starts loading animation** and sends resource update notification
-    4. **AI client receives notification** about new trigger via `oct://triggers/current` resource
+    2. MCP server detects `@agent` trigger via `setupMCPTriggerDetection()` using `DocumentSync`
+    3. MCP server starts loading animation and sends resource update notification
+    4. AI client receives notification about new trigger via `oct://triggers/current` resource
     5. AI client calls `oct_trigger_start_processing` to stop the animation
     6. AI client reads context via `oct_get_document_range`
     7. AI client applies edits via `oct_apply_edit`
@@ -44,7 +48,7 @@ Model and API keys are configured in the ACP agent, not in oct-agent.
 
 **Location:** `packages/open-collaboration-agent/src/document-operations.ts`
 
-The ACP bridge and MCP server use the same underlying functionality:
+The ACP bridge uses `DocumentOperations` for OCT integration:
 
 ```typescript
 interface DocumentOperations {
@@ -68,11 +72,11 @@ class DocumentSyncOperations implements DocumentOperations {
 
 **Benefits:**
 
--   ACP bridge: Connects any ACP-capable agent
--   MCP server: Flexible, AI-agnostic, standard protocol
--   Shared code: Single source of truth for OCT operations
+-   ACP bridge: Connects any ACP-capable agent (main integration)
+-   MCP skeleton: Minimal reference for potential future extensions
+-   Shared code: `DocumentOperations` provides unified interface for OCT operations
 
-### Communication Flow (MCP Mode)
+### Communication Flow (MCP Mode - Historical)
 
 ```
 1. User runs: /connect-to-oct <room-id>
@@ -213,9 +217,9 @@ function registerUser(email, password) {
 | Component               | Description                                              | Location                             |
 | ----------------------- | -------------------------------------------------------- | ------------------------------------ |
 | **Built-in CLI Agent**  | Standalone agent with hardwired workflow                 | `src/agent.ts`                       |
-| **MCP Server**          | Bridges external AI clients to OCT via stdio transport   | `src/mcp-server.ts`                  |
-| **MCP Tools**           | Tool implementations (oct_connect, oct_apply_edit, etc.) | `src/mcp-tools.ts`                   |
-| **MCP Resources**       | Resource providers (session info, documents)             | `src/mcp-resources.ts`               |
+| **MCP Server (Skeleton)** | Minimal MCP server example (~60 lines)                | `src/mcp-server.ts`                  |
+| **MCP Tools (Examples)**  | Example MCP tools (oct_echo, oct_get_version)          | `src/mcp-tools.ts`                   |
+| **MCP Resources (Examples)** | Example MCP resource (oct://server/info)            | `src/mcp-resources.ts`               |
 | **Document Operations** | Shared abstraction layer for both modes                  | `src/document-operations.ts`         |
 | **Document Sync**       | Real-time document synchronization using Yjs CRDT        | `src/document-sync.ts`               |
 | **LLM Execution**       | Direct LLM call (built-in) and tool-based (MCP)          | `src/prompt.ts`                      |
@@ -224,9 +228,11 @@ function registerUser(email, password) {
 | **Subagent Config**     | Claude Code subagent configuration                       | `.claude/agents/oct-collab-agent.md` |
 | **Settings**            | MCP server registration (no room ID!)                    | `.claude/settings.json`              |
 
-## MCP Tools
+## MCP Tools (Historical Reference)
 
-The MCP server exposes these tools to Claude Code and other MCP-compatible clients:
+> **Note:** These tools were part of the full MCP integration. The current MCP skeleton includes only example tools (`oct_echo`, `oct_get_version`).
+
+The full MCP server previously exposed these tools to Claude Code and other MCP-compatible clients:
 
 ### Connection Management
 
@@ -250,16 +256,18 @@ The MCP server exposes these tools to Claude Code and other MCP-compatible clien
 
 -   **`oct_get_session_info`**: Get session metadata (room ID, agent name, host)
 
-## MCP Resources
+## MCP Resources (Historical Reference)
 
-Resources provide read-only access to OCT session data:
+> **Note:** These resources were part of the full MCP integration. The current MCP skeleton includes only an example resource (`oct://server/info`).
+
+The full MCP server previously provided read-only access to OCT session data:
 
 -   **`oct://session/info`**: Session metadata (connection status, room ID, agent name)
 -   **`oct://documents/{path}`**: Document content by path
 -   **`oct://triggers/current`**: Most recent @agent trigger detected (includes docPath, docContent, prompt, offset)
 -   **`oct://triggers/pending`**: All pending @agent triggers waiting to be processed
 
-**Resource Update Notifications:** When a trigger is detected, the MCP server sends a `notifications/resources/updated` notification with the `oct://triggers/current` URI, alerting connected clients about new triggers.
+**Resource Update Notifications (Historical):** When a trigger was detected, the MCP server sent a `notifications/resources/updated` notification with the `oct://triggers/current` URI, alerting connected clients about new triggers.
 
 ## Example Workflows
 
@@ -322,10 +330,9 @@ def process_data(filename):
 ### Prerequisites
 
 -   Node.js >= 20.10.0
--   Claude Code installed (for MCP mode) or command line (for built-in agent)
 -   Active OCT collaboration session
 
-### Setup for MCP Mode (Claude Code)
+### Setup for MCP Mode (Historical - No Longer Supported)
 
 1. **Build the agent package**
 

@@ -1,7 +1,15 @@
 # MCP Notification Problem and Solutions
 
+---
+**STATUS: ARCHIVED - MCP code simplified to skeleton**
+
+This document describes historical MCP integration attempts. The MCP code has been
+simplified to a minimal skeleton for future extensions. The main agent uses ACP exclusively.
+
 **Date:** 2025-10-20
-**Status:** ✅ IMPLEMENTED - Solution C (Hybrid Auto-Detecting Approach)
+**Original Status:** ✅ IMPLEMENTED - Solution C (Hybrid Auto-Detecting Approach)
+**Current Status:** 🗄️ ARCHIVED - Code simplified, kept as reference
+---
 
 ## Problem Statement
 

@@ -111,7 +111,7 @@ interface DocumentOperations {
 
 **Benefits:**
 - Single source of truth for document operations
-- Shared by ACP bridge and MCP server
+- Used by ACP bridge (MCP skeleton is simplified and doesn't include OCT integration)
 - Animated cursor movement during edits
 - Line-based editing (easier for LLMs than character offsets)
 
@@ -292,6 +292,18 @@ sequenceDiagram
 | `agent-util.ts` | Cursor tracking, loading animations | `src/agent-util.ts` |
 | `acp-trigger-handler.ts` | ACP response processing | `src/acp-trigger-handler.ts` |
 
+### MCP Skeleton Files (Optional)
+
+The following files provide a minimal MCP server skeleton for future extensions:
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| `mcp-server.ts` | Minimal MCP server skeleton (~60 lines) | `src/mcp-server.ts` |
+| `mcp-tools.ts` | Example MCP tools pattern (~100 lines) | `src/mcp-tools.ts` |
+| `mcp-resources.ts` | Example MCP resources pattern (~80 lines) | `src/mcp-resources.ts` |
+
+**Note:** These are skeleton examples showing MCP protocol patterns. The main agent uses ACP exclusively. The MCP files are provided for specialized use cases where MCP integration is beneficial (custom IDE integration, context providers, etc.).
+
 ## Configuration
 
 ### CLI Arguments
@@ -457,7 +469,7 @@ API keys and model selection are configured in the ACP agent (e.g. Claude Code),
 ## Additional Documentation
 
 - **ACP_CONCEPT.md** - Agent Client Protocol design and integration
-- **MCP_NOTIFICATION_PROBLEM.md** - MCP mode limitations and why ACP is better
+- **MCP_NOTIFICATION_PROBLEM.md** - (Historical) MCP integration attempts and why ACP is better
 - **CLAUDE_CODE_PLUGIN_CONCEPT.md** - Claude Code integration details
 - **CHAT_CONCEPT.md** - Future chat-based triggering design
 - **REMOTE_AGENT_CHALLENGES.md** - Remote deployment challenges
