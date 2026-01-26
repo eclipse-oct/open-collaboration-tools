@@ -831,7 +831,69 @@ export class ACPBridge {
     }
 
     /**
+     * Get MIME type for a file based on its extension
+     */
+    private getMimeType(filepath: string): string {
+        const ext = path.extname(filepath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+            '.ts': 'text/typescript',
+            '.tsx': 'text/typescript',
+            '.js': 'text/javascript',
+            '.jsx': 'text/javascript',
+            '.json': 'application/json',
+            '.md': 'text/markdown',
+            '.txt': 'text/plain',
+            '.html': 'text/html',
+            '.css': 'text/css',
+            '.xml': 'text/xml',
+            '.yaml': 'text/yaml',
+            '.yml': 'text/yaml',
+            '.py': 'text/x-python',
+            '.java': 'text/x-java',
+            '.c': 'text/x-c',
+            '.cpp': 'text/x-c++',
+            '.h': 'text/x-c',
+            '.hpp': 'text/x-c++',
+            '.go': 'text/x-go',
+            '.rs': 'text/x-rust',
+            '.sh': 'text/x-shellscript',
+            '.bash': 'text/x-shellscript',
+        };
+        return mimeTypes[ext] || 'text/plain';
+    }
+
+    /**
      * Send a prompt to the ACP agent using standard ACP protocol
+     * 
+     * The prompt includes:
+     * - A text content block with the user's prompt
+     * - A resource_link content block identifying the currently active file
+     * 
+     * Example output:
+     * ```json
+     * {
+     *   "jsonrpc": "2.0",
+     *   "id": 1,
+     *   "method": "session/prompt",
+     *   "params": {
+     *     "sessionId": "session-123",
+     *     "prompt": [
+     *       {
+     *         "type": "text",
+     *         "text": "Fix the bug in this function"
+     *       },
+     *       {
+     *         "type": "resource_link",
+     *         "uri": "file:///path/to/file.ts",
+     *         "name": "file.ts",
+     *         "mimeType": "text/typescript",
+     *         "size": 1024
+     *       }
+     *     ]
+     *   }
+     * }
+     * ```
+     * 
      * @returns Promise that resolves with the agent's response
      */
     async sendTrigger(trigger: {
@@ -861,13 +923,51 @@ export class ACPBridge {
             });
 
             // Build params - sessionId is optional if the agent doesn't require it
+            const promptContent: any[] = [
+                {
+                    type: 'text',
+                    text: trigger.content.prompt,
+                },
+            ];
+
+            // Add resource_link for the current document
+            try {
+                // Convert OCT path to absolute file path
+                const absolutePath = path.resolve(process.cwd(), trigger.source.path);
+                const filename = path.basename(absolutePath);
+                const mimeType = this.getMimeType(absolutePath);
+                
+                // Get file size (optional)
+                let fileSize: number | undefined;
+                try {
+                    const stats = fs.statSync(absolutePath);
+                    fileSize = stats.size;
+                } catch {
+                    // File size is optional, continue without it
+                }
+
+                // Add resource_link to prompt
+                const resourceLink: any = {
+                    type: 'resource_link',
+                    uri: `file://${absolutePath}`,
+                    name: filename,
+                    mimeType: mimeType,
+                };
+
+                // Add size if available
+                if (fileSize !== undefined) {
+                    resourceLink.size = fileSize;
+                }
+
+                promptContent.push(resourceLink);
+                console.error(`[ACP] Added resource_link for ${filename} (${mimeType})`);
+            } catch (error: any) {
+                console.error(`[ACP] Failed to create resource_link: ${error.message}`);
+                // Continue without resource_link if there's an error
+            }
+
             const params: any = {
-                prompt: [
-                    {
-                        type: 'text',
-                        text: trigger.content.prompt,
-                    },
-                ],
+                prompt: promptContent,
             };
 
             // Only include sessionId if we have one
