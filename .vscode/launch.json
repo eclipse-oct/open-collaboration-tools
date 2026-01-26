@@ -96,9 +96,8 @@
         "--room",
         "${input:roomToken}",
         "--server",
-        "https://api.open-collab.tools",
-        "--model",
-        "claude-3-5-sonnet-latest"
+        "https://api.open-collab.tools"
+        // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
       ],
       "console": "integratedTerminal",
       "sourceMaps": true,
@@ -123,9 +122,8 @@
         "--room",
         "${input:roomToken}",
         "--server",
-        "http://localhost:8100",
-        "--mode",
-        "acp"
+        "http://localhost:8100"
+        // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
       ],
       "console": "integratedTerminal",
       "restart": true,

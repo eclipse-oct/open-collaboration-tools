@@ -230,7 +230,15 @@ export class ACPBridge {
             try {
                 const message = JSON.parse(line);
                 console.error(`[ACP] Received: ${line.trim()}`);
-                this.handleMessage(message);
+                
+                // Route based on message type
+                if (message.id !== undefined && message.method === undefined) {
+                    // Response to our request
+                    this.handleResponse(message);
+                } else {
+                    // Request/notification from agent
+                    this.handleAgentRequest(message);
+                }
             } catch (error) {
                 console.error(`[ACP] Failed to parse message: ${line}`, error);
             }
@@ -238,10 +246,208 @@ export class ACPBridge {
     }
 
     /**
-     * Handle incoming JSON-RPC messages
+     * Handle responses to requests sent by the bridge
      */
-    private handleMessage(message: any): void {
-        // Handle File System requests from agent
+    private handleResponse(message: any): void {
+        // This is a response (has id but no method)
+        const requestId = String(message.id);
+        const pending = this.pendingPrompts.get(requestId);
+        if (pending) {
+            this.pendingPrompts.delete(requestId);
+            if (message.error) {
+                pending.reject(new Error(message.error.message || 'ACP request failed'));
+            } else {
+                // Combine accumulated text with the result
+                const result = message.result || {};
+                const accumulatedText = pending.accumulatedText || '';
+
+                // Format response for processACPResponse
+                // If we have accumulated text, format as agent/response
+                if (accumulatedText) {
+                    pending.resolve({
+                        type: 'agent/response',
+                        content: accumulatedText,
+                        stopReason: result.stopReason,
+                    });
+                } else if (result.stopReason) {
+                    // If we have a stopReason but no text, still format as response
+                    // (empty response is valid)
+                    pending.resolve({
+                        type: 'agent/response',
+                        content: '',
+                        stopReason: result.stopReason,
+                    });
+                } else {
+                    // Fallback: return the result as-is
+                    pending.resolve(result);
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle permission requests from the agent
+     * This is a CLIENT method - the agent requests permission from the client
+     */
+    private handlePermissionRequest(message: any): void {
+        const params = message.params;
+        if (params && params.toolCall) {
+            // Extract toolCallId - it might be in toolCall.toolCallId or toolCall.id
+            const toolCallId = params.toolCall.toolCallId || params.toolCall.id;
+            const pendingToolCall = this.pendingToolCalls.get(toolCallId);
+            if (pendingToolCall) {
+                // Auto-approve permission requests
+                // Find the "allow" option from the provided options
+                const options = params.options || [];
+                const allowOption = options.find((opt: any) =>
+                    opt.id === 'allow_once' ||
+                    opt.id === 'allow' ||
+                    opt.optionId === 'allow_once' ||
+                    opt.optionId === 'allow'
+                ) || options[0]; // Fallback to first option if no allow found
+
+                const selectedOptionId = allowOption?.id || allowOption?.optionId || 'allow_once';
+
+                console.error(`[ACP] Auto-approving tool call ${toolCallId} with option ${selectedOptionId}`);
+
+                // Respond with JSON-RPC response (not a method call)
+                this.sendMessage({
+                    jsonrpc: '2.0',
+                    id: message.id,
+                    result: {
+                        optionId: selectedOptionId,
+                    },
+                });
+
+                // Apply the tool call edit immediately
+                this.applyToolCallEdit(pendingToolCall.toolCall, pendingToolCall.docPath);
+                this.pendingToolCalls.delete(toolCallId);
+            } else {
+                console.error(`⚠️ Received permission request for unknown tool call ${toolCallId}`);
+                // Still respond to avoid hanging the agent
+                const options = params.options || [];
+                const denyOption = options.find((opt: any) =>
+                    opt.id === 'deny' ||
+                    opt.id === 'reject_once' ||
+                    opt.optionId === 'deny' ||
+                    opt.optionId === 'reject_once'
+                ) || options[options.length - 1]; // Fallback to last option (usually deny)
+
+                this.sendMessage({
+                    jsonrpc: '2.0',
+                    id: message.id,
+                    result: {
+                        optionId: denyOption?.id || denyOption?.optionId || 'deny',
+                    },
+                });
+            }
+        }
+    }
+
+    /**
+     * Handle tool call updates - convert to edits in current document
+     */
+    private handleToolCallUpdate(update: any): void {
+        const toolCallId = update.toolCallId;
+        // Get the current document path from the most recent pending prompt
+        const pendingEntries = Array.from(this.pendingPrompts.entries());
+        let currentDocPath: string | undefined;
+        if (pendingEntries.length > 0) {
+            const [, pending] = pendingEntries[pendingEntries.length - 1];
+            currentDocPath = pending.currentDocPath;
+        }
+        // Fallback to active document if available
+        if (!currentDocPath && this.documentOps) {
+            currentDocPath = this.documentOps.getActiveDocumentPath();
+        }
+        if (currentDocPath) {
+            // Store the tool call for when permission is granted
+            this.pendingToolCalls.set(toolCallId, {
+                toolCall: update,
+                docPath: currentDocPath,
+            });
+            console.error(`[ACP] Stored tool_call ${toolCallId} for document ${currentDocPath}`);
+        } else {
+            console.error(`⚠️ Received tool_call but no document path available`);
+        }
+    }
+
+    /**
+     * Handle agent message chunk updates - accumulate text
+     */
+    private handleAgentMessageChunk(update: any): void {
+        const content = update.content;
+        if (content.type === 'text' && typeof content.text === 'string') {
+            // Find the most recent pending prompt (for the current request)
+            const pendingEntries = Array.from(this.pendingPrompts.entries());
+            if (pendingEntries.length > 0) {
+                const [requestId, pending] = pendingEntries[pendingEntries.length - 1];
+                if (pending) {
+                    // Accumulate the text chunk
+                    if (!pending.accumulatedText) {
+                        pending.accumulatedText = '';
+                    }
+                    pending.accumulatedText += content.text;
+                    console.error(`[ACP] Accumulated text chunk for request ${requestId}, total length: ${pending.accumulatedText.length}`);
+                }
+            } else {
+                console.error(`⚠️ Received agent_message_chunk but no pending prompt found`);
+            }
+        }
+    }
+
+    /**
+     * Handle agent notification (agent/action or agent/response)
+     */
+    private handleAgentNotification(params: any): void {
+        // Try to find pending prompt by session ID or other correlation
+        const firstPending = Array.from(this.pendingPrompts.values())[0];
+        if (firstPending) {
+            // Remove it from map (we'll need better correlation)
+            this.pendingPrompts.delete(Array.from(this.pendingPrompts.keys())[0]);
+            firstPending.resolve(params);
+        } else {
+            console.error(`⚠️ Received ${params.type} but no pending prompt found`);
+        }
+    }
+
+    /**
+     * Handle session update notifications from the agent
+     */
+    private handleSessionUpdate(message: any): void {
+        const params = message.params;
+        if (params && params.update) {
+            const update = params.update;
+            const notificationSessionId = params.sessionId;
+
+            // If we receive a sessionId in the notification but don't have one stored, store it
+            if (notificationSessionId && !this.sessionId) {
+                console.error(`[ACP] Received sessionId from notification: ${notificationSessionId}, storing it`);
+                this.sessionId = notificationSessionId;
+            }
+
+            // Verify session ID matches (if we have one set)
+            if (this.sessionId && notificationSessionId && notificationSessionId !== this.sessionId) {
+                console.error(`⚠️ Received session/update for different session: ${notificationSessionId} (expected ${this.sessionId})`);
+                return;
+            }
+
+            // Route to appropriate handler based on update type
+            if (update.sessionUpdate === 'tool_call' && update.kind === 'edit' && update.content) {
+                this.handleToolCallUpdate(update);
+            } else if (update.sessionUpdate === 'agent_message_chunk' && update.content) {
+                this.handleAgentMessageChunk(update);
+            } else if (params.type === 'agent/action' || params.type === 'agent/response') {
+                this.handleAgentNotification(params);
+            }
+        }
+    }
+
+    /**
+     * Handle requests and notifications from the agent
+     */
+    private handleAgentRequest(message: any): void {
+        // Route to appropriate handler based on method
         if (message.method === 'fs/read_text_file' || message.method === 'fs/write_text_file') {
             // Handle asynchronously but don't block
             this.handleFileSystemRequest(message).catch((error) => {
@@ -255,191 +461,10 @@ export class ACPBridge {
                     },
                 });
             });
-            return;
-        }
-
-        // Handle responses to our requests
-        if (message.id !== undefined && message.method === undefined) {
-            // This is a response (has id but no method)
-            const requestId = String(message.id);
-            const pending = this.pendingPrompts.get(requestId);
-            if (pending) {
-                this.pendingPrompts.delete(requestId);
-                if (message.error) {
-                    pending.reject(new Error(message.error.message || 'ACP request failed'));
-                } else {
-                    // Combine accumulated text with the result
-                    const result = message.result || {};
-                    const accumulatedText = pending.accumulatedText || '';
-
-                    // Format response for processACPResponse
-                    // If we have accumulated text, format as agent/response
-                    if (accumulatedText) {
-                        pending.resolve({
-                            type: 'agent/response',
-                            content: accumulatedText,
-                            stopReason: result.stopReason,
-                        });
-                    } else if (result.stopReason) {
-                        // If we have a stopReason but no text, still format as response
-                        // (empty response is valid)
-                        pending.resolve({
-                            type: 'agent/response',
-                            content: '',
-                            stopReason: result.stopReason,
-                        });
-                    } else {
-                        // Fallback: return the result as-is
-                        pending.resolve(result);
-                    }
-                }
-                return;
-            }
-        }
-
-        // Handle session/request_permission requests from agent
-        // This is a CLIENT method - the agent requests permission from the client
-        if (message.method === 'session/request_permission') {
-            const params = message.params;
-            if (params && params.toolCall) {
-                // Extract toolCallId - it might be in toolCall.toolCallId or toolCall.id
-                const toolCallId = params.toolCall.toolCallId || params.toolCall.id;
-                const pendingToolCall = this.pendingToolCalls.get(toolCallId);
-                if (pendingToolCall) {
-                    // Auto-approve permission requests
-                    // Find the "allow" option from the provided options
-                    const options = params.options || [];
-                    const allowOption = options.find((opt: any) =>
-                        opt.id === 'allow_once' ||
-                        opt.id === 'allow' ||
-                        opt.optionId === 'allow_once' ||
-                        opt.optionId === 'allow'
-                    ) || options[0]; // Fallback to first option if no allow found
-
-                    const selectedOptionId = allowOption?.id || allowOption?.optionId || 'allow_once';
-
-                    console.error(`[ACP] Auto-approving tool call ${toolCallId} with option ${selectedOptionId}`);
-
-                    // Respond with JSON-RPC response (not a method call)
-                    this.sendMessage({
-                        jsonrpc: '2.0',
-                        id: message.id,
-                        result: {
-                            optionId: selectedOptionId,
-                        },
-                    });
-
-                    // Apply the tool call edit immediately
-                    this.applyToolCallEdit(pendingToolCall.toolCall, pendingToolCall.docPath);
-                    this.pendingToolCalls.delete(toolCallId);
-                } else {
-                    console.error(`⚠️ Received permission request for unknown tool call ${toolCallId}`);
-                    // Still respond to avoid hanging the agent
-                    const options = params.options || [];
-                    const denyOption = options.find((opt: any) =>
-                        opt.id === 'deny' ||
-                        opt.id === 'reject_once' ||
-                        opt.optionId === 'deny' ||
-                        opt.optionId === 'reject_once'
-                    ) || options[options.length - 1]; // Fallback to last option (usually deny)
-
-                    this.sendMessage({
-                        jsonrpc: '2.0',
-                        id: message.id,
-                        result: {
-                            optionId: denyOption?.id || denyOption?.optionId || 'deny',
-                        },
-                    });
-                }
-            }
-            return;
-        }
-
-        // Handle notifications (session/update from agent)
-        if (message.method === 'session/update') {
-            const params = message.params;
-            if (params && params.update) {
-                const update = params.update;
-                const notificationSessionId = params.sessionId;
-
-                // If we receive a sessionId in the notification but don't have one stored, store it
-                if (notificationSessionId && !this.sessionId) {
-                    console.error(`[ACP] Received sessionId from notification: ${notificationSessionId}, storing it`);
-                    this.sessionId = notificationSessionId;
-                }
-
-                // Verify session ID matches (if we have one set)
-                if (this.sessionId && notificationSessionId && notificationSessionId !== this.sessionId) {
-                    console.error(`⚠️ Received session/update for different session: ${notificationSessionId} (expected ${this.sessionId})`);
-                    return;
-                }
-
-                // Handle tool_call updates - convert to edits in current document
-                if (update.sessionUpdate === 'tool_call' && update.kind === 'edit' && update.content) {
-                    const toolCallId = update.toolCallId;
-                    // Get the current document path from the most recent pending prompt
-                    const pendingEntries = Array.from(this.pendingPrompts.entries());
-                    let currentDocPath: string | undefined;
-                    if (pendingEntries.length > 0) {
-                        const [, pending] = pendingEntries[pendingEntries.length - 1];
-                        currentDocPath = pending.currentDocPath;
-                    }
-                    // Fallback to active document if available
-                    if (!currentDocPath && this.documentOps) {
-                        currentDocPath = this.documentOps.getActiveDocumentPath();
-                    }
-                    if (currentDocPath) {
-                        // Store the tool call for when permission is granted
-                        this.pendingToolCalls.set(toolCallId, {
-                            toolCall: update,
-                            docPath: currentDocPath,
-                        });
-                        console.error(`[ACP] Stored tool_call ${toolCallId} for document ${currentDocPath}`);
-                    } else {
-                        console.error(`⚠️ Received tool_call but no document path available`);
-                    }
-                    return;
-                }
-
-                // Handle agent_message_chunk updates - accumulate text
-                if (update.sessionUpdate === 'agent_message_chunk' && update.content) {
-                    const content = update.content;
-                    if (content.type === 'text' && typeof content.text === 'string') {
-                        // Find the most recent pending prompt (for the current request)
-                        // We'll use the last pending prompt as a heuristic
-                        // In ACP, session/update notifications correspond to the most recent session/prompt request
-                        const pendingEntries = Array.from(this.pendingPrompts.entries());
-                        if (pendingEntries.length > 0) {
-                            // Get the most recently added pending prompt
-                            const [requestId, pending] = pendingEntries[pendingEntries.length - 1];
-                            if (pending) {
-                                // Accumulate the text chunk
-                                if (!pending.accumulatedText) {
-                                    pending.accumulatedText = '';
-                                }
-                                pending.accumulatedText += content.text;
-                                console.error(`[ACP] Accumulated text chunk for request ${requestId}, total length: ${pending.accumulatedText.length}`);
-                                return;
-                            }
-                        }
-                        console.error(`⚠️ Received agent_message_chunk but no pending prompt found`);
-                    }
-                }
-
-                // Handle other notification types (agent/action, agent/response)
-                if (params.type === 'agent/action' || params.type === 'agent/response') {
-                    // Try to find pending prompt by session ID or other correlation
-                    // For now, we'll use the first pending prompt
-                    const firstPending = Array.from(this.pendingPrompts.values())[0];
-                    if (firstPending) {
-                        // Remove it from map (we'll need better correlation)
-                        this.pendingPrompts.delete(Array.from(this.pendingPrompts.keys())[0]);
-                        firstPending.resolve(params);
-                    } else {
-                        console.error(`⚠️ Received ${params.type} but no pending prompt found`);
-                    }
-                }
-            }
+        } else if (message.method === 'session/request_permission') {
+            this.handlePermissionRequest(message);
+        } else if (message.method === 'session/update') {
+            this.handleSessionUpdate(message);
         }
     }
 
