@@ -8,7 +8,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DocumentSyncOperations, LineEdit } from './document-operations.js';
-import { AgentResponse, ClientRequest, InitializeRequest, InitializeResponse, NewSessionRequest, NewSessionResponse } from '@agentclientprotocol/sdk';
+import { AgentNotification, AgentRequest, AgentResponse, ClientRequest, ContentBlock, InitializeRequest, InitializeResponse, NewSessionRequest, NewSessionResponse, PermissionOption, PromptResponse, ReadTextFileRequest, RequestId, RequestPermissionRequest, SessionNotification, SessionUpdate, ToolCall, ToolCallUpdate, WriteTextFileRequest } from '@agentclientprotocol/sdk';
 
 /**
  * ACP Bridge for connecting external agents via Agent Client Protocol
@@ -143,9 +143,9 @@ export class ACPBridge {
             const sessionRequestId = this.getNextRequestId();
 
             // Build session params - use local workspace
-            const sessionParams: any = {
+            const sessionParams: NewSessionRequest = {
                 mcpServers: [],
-                cwd: process.cwd(),
+                cwd: process.cwd()
             };
 
             console.error(`[ACP] Creating session with local workspace: ${process.cwd()}`);
@@ -201,7 +201,7 @@ export class ACPBridge {
 
             // Store response handler BEFORE sending request
             this.pendingPrompts.set(String(requestId), {
-                resolve: (response: any) => {
+                resolve: (response: AgentResponse) => {
                     clearTimeout(timeout);
                     resolve(response);
                 },
@@ -230,7 +230,7 @@ export class ACPBridge {
             try {
                 const message = JSON.parse(line);
                 console.error(`[ACP] Received: ${line.trim()}`);
-                
+
                 // Route based on message type
                 if (message.id !== undefined && message.method === undefined) {
                     // Response to our request
@@ -248,17 +248,17 @@ export class ACPBridge {
     /**
      * Handle responses to requests sent by the bridge
      */
-    private handleResponse(message: any): void {
+    private handleResponse(message: AgentResponse): void {
         // This is a response (has id but no method)
         const requestId = String(message.id);
         const pending = this.pendingPrompts.get(requestId);
         if (pending) {
             this.pendingPrompts.delete(requestId);
-            if (message.error) {
+            if ('error' in message) {
                 pending.reject(new Error(message.error.message || 'ACP request failed'));
-            } else {
+            } else if ('result' in message) {
                 // Combine accumulated text with the result
-                const result = message.result || {};
+                const result = message.result as PromptResponse;
                 const accumulatedText = pending.accumulatedText || '';
 
                 // Format response for processACPResponse
@@ -285,69 +285,72 @@ export class ACPBridge {
         }
     }
 
+    private isAgentRequest(message: AgentRequest | AgentNotification): message is AgentRequest {
+        return 'id' in message && 'method' in message && 'params' in message;
+    }
+
+    private isAgentNotification(message: AgentRequest | AgentNotification): message is AgentNotification {
+        return 'method' in message && 'params' in message && !('id' in message);
+    }
+
     /**
      * Handle permission requests from the agent
      * This is a CLIENT method - the agent requests permission from the client
      */
-    private handlePermissionRequest(message: any): void {
-        const params = message.params;
-        if (params && params.toolCall) {
-            // Extract toolCallId - it might be in toolCall.toolCallId or toolCall.id
-            const toolCallId = params.toolCall.toolCallId || params.toolCall.id;
-            const pendingToolCall = this.pendingToolCalls.get(toolCallId);
-            if (pendingToolCall) {
-                // Auto-approve permission requests
-                // Find the "allow" option from the provided options
-                const options = params.options || [];
-                const allowOption = options.find((opt: any) =>
-                    opt.id === 'allow_once' ||
-                    opt.id === 'allow' ||
-                    opt.optionId === 'allow_once' ||
-                    opt.optionId === 'allow'
-                ) || options[0]; // Fallback to first option if no allow found
+    private handlePermissionRequest(messageId: RequestId, params: RequestPermissionRequest): void {
 
-                const selectedOptionId = allowOption?.id || allowOption?.optionId || 'allow_once';
+        // Extract toolCallId - it might be in toolCall.toolCallId or toolCall.id
+        const toolCallId = params.toolCall.toolCallId;
+        const pendingToolCall = this.pendingToolCalls.get(toolCallId);
+        if (pendingToolCall) {
+            // Auto-approve permission requests
+            // Find the "allow" option from the provided options
+            const options = params.options || [];
+            const allowOption = options.find((opt: PermissionOption) =>
+                opt.optionId === 'allow_once' ||
+                opt.optionId === 'allow'
+            ) || options[0]; // Fallback to first option if no allow found
 
-                console.error(`[ACP] Auto-approving tool call ${toolCallId} with option ${selectedOptionId}`);
+            const selectedOptionId = allowOption?.optionId || 'allow_once';
 
-                // Respond with JSON-RPC response (not a method call)
-                this.sendMessage({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    result: {
-                        optionId: selectedOptionId,
-                    },
-                });
+            console.error(`[ACP] Auto-approving tool call ${toolCallId} with option ${selectedOptionId}`);
 
-                // Apply the tool call edit immediately
-                this.applyToolCallEdit(pendingToolCall.toolCall, pendingToolCall.docPath);
-                this.pendingToolCalls.delete(toolCallId);
-            } else {
-                console.error(`⚠️ Received permission request for unknown tool call ${toolCallId}`);
-                // Still respond to avoid hanging the agent
-                const options = params.options || [];
-                const denyOption = options.find((opt: any) =>
-                    opt.id === 'deny' ||
-                    opt.id === 'reject_once' ||
-                    opt.optionId === 'deny' ||
-                    opt.optionId === 'reject_once'
-                ) || options[options.length - 1]; // Fallback to last option (usually deny)
+            // Respond with JSON-RPC response (not a method call)
+            this.sendMessage({
+                jsonrpc: '2.0',
+                id: messageId,
+                result: {
+                    optionId: selectedOptionId,
+                },
+            });
 
-                this.sendMessage({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    result: {
-                        optionId: denyOption?.id || denyOption?.optionId || 'deny',
-                    },
-                });
-            }
+            // Apply the tool call edit immediately
+            this.applyToolCallEdit(pendingToolCall.toolCall, pendingToolCall.docPath);
+            this.pendingToolCalls.delete(toolCallId);
+        } else {
+            console.error(`⚠️ Received permission request for unknown tool call ${toolCallId}`);
+            // Still respond to avoid hanging the agent
+            const options = params.options || [];
+            const denyOption = options.find((opt: PermissionOption) =>
+                opt.optionId === 'deny' ||
+                opt.optionId === 'reject_once'
+            ) || options[options.length - 1]; // Fallback to last option (usually deny)
+
+            this.sendMessage({
+                jsonrpc: '2.0',
+                id: messageId,
+                result: {
+                    optionId: denyOption?.optionId || 'deny',
+                },
+            });
         }
+
     }
 
     /**
      * Handle tool call updates - convert to edits in current document
      */
-    private handleToolCallUpdate(update: any): void {
+    private handleToolCallUpdate(update: ToolCall | ToolCallUpdate): void {
         const toolCallId = update.toolCallId;
         // Get the current document path from the most recent pending prompt
         const pendingEntries = Array.from(this.pendingPrompts.entries());
@@ -375,8 +378,7 @@ export class ACPBridge {
     /**
      * Handle agent message chunk updates - accumulate text
      */
-    private handleAgentMessageChunk(update: any): void {
-        const content = update.content;
+    private handleAgentMessageChunk(content: ContentBlock): void {
         if (content.type === 'text' && typeof content.text === 'string') {
             // Find the most recent pending prompt (for the current request)
             const pendingEntries = Array.from(this.pendingPrompts.entries());
@@ -397,95 +399,63 @@ export class ACPBridge {
     }
 
     /**
-     * Handle agent notification (agent/action or agent/response)
-     */
-    private handleAgentNotification(params: any): void {
-        // Try to find pending prompt by session ID or other correlation
-        const firstPending = Array.from(this.pendingPrompts.values())[0];
-        if (firstPending) {
-            // Remove it from map (we'll need better correlation)
-            this.pendingPrompts.delete(Array.from(this.pendingPrompts.keys())[0]);
-            firstPending.resolve(params);
-        } else {
-            console.error(`⚠️ Received ${params.type} but no pending prompt found`);
-        }
-    }
-
-    /**
      * Handle session update notifications from the agent
      */
-    private handleSessionUpdate(message: any): void {
-        const params = message.params;
-        if (params && params.update) {
-            const update = params.update;
-            const notificationSessionId = params.sessionId;
+    private handleSessionUpdate(params: SessionNotification): void {
+        const update: SessionUpdate = params.update;
+        const notificationSessionId = params.sessionId;
 
-            // If we receive a sessionId in the notification but don't have one stored, store it
-            if (notificationSessionId && !this.sessionId) {
-                console.error(`[ACP] Received sessionId from notification: ${notificationSessionId}, storing it`);
-                this.sessionId = notificationSessionId;
-            }
+        // If we receive a sessionId in the notification but don't have one stored, store it
+        if (notificationSessionId && !this.sessionId) {
+            console.error(`[ACP] Received sessionId from notification: ${notificationSessionId}, storing it`);
+            this.sessionId = notificationSessionId;
+        }
 
-            // Verify session ID matches (if we have one set)
-            if (this.sessionId && notificationSessionId && notificationSessionId !== this.sessionId) {
-                console.error(`⚠️ Received session/update for different session: ${notificationSessionId} (expected ${this.sessionId})`);
-                return;
-            }
+        // Verify session ID matches (if we have one set)
+        if (this.sessionId && notificationSessionId && notificationSessionId !== this.sessionId) {
+            console.error(`⚠️ Received session/update for different session: ${notificationSessionId} (expected ${this.sessionId})`);
+            return;
+        }
 
-            // Route to appropriate handler based on update type
-            if (update.sessionUpdate === 'tool_call' && update.kind === 'edit' && update.content) {
-                this.handleToolCallUpdate(update);
-            } else if (update.sessionUpdate === 'agent_message_chunk' && update.content) {
-                this.handleAgentMessageChunk(update);
-            } else if (params.type === 'agent/action' || params.type === 'agent/response') {
-                this.handleAgentNotification(params);
-            }
+        // Route to appropriate handler based on update type
+        if (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') {
+            this.handleToolCallUpdate(update);
+        } else if (update.sessionUpdate === 'agent_message_chunk' && update.content) {
+            this.handleAgentMessageChunk(update.content);
         }
     }
 
     /**
      * Handle requests and notifications from the agent
      */
-    private handleAgentRequest(message: any): void {
-        // Route to appropriate handler based on method
-        if (message.method === 'fs/read_text_file' || message.method === 'fs/write_text_file') {
-            // Handle asynchronously but don't block
-            this.handleFileSystemRequest(message).catch((error) => {
-                console.error(`[ACP] Error handling file system request: ${error}`);
-                this.sendMessage({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    error: {
-                        code: -32603,
-                        message: `Internal error: ${error.message || 'Unknown error'}`,
-                    },
+    private handleAgentRequest(message: AgentRequest | AgentNotification): void {
+        if (this.isAgentRequest(message)) {
+            // Route to appropriate handler based on method
+            if (message.method === 'fs/read_text_file' || message.method === 'fs/write_text_file') {
+                // Handle asynchronously but don't block
+                this.handleFileSystemRequest(message).catch((error) => {
+                    console.error(`[ACP] Error handling file system request: ${error}`);
+                    this.sendMessage({
+                        jsonrpc: '2.0',
+                        id: message.id,
+                        error: {
+                            code: -32603,
+                            message: `Internal error: ${error.message || 'Unknown error'}`,
+                        },
+                    });
                 });
-            });
-        } else if (message.method === 'session/request_permission') {
-            this.handlePermissionRequest(message);
-        } else if (message.method === 'session/update') {
-            this.handleSessionUpdate(message);
+            } else if (message.method === 'session/request_permission') {
+                this.handlePermissionRequest(message.id, message.params as RequestPermissionRequest);
+            }
+        } else if (this.isAgentNotification(message)) {
+            if (message.method === 'session/update') {
+                this.handleSessionUpdate(message.params as SessionNotification);
+            }
         }
     }
 
-    /**
-     * Handle File System requests from agent
-     * Read from local filesystem, write to OCT session for synchronization
-     */
-    private async handleFileSystemRequest(message: any): Promise<void> {
-        if (!this.documentOps) {
-            this.sendMessage({
-                jsonrpc: '2.0',
-                id: message.id,
-                error: {
-                    code: -32603,
-                    message: 'DocumentOps not available',
-                },
-            });
-            return;
-        }
-
-        const params = message.params || {};
+    private getAbsoluteFilePath(message: AgentRequest): string | undefined {
+        const params = message.params as WriteTextFileRequest | ReadTextFileRequest;
         const filePath = params.path;
 
         if (!filePath) {
@@ -520,9 +490,34 @@ export class ACPBridge {
             return;
         }
 
+        return absolutePath;
+    }
+
+    /**
+     * Handle File System requests from agent
+     * Read from local filesystem, write to OCT session for synchronization
+     */
+    private async handleFileSystemRequest(message: AgentRequest): Promise<void> {
+        if (!this.documentOps) {
+            this.sendMessage({
+                jsonrpc: '2.0',
+                id: message.id,
+                error: {
+                    code: -32603,
+                    message: 'DocumentOps not available',
+                },
+            });
+            return;
+        }
+
+
         if (message.method === 'fs/read_text_file') {
             // Read file from local filesystem
             try {
+                const absolutePath = this.getAbsoluteFilePath(message);
+                if (!absolutePath) {
+                    return;
+                }
                 let content = fs.readFileSync(absolutePath, 'utf8');
 
                 // Remove cursor markers (|, /, etc.) from awareness system
@@ -531,13 +526,12 @@ export class ACPBridge {
 
                 // Handle optional line and limit parameters
                 let resultContent = content;
-                if (params.line !== undefined || params.limit !== undefined) {
-                    const lines = content.split('\n');
-                    const startLine = params.line !== undefined ? Math.max(0, params.line - 1) : 0; // Convert to 0-based
-                    const limit = params.limit !== undefined ? params.limit : lines.length;
-                    const endLine = Math.min(startLine + limit, lines.length);
-                    resultContent = lines.slice(startLine, endLine).join('\n');
-                }
+                const params = message.params as ReadTextFileRequest;
+                const lines = content.split('\n');
+                const startLine = Math.max(0, (params.line ?? 0) - 1); // Convert to 0-based
+                const limit = params.limit ?? lines.length;
+                const endLine = Math.min(startLine + limit, lines.length);
+                resultContent = lines.slice(startLine, endLine).join('\n');
 
                 this.sendMessage({
                     jsonrpc: '2.0',
@@ -546,7 +540,6 @@ export class ACPBridge {
                         content: resultContent,
                     },
                 });
-                console.error(`[ACP] Read file via FS API: ${filePath}`);
             } catch (error: any) {
                 this.sendMessage({
                     jsonrpc: '2.0',
@@ -559,7 +552,11 @@ export class ACPBridge {
             }
         } else if (message.method === 'fs/write_text_file') {
             // Write file to OCT document for synchronization
-            const newContent = params.content;
+            const absolutePath = this.getAbsoluteFilePath(message);
+            if (!absolutePath) {
+                return;
+            }
+            const newContent = (message.params as WriteTextFileRequest).content;
             if (newContent === undefined) {
                 this.sendMessage({
                     jsonrpc: '2.0',
@@ -573,7 +570,7 @@ export class ACPBridge {
             }
 
             // Use relative path from workspace root as OCT document path
-            const octPath = path.relative(workspaceRoot, absolutePath);
+            const octPath = path.relative(process.cwd(), absolutePath);
 
             // Get current content (try OCT first, fallback to local filesystem)
             let currentContent = this.documentOps.getDocument(octPath);
@@ -864,11 +861,11 @@ export class ACPBridge {
 
     /**
      * Send a prompt to the ACP agent using standard ACP protocol
-     * 
+     *
      * The prompt includes:
      * - A text content block with the user's prompt
      * - A resource_link content block identifying the currently active file
-     * 
+     *
      * Example output:
      * ```json
      * {
@@ -893,7 +890,7 @@ export class ACPBridge {
      *   }
      * }
      * ```
-     * 
+     *
      * @returns Promise that resolves with the agent's response
      */
     async sendTrigger(trigger: {
@@ -936,7 +933,7 @@ export class ACPBridge {
                 const absolutePath = path.resolve(process.cwd(), trigger.source.path);
                 const filename = path.basename(absolutePath);
                 const mimeType = this.getMimeType(absolutePath);
-                
+
                 // Get file size (optional)
                 let fileSize: number | undefined;
                 try {
