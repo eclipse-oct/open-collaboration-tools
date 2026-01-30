@@ -15,6 +15,7 @@ import { createContainer } from './inversify.js';
 import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
 import fetch from 'node-fetch';
+import { ChatWebview } from './chat-webview/chat-webview.js';
 
 initializeProtocol({
     cryptoModule: crypto.webcrypto
@@ -26,6 +27,8 @@ export async function activate(context: vscode.ExtensionContext) {
     const commands = container.get(Commands);
     commands.initialize();
     const roomService = container.get(CollaborationRoomService);
+
+    ChatWebview.register(context.extensionUri);
 
     const connection = await roomService.tryConnect();
     if (connection) {

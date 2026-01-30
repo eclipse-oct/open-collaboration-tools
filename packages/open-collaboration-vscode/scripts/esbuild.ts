@@ -44,16 +44,43 @@ const main = async () => {
         }
 	});
 
+    const webviewContext = await esbuild.context({
+        entryPoints: [
+            'src/chat-webview/src/webview.tsx'
+        ],
+        bundle: true,
+        format: 'cjs',
+        		minify: production,
+		sourcemap: !production,
+		platform: 'browser',
+		outfile: 'dist/chat-webview.js',
+		external: ['vscode'],
+		logLevel: 'silent',
+		plugins: [
+			esbuildProblemMatcherPlugin('web', buildType),
+		],
+        loader: {
+            ".css": "css"
+        },
+         // Node.js global to browser globalThis
+        define: {
+            global: 'globalThis'
+        }
+	});
+
 	if (watch) {
         await Promise.all([
             nodeContext.watch(),
-            browserContext.watch()
+            browserContext.watch(),
+            webviewContext.watch()
         ]);
 	} else {
+        await webviewContext.rebuild();
 		await nodeContext.rebuild();
 		await browserContext.rebuild();
 		await nodeContext.dispose();
 		await browserContext.dispose();
+        await webviewContext.dispose();
 	}
 }
 

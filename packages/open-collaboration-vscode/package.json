@@ -83,7 +83,11 @@
         },
         "oct.joinAcceptMode": {
           "type": "string",
-          "enum": ["prompt", "allowlist", "auto"],
+          "enum": [
+            "prompt",
+            "allowlist",
+            "auto"
+          ],
           "default": "prompt",
           "markdownDescription": "%oct.joinAcceptMode%",
           "enumItemLabels": [
@@ -117,12 +121,30 @@
         }
       }
     },
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "oct_chat_container",
+          "icon": "comment-discussion",
+          "title": "OCT Chat"
+        }
+      ]
+    },
     "views": {
       "explorer": [
         {
           "id": "oct.roomView",
           "icon": "data/oct-view-icon.svg",
           "name": "%oct.roomView%",
+          "when": "oct.connection"
+        }
+      ],
+      "oct_chat_container": [
+        {
+          "type": "webview",
+          "id": "oct.chatView",
+          "name": "%oct.chatView%",
+          "icon": "comment-discussion",
           "when": "oct.connection"
         }
       ]
@@ -281,17 +303,24 @@
   },
   "dependencies": {
     "async-mutex": "~0.5.0",
+    "baukasten-ui": "^0.2.3",
     "inversify": "~6.2.2",
-    "reflect-metadata": "~0.2.2",
-    "open-collaboration-yjs": "0.3.1",
-    "open-collaboration-protocol": "0.3.1",
     "lodash": "~4.17.21",
+    "minimatch": "^10.1.1",
     "nanoid": "~5.1.5",
     "node-fetch": "~3.3.2",
-    "minimatch": "^10.1.1"
+    "open-collaboration-protocol": "0.3.1",
+    "open-collaboration-yjs": "0.3.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "reflect-metadata": "~0.2.2",
+    "vscode-messenger": "^0.6.0",
+    "vscode-messenger-webview": "^0.6.0"
   },
   "devDependencies": {
     "@types/node-fetch": "~2.6.12",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
     "@types/vscode": "^1.73.0",
     "@vscode/l10n-dev": "~0.0.35",
     "@vscode/vsce": "^3.0.0",

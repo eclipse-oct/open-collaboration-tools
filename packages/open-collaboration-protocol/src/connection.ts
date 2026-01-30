@@ -64,12 +64,19 @@ export interface SyncHandler {
     awarenessQuery(): Promise<void>;
 }
 
+export interface ChatHandler {
+    onMessage(handler: Handler<[string]>): void;
+    sendMessage(message: string): Promise<void>;
+    sendDirectMessage(target: MessageTarget, message: string): Promise<void>;
+}
+
 export interface ProtocolBroadcastConnection extends BroadcastConnection {
     room: RoomHandler;
     peer: PeerHandler;
     fs: FileSystemHandler;
     editor: EditorHandler;
     sync: SyncHandler;
+    chat: ChatHandler;
 }
 
 export interface ProtocolBroadcastConnectionOptions {
@@ -165,6 +172,15 @@ export class ProtocolBroadcastConnectionImpl extends AbstractBroadcastConnection
         },
         onAwarenessQuery: handler => this.onBroadcast(Messages.Sync.AwarenessQuery, handler),
         awarenessQuery: () => this.sendBroadcast(Messages.Sync.AwarenessQuery)
+    };
+
+    chat: ChatHandler = {
+        sendMessage: (message) => this.sendBroadcast(Messages.Chat.ChatMessage, message),
+        sendDirectMessage: (target, message) => this.sendNotification(Messages.Chat.DirectChatMessage, target, message),
+        onMessage: (handler) => {
+            this.onBroadcast(Messages.Chat.ChatMessage, handler);
+            this.onNotification(Messages.Chat.DirectChatMessage, handler);
+        }
     };
 
     // Track peers manually for their public encryption keys

@@ -47,4 +47,9 @@ export namespace Messages {
         export const Change = new BroadcastType<[types.FileChangeEvent]>('fileSystem/change');
     }
 
+    export namespace Chat {
+        export const ChatMessage = new BroadcastType<[message: string]>('chat/message');
+        export const DirectChatMessage = new NotificationType<[message: string]>('chat/directMessage');
+    }
+
 }

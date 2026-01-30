@@ -1,0 +1,51 @@
+/* ******************************************************************************
+/ Copyright 2026 TypeFox GmbH
+/ This program and the accompanying materials are made available under the
+/ terms of the MIT License, which is available in the project root.
+ ******************************************************************************/
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.title {
+    margin: 1rem 0 0.5rem 0;
+    text-align: center;
+}
+
+.messages-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.message {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.message pre {
+    margin: 0;
+    margin-top: 2px;
+    flex-grow: 1;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.message span {
+    text-align: center;
+}
+
+.inputArea {
+    display: flex;
+    padding: 0.5rem;
+    gap: 0.5rem;
+}
+
+.inputArea div {
+    flex-grow: 1;
+}
