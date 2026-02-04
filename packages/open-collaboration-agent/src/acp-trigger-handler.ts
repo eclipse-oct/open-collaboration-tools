@@ -91,44 +91,12 @@ export async function processACPResponse(
             }
         }
     } else if (response.type === 'agent/response' && response.content !== undefined) {
-        // Handle text-based responses (if ACP agent returns text instead of structured edits)
+        // Handle text-based responses - log for future chat integration
         const textContent = typeof response.content === 'string' ? response.content : '';
 
         if (textContent.trim()) {
-            console.error(`[ACP] Received text response (${textContent.length} chars), inserting after trigger line`);
-
-            // Find the trigger line if not provided
-            let targetLine = triggerLine;
-            if (targetLine === undefined) {
-                const lines = currentContent.split('\n');
-                // Try to find a line with @agent pattern (common trigger pattern)
-                const triggerLineIndex = lines.findIndex(line => line.includes('@'));
-                if (triggerLineIndex !== -1) {
-                    targetLine = triggerLineIndex + 1; // Convert to 1-indexed
-                } else {
-                    // Fallback: insert at the end
-                    targetLine = lines.length + 1;
-                }
-            }
-
-            // Insert the text after the trigger line
-            // Insert all text as a single edit (with newlines preserved)
-            // The insert operation inserts before the specified line, so we insert at targetLine + 1
-            // to insert after the trigger line
-            const lineEdits: LineEdit[] = [{
-                type: 'insert',
-                startLine: targetLine + 1, // Insert after trigger line (before the next line)
-                content: textContent, // Insert the full text (may contain newlines)
-            }];
-
-            console.error(`[ACP] Inserting text after line ${targetLine}`);
-            // Set initial cursor position at the insertion point
-            const initialOffset = targetLine > 0
-                ? currentContent.split('\n').slice(0, targetLine).reduce((acc, line) => acc + line.length + 1, 0)
-                : 0;
-            documentOps.updateCursor(docPath, initialOffset);
-
-            await documentOps.applyEditsAnimated(docPath, lineEdits);
+            // Log agent response for future chat integration
+            console.log(`[ACP Agent Response] ${textContent}`);
         } else {
             console.error('[ACP] Received empty text response');
         }

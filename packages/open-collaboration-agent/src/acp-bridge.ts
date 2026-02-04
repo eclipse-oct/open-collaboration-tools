@@ -11,6 +11,107 @@ import type { DocumentSyncOperations, LineEdit } from './document-operations.js'
 import { AgentNotification, AgentRequest, AgentResponse, ClientRequest, ContentBlock, InitializeRequest, InitializeResponse, NewSessionRequest, NewSessionResponse, PermissionOption, PromptResponse, ReadTextFileRequest, RequestId, RequestPermissionRequest, SessionNotification, SessionUpdate, ToolCall, ToolCallUpdate, WriteTextFileRequest } from '@agentclientprotocol/sdk';
 
 /**
+ * Configuration for the tool whitelist
+ */
+export interface ToolWhitelistConfig {
+    allowedKinds: string[];
+    allowedToolNames: string[];
+}
+
+/**
+ * Agent configuration loaded from oct-agent.config.json
+ */
+export interface AgentConfig {
+    toolWhitelist: ToolWhitelistConfig;
+}
+
+/**
+ * Default configuration used when no config file is found
+ */
+const DEFAULT_AGENT_CONFIG: AgentConfig = {
+    toolWhitelist: {
+        allowedKinds: ['read', 'edit'],
+        allowedToolNames: ['mcp__acp__Read', 'mcp__acp__Edit', 'mcp__acp__Write']
+    }
+};
+
+/**
+ * Load agent configuration from file or return defaults
+ */
+function loadAgentConfig(configPath?: string): AgentConfig {
+    const searchPath = configPath || path.join(process.cwd(), 'oct-agent.config.json');
+    try {
+        const content = fs.readFileSync(searchPath, 'utf8');
+        const parsed = JSON.parse(content);
+        console.log(`[ACP] Loaded config from ${searchPath}`);
+        return {
+            toolWhitelist: {
+                allowedKinds: parsed.toolWhitelist?.allowedKinds ?? DEFAULT_AGENT_CONFIG.toolWhitelist.allowedKinds,
+                allowedToolNames: parsed.toolWhitelist?.allowedToolNames ?? DEFAULT_AGENT_CONFIG.toolWhitelist.allowedToolNames
+            }
+        };
+    } catch {
+        console.log(`[ACP] No config file found at ${searchPath}, using defaults`);
+        return DEFAULT_AGENT_CONFIG;
+    }
+}
+
+/**
+ * Extract tool name from a tool call (supports multiple agent formats)
+ */
+function extractToolName(toolCall: ToolCallUpdate): string | undefined {
+    // Claude-Code-ACP format: _meta.claudeCode.toolName
+    const claudeToolName = (toolCall._meta as any)?.claudeCode?.toolName;
+    if (claudeToolName) return claudeToolName;
+    // Additional agent formats can be added here
+    return undefined;
+}
+
+/**
+ * Extract tool kind from the title (e.g. "Write /path/to/file" -> "edit")
+ * This is used as a fallback when kind is not set
+ */
+function extractKindFromTitle(title?: string): string | undefined {
+    if (!title) return undefined;
+    const firstWord = title.split(' ')[0]?.toLowerCase();
+    // Map common title prefixes to ACP kinds
+    const titleToKind: Record<string, string> = {
+        'write': 'edit',
+        'read': 'read',
+        'edit': 'edit',
+        'delete': 'delete',
+        'move': 'move',
+        'rename': 'move',
+        'search': 'search',
+        'execute': 'execute',
+        'run': 'execute',
+        'bash': 'execute',
+    };
+    return titleToKind[firstWord];
+}
+
+/**
+ * Check if a tool call is allowed based on the configuration
+ */
+function isAllowedToolCall(toolCall: ToolCallUpdate, config: AgentConfig): boolean {
+    // 1. Check kind (ACP standard field)
+    if (toolCall.kind && config.toolWhitelist.allowedKinds.includes(toolCall.kind)) {
+        return true;
+    }
+    // 2. Check tool name from _meta (agent-specific)
+    const toolName = extractToolName(toolCall);
+    if (toolName && config.toolWhitelist.allowedToolNames.includes(toolName)) {
+        return true;
+    }
+    // 3. Fallback: extract kind from title (e.g. "Write /path" -> "edit")
+    const kindFromTitle = extractKindFromTitle(toolCall.title ?? undefined);
+    if (kindFromTitle && config.toolWhitelist.allowedKinds.includes(kindFromTitle)) {
+        return true;
+    }
+    return false;
+}
+
+/**
  * ACP Bridge for connecting external agents via Agent Client Protocol
  *
  * This implementation communicates directly with ACP agents using JSON-RPC over stdio,
@@ -32,11 +133,15 @@ export class ACPBridge {
         toolCall: any;
         docPath: string;
     }>();
+    private config: AgentConfig;
 
     constructor(
         private readonly acpAgentCommand: string,
-        private documentOps?: DocumentSyncOperations
-    ) { }
+        private documentOps?: DocumentSyncOperations,
+        configPath?: string
+    ) {
+        this.config = loadAgentConfig(configPath);
+    }
 
     /**
      * Start the ACP bridge by spawning the agent process and establishing connection
@@ -298,62 +403,93 @@ export class ACPBridge {
      * This is a CLIENT method - the agent requests permission from the client
      */
     private handlePermissionRequest(messageId: RequestId, params: RequestPermissionRequest): void {
-
-        // Extract toolCallId - it might be in toolCall.toolCallId or toolCall.id
+        console.info(`[ACP] Handling permission request: ${messageId}`);
         const toolCallId = params.toolCall.toolCallId;
+        const options = params.options || [];
+
+        // Helper: Send ACP-conformant permission response
+        const sendPermissionResponse = (optionId: string) => {
+            this.sendMessage({
+                jsonrpc: '2.0',
+                id: messageId,
+                result: {
+                    outcome: {
+                        outcome: 'selected',
+                        optionId
+                    }
+                },
+            });
+        };
+
+        // Find allow and deny options from the provided options
+        const allowOption = options.find((opt: PermissionOption) =>
+            opt.optionId === 'allow_once' ||
+            opt.optionId === 'allow'
+        ) || options[0];
+        const denyOption = options.find((opt: PermissionOption) =>
+            opt.optionId === 'deny' ||
+            opt.optionId === 'reject_once'
+        ) || options[options.length - 1];
+
+        // Get the full tool call data (from pendingToolCalls if available, otherwise from params)
+        // pendingToolCalls contains the complete data from tool_call_update (with title, kind, etc.)
         const pendingToolCall = this.pendingToolCalls.get(toolCallId);
-        if (pendingToolCall) {
-            // Auto-approve permission requests
-            // Find the "allow" option from the provided options
-            const options = params.options || [];
-            const allowOption = options.find((opt: PermissionOption) =>
-                opt.optionId === 'allow_once' ||
-                opt.optionId === 'allow'
-            ) || options[0]; // Fallback to first option if no allow found
+        const toolCallForCheck = pendingToolCall?.toolCall ?? params.toolCall;
 
-            const selectedOptionId = allowOption?.optionId || 'allow_once';
-
-            console.error(`[ACP] Auto-approving tool call ${toolCallId} with option ${selectedOptionId}`);
-
-            // Respond with JSON-RPC response (not a method call)
-            this.sendMessage({
-                jsonrpc: '2.0',
-                id: messageId,
-                result: {
-                    optionId: selectedOptionId,
-                },
-            });
-
-            // Apply the tool call edit immediately
-            this.applyToolCallEdit(pendingToolCall.toolCall, pendingToolCall.docPath);
-            this.pendingToolCalls.delete(toolCallId);
-        } else {
-            console.error(`⚠️ Received permission request for unknown tool call ${toolCallId}`);
-            // Still respond to avoid hanging the agent
-            const options = params.options || [];
-            const denyOption = options.find((opt: PermissionOption) =>
-                opt.optionId === 'deny' ||
-                opt.optionId === 'reject_once'
-            ) || options[options.length - 1]; // Fallback to last option (usually deny)
-
-            this.sendMessage({
-                jsonrpc: '2.0',
-                id: messageId,
-                result: {
-                    optionId: denyOption?.optionId || 'deny',
-                },
-            });
+        // Security check: Only allow whitelisted tool calls
+        if (!isAllowedToolCall(toolCallForCheck, this.config)) {
+            const toolName = extractToolName(toolCallForCheck) || 'unknown';
+            const toolKind = toolCallForCheck.kind || extractKindFromTitle(toolCallForCheck.title) || 'unknown';
+            const toolTitle = toolCallForCheck.title || 'no title';
+            console.error(`[ACP] Denying tool call ${toolCallId}: kind="${toolKind}", name="${toolName}", title="${toolTitle}" not in whitelist`);
+            sendPermissionResponse(denyOption?.optionId || 'deny');
+            return;
         }
 
+        if (pendingToolCall) {
+            // Known tool call - approve (actual write happens via fs/write_text_file)
+            const selectedOptionId = allowOption?.optionId || 'allow_once';
+            console.error(`[ACP] Approving known tool call ${toolCallId} with option ${selectedOptionId}`);
+            sendPermissionResponse(selectedOptionId);
+            this.pendingToolCalls.delete(toolCallId);
+        } else {
+            // Unknown tool call (permission request came before tool_call_update)
+            // Try to find docPath and approve if possible
+            console.error(`[ACP] Tool call ${toolCallId} not in pendingToolCalls, attempting fallback`);
+
+            // Get docPath from pending prompts or active document
+            let currentDocPath: string | undefined;
+            const pendingEntries = Array.from(this.pendingPrompts.entries());
+            if (pendingEntries.length > 0) {
+                const [, pending] = pendingEntries[pendingEntries.length - 1];
+                currentDocPath = pending.currentDocPath;
+            }
+            if (!currentDocPath && this.documentOps) {
+                currentDocPath = this.documentOps.getActiveDocumentPath();
+            }
+
+            if (currentDocPath && this.documentOps) {
+                // Approve (actual write happens via fs/write_text_file)
+                const selectedOptionId = allowOption?.optionId || 'allow_once';
+                console.error(`[ACP] Approving unknown tool call ${toolCallId} with fallback docPath ${currentDocPath}`);
+                sendPermissionResponse(selectedOptionId);
+            } else {
+                // Cannot determine where to apply - deny
+                console.error(`[ACP] Denying tool call ${toolCallId}: no docPath available`);
+                sendPermissionResponse(denyOption?.optionId || 'deny');
+            }
+        }
     }
 
     /**
      * Handle tool call updates - convert to edits in current document
      */
     private handleToolCallUpdate(update: ToolCall | ToolCallUpdate): void {
+        console.info(`[ACP] Handling tool call update: ${update}`);
         const toolCallId = update.toolCallId;
         // Get the current document path from the most recent pending prompt
         const pendingEntries = Array.from(this.pendingPrompts.entries());
+        console.info(`[ACP] Pending entries: ${pendingEntries}`);
         let currentDocPath: string | undefined;
         if (pendingEntries.length > 0) {
             const [, pending] = pendingEntries[pendingEntries.length - 1];
@@ -379,7 +515,9 @@ export class ACPBridge {
      * Handle agent message chunk updates - accumulate text
      */
     private handleAgentMessageChunk(content: ContentBlock): void {
+        console.info(`[ACP] Handling agent message chunk: ${content}`);
         if (content.type === 'text' && typeof content.text === 'string') {
+            console.info(`[ACP] Text content: ${content.text}`);
             // Find the most recent pending prompt (for the current request)
             const pendingEntries = Array.from(this.pendingPrompts.entries());
             if (pendingEntries.length > 0) {
@@ -498,6 +636,7 @@ export class ACPBridge {
      * Read from local filesystem, write to OCT session for synchronization
      */
     private async handleFileSystemRequest(message: AgentRequest): Promise<void> {
+        console.info(`[ACP] Handling file system request: ${message.method}`);
         if (!this.documentOps) {
             this.sendMessage({
                 jsonrpc: '2.0',
@@ -512,17 +651,25 @@ export class ACPBridge {
 
 
         if (message.method === 'fs/read_text_file') {
-            // Read file from local filesystem
+            // Read file - try OCT document first, fallback to local filesystem
             try {
                 const absolutePath = this.getAbsoluteFilePath(message);
                 if (!absolutePath) {
                     return;
                 }
-                let content = fs.readFileSync(absolutePath, 'utf8');
 
-                // Remove cursor markers (|, /, etc.) from awareness system
-                // These markers are used for cursor position tracking but should not be sent to the agent
-                content = content.replace(/[|/]/g, '');
+                // Convert to OCT document path (includes workspace name)
+                const workspaceName = path.basename(process.cwd());
+                const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
+
+                // Try OCT document first, fallback to local filesystem
+                let content = this.documentOps?.getDocument(octPath);
+                if (content === undefined) {
+                    content = fs.readFileSync(absolutePath, 'utf8');
+                    console.error(`[ACP] Read file from filesystem (not in OCT): ${absolutePath}`);
+                } else {
+                    console.error(`[ACP] Read file from OCT document: ${octPath}`);
+                }
 
                 // Handle optional line and limit parameters
                 let resultContent = content;
@@ -532,7 +679,7 @@ export class ACPBridge {
                 const limit = params.limit ?? lines.length;
                 const endLine = Math.min(startLine + limit, lines.length);
                 resultContent = lines.slice(startLine, endLine).join('\n');
-
+                console.info(`[ACP] Sending file system response: ${resultContent}`);
                 this.sendMessage({
                     jsonrpc: '2.0',
                     id: message.id,
@@ -556,7 +703,9 @@ export class ACPBridge {
             if (!absolutePath) {
                 return;
             }
+            console.info(`[ACP] Writing file to OCT document: ${absolutePath}`);
             const newContent = (message.params as WriteTextFileRequest).content;
+            console.info(`[ACP] New content: ${newContent}`);
             if (newContent === undefined) {
                 this.sendMessage({
                     jsonrpc: '2.0',
@@ -570,15 +719,20 @@ export class ACPBridge {
             }
 
             // Use relative path from workspace root as OCT document path
-            const octPath = path.relative(process.cwd(), absolutePath);
-
+            // OCT uses workspace name as prefix, so we need to include it
+            const workspaceName = path.basename(process.cwd());
+            const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
+            console.info(`[ACP] OCT path: ${octPath}`);
             // Get current content (try OCT first, fallback to local filesystem)
             let currentContent = this.documentOps.getDocument(octPath);
+            console.info(`[ACP] Current content: ${currentContent}`);
             if (currentContent === undefined) {
                 // Try reading from local filesystem
+                console.info(`[ACP] No content in OCT, reading from local filesystem: ${absolutePath}`);
                 try {
                     currentContent = fs.readFileSync(absolutePath, 'utf8');
-                } catch {
+                } catch (error: any) {
+                    console.info(`[ACP] Error reading from local filesystem: ${error.message}`);
                     currentContent = ''; // New file
                 }
             }
@@ -603,6 +757,7 @@ export class ACPBridge {
                 });
                 console.error(`[ACP] Wrote file via FS API to OCT session: ${octPath}`);
             } catch (error: any) {
+                console.info(`[ACP] Error writing file: ${error.message}`);
                 this.sendMessage({
                     jsonrpc: '2.0',
                     id: message.id,
@@ -657,176 +812,6 @@ export class ACPBridge {
     /**
      * Normalize whitespace for text matching (handles different newline counts)
      */
-    private normalizeWhitespace(text: string): string {
-        // Normalize multiple consecutive newlines to single newline
-        return text.replace(/\n{2,}/g, '\n').trim();
-    }
-
-    /**
-     * Find text in document with fuzzy matching (handles whitespace differences)
-     */
-    private findTextInDocument(document: string, searchText: string): { startIndex: number; endIndex: number } | null {
-        // First try exact match
-        let startIndex = document.indexOf(searchText);
-        if (startIndex !== -1) {
-            return { startIndex, endIndex: startIndex + searchText.length };
-        }
-
-        // Try normalized whitespace match
-        const normalizedDoc = this.normalizeWhitespace(document);
-        const normalizedSearch = this.normalizeWhitespace(searchText);
-        const normalizedIndex = normalizedDoc.indexOf(normalizedSearch);
-        if (normalizedIndex !== -1) {
-            // Map back to original document - approximate position
-            // This is a heuristic: find the closest match in original text
-            const docLines = document.split('\n');
-            const searchLines = searchText.split('\n');
-
-            // Try to find by matching first line and subsequent lines
-            if (searchLines.length > 0) {
-                const firstLine = searchLines[0].trim();
-
-                for (let i = 0; i < docLines.length; i++) {
-                    if (docLines[i].trim() === firstLine) {
-                        // Found start, check if subsequent lines match
-                        let match = true;
-                        for (let j = 0; j < searchLines.length && i + j < docLines.length; j++) {
-                            if (docLines[i + j].trim() !== searchLines[j].trim()) {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) {
-                            // Calculate offsets
-                            const beforeStart = docLines.slice(0, i).join('\n');
-                            const startOffset = beforeStart.length + (beforeStart.length > 0 ? 1 : 0);
-                            const matchedText = docLines.slice(i, i + searchLines.length).join('\n');
-                            const endOffset = startOffset + matchedText.length;
-                            return { startIndex: startOffset, endIndex: endOffset };
-                        }
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Apply a tool call edit to the current document
-     */
-    private async applyToolCallEdit(toolCall: any, docPath: string): Promise<void> {
-        if (!this.documentOps) {
-            console.error(`⚠️ Cannot apply tool call edit: documentOps not available`);
-            return;
-        }
-
-        const content = toolCall.content || [];
-        const lineEdits: LineEdit[] = [];
-
-        for (const item of content) {
-            // Handle diff edits
-            if (item.type === 'diff') {
-                const requestedPath = item.path || 'unknown';
-                const oldText = item.oldText ?? '';
-
-                console.error(`[ACP] Tool call requested edit to ${requestedPath}, applying to OCT document ${docPath}`);
-
-                // Convert diff to line edit
-                const newText = item.newText ?? '';
-                const currentContent = this.documentOps.getDocument(docPath) || '';
-
-                if (oldText === null || oldText === '') {
-                    // Insert: append to end of document
-                    const lines = currentContent.split('\n');
-                    const insertLine = lines.length + 1;
-                    const newLines = newText.split('\n');
-
-                    // Normal insert
-                    for (let i = 0; i < newLines.length; i++) {
-                        lineEdits.push({
-                            type: 'insert',
-                            startLine: insertLine + i,
-                            content: newLines[i],
-                        });
-                    }
-                    console.error(`[ACP] Created insert edit: ${newLines.length} lines at line ${insertLine}`)
-                } else if (newText === '') {
-                    // Delete: find and delete the old text
-                    const oldTextForDelete = item.oldText ?? '';
-                    const oldLines = oldTextForDelete.split('\n');
-                    const match = this.findTextInDocument(currentContent, oldTextForDelete);
-                    if (match) {
-                        // Calculate line numbers from character offset
-                        const beforeText = currentContent.substring(0, match.startIndex);
-                        const startLine = beforeText.split('\n').length;
-                        const endLine = startLine + oldLines.length - 1;
-                        lineEdits.push({
-                            type: 'delete',
-                            startLine,
-                            endLine,
-                        });
-                        console.error(`[ACP] Created delete edit: lines ${startLine}-${endLine}`);
-                    } else {
-                        console.error(`[ACP] ⚠️ Could not find oldText in document for deletion. OldText length: ${oldTextForDelete.length}, first 100 chars: ${oldTextForDelete.substring(0, 100)}`);
-                        console.error(`[ACP] Document length: ${currentContent.length}, first 200 chars: ${currentContent.substring(0, 200)}`);
-                    }
-                } else {
-                    // Replace: find oldText and replace with newText
-                    const oldTextForReplace = item.oldText ?? '';
-                    const oldLines = oldTextForReplace.split('\n');
-                    const match = this.findTextInDocument(currentContent, oldTextForReplace);
-                    if (match) {
-                        const beforeText = currentContent.substring(0, match.startIndex);
-                        const startLine = beforeText.split('\n').length;
-                        const endLine = startLine + oldLines.length - 1;
-                        lineEdits.push({
-                            type: 'replace',
-                            startLine,
-                            endLine,
-                            content: newText,
-                        });
-                        console.error(`[ACP] Created replace edit: lines ${startLine}-${endLine} (${oldTextForReplace.length} -> ${newText.length} chars)`);
-                    } else {
-                        console.error(`[ACP] ⚠️ Could not find oldText in document for replacement. OldText length: ${oldTextForReplace.length}`);
-                        console.error(`[ACP] OldText preview (first 150 chars): ${oldTextForReplace.substring(0, 150).replace(/\n/g, '\\n')}`);
-                        console.error(`[ACP] Document preview (first 200 chars): ${currentContent.substring(0, 200).replace(/\n/g, '\\n')}`);
-
-                        // Fallback: try to apply as insert at end if replace fails
-                        if (newText.trim()) {
-                            console.error(`[ACP] Fallback: Attempting to insert newText at end of document`);
-                            const lines = currentContent.split('\n');
-                            const insertLine = lines.length + 1;
-                            const newLines = newText.split('\n');
-                            for (let i = 0; i < newLines.length; i++) {
-                                lineEdits.push({
-                                    type: 'insert',
-                                    startLine: insertLine + i,
-                                    content: newLines[i],
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (lineEdits.length > 0) {
-            console.error(`[ACP] Applying ${lineEdits.length} line edits from tool call to ${docPath}`);
-            const currentContent = this.documentOps.getDocument(docPath) || '';
-            if (lineEdits[0]) {
-                const firstEdit = lineEdits[0];
-                const initialOffset = firstEdit.startLine > 0
-                    ? currentContent.split('\n').slice(0, firstEdit.startLine - 1).reduce((acc, line) => acc + line.length + 1, 0)
-                    : 0;
-                this.documentOps.updateCursor(docPath, initialOffset);
-            }
-            await this.documentOps.applyEditsAnimated(docPath, lineEdits);
-        } else {
-            console.error(`[ACP] No edits to apply from tool call (content items: ${content.length})`);
-        }
-    }
-
     /**
      * Get MIME type for a file based on its extension
      */
@@ -913,10 +898,11 @@ export class ACPBridge {
 
         return new Promise((resolve, reject) => {
             // Store the promise handlers using request ID, including the document path
+            // trigger.source.path is already an OCT path with workspace name prefix
             this.pendingPrompts.set(String(requestId), {
                 resolve,
                 reject,
-                currentDocPath: trigger.source.path, // Store document path for tool call correlation
+                currentDocPath: trigger.source.path, // OCT document path for tool call correlation
             });
 
             // Build params - sessionId is optional if the agent doesn't require it
@@ -930,7 +916,8 @@ export class ACPBridge {
             // Add resource_link for the current document
             try {
                 // Convert OCT path to absolute file path
-                const absolutePath = path.resolve(process.cwd(), trigger.source.path);
+                // OCT paths include workspace name as prefix, so resolve from parent directory
+                const absolutePath = path.resolve(path.dirname(process.cwd()), trigger.source.path);
                 const filename = path.basename(absolutePath);
                 const mimeType = this.getMimeType(absolutePath);
 

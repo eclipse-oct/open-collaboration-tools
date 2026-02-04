@@ -8,7 +8,6 @@ import { webcrypto } from 'node:crypto';
 import { ConnectionProvider, SocketIoTransportProvider, initializeProtocol } from 'open-collaboration-protocol';
 import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protocol';
 import { DocumentSync, DocumentChange, type DocumentInsert } from './document-sync.js';
-import { animateLoadingIndicator } from './agent-util.js';
 import { DocumentSyncOperations } from './document-operations.js';
 import { ACPBridge } from './acp-bridge.js';
 import { processACPResponse } from './acp-trigger-handler.js';
@@ -17,6 +16,7 @@ export interface AgentOptions {
     server: string
     room: string
     acpAgent?: string
+    config?: string
 }
 
 export async function startCLIAgent(options: AgentOptions): Promise<void> {
@@ -187,10 +187,6 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
                         try {
                             state.executing = true;
 
-                            // Start the loading animation right after the trigger
-                            const animationOffset = change.offset - 1; // Position before the newline
-                            const animation = animateLoadingIndicator(docPath, animationOffset, documentSync, state.animationAbort.signal);
-
                             await onTrigger({
                                 docPath,
                                 docContent,
@@ -198,9 +194,6 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
                                 change,
                                 animationAbort: state.animationAbort,
                             });
-                            // Abort the animation after handler completes
-                            state.animationAbort?.abort();
-                            await animation;
                         } catch (error) {
                             // Abort the animation in case of error
                             state.animationAbort?.abort();
@@ -259,7 +252,7 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
     // Create and start ACP bridge
     // Default spawns npx @zed-industries/claude-code-acp; override with --acp-agent for other ACP adapters
     const acpAgentCommand = options.acpAgent || 'npx @zed-industries/claude-code-acp';
-    const acpBridge = new ACPBridge(acpAgentCommand, documentOps);
+    const acpBridge = new ACPBridge(acpAgentCommand, documentOps, options.config);
 
     try {
         await acpBridge.start();

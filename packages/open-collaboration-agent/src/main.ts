@@ -14,6 +14,7 @@ program
     .version(pck.version)
     .option('-s, --server <string>', 'URL of the Open Collaboration Server to connect to', 'https://api.open-collab.tools/')
     .option('--acp-agent <command>', 'Command to run ACP agent (default: npx @zed-industries/claude-code-acp). Allows using other ACP adapters.', 'npx @zed-industries/claude-code-acp')
+    .option('--config <path>', 'Path to oct-agent.config.json for tool whitelist configuration')
     .requiredOption('-r, --room <string>', 'Room ID to join')
     .action(options => startCLIAgent(options).catch(console.error));
 
