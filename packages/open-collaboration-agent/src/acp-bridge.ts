@@ -737,14 +737,20 @@ export class ACPBridge {
                 }
             }
 
-            // Replace entire document content
-            // We need to create a replace edit that replaces everything
-            const lineEdits: LineEdit[] = [{
-                type: 'replace',
-                startLine: 1,
-                endLine: currentContent.split('\n').length || 1,
-                content: newContent,
-            }];
+            // Compute minimal edits by finding common prefix/suffix
+            const lineEdits = this.computeMinimalEdits(currentContent, newContent);
+            
+            if (lineEdits.length === 0) {
+                console.info(`[ACP] No changes detected, skipping write`);
+                this.sendMessage({
+                    jsonrpc: '2.0',
+                    id: message.id,
+                    result: null,
+                });
+                return;
+            }
+            
+            console.info(`[ACP] Applying ${lineEdits.length} minimal edits (lines ${lineEdits[0]?.startLine}-${lineEdits[0]?.endLine})`);
 
             try {
                 // Write to OCT session - this synchronizes with all participants
@@ -768,6 +774,47 @@ export class ACPBridge {
                 });
             }
         }
+    }
+
+    /**
+     * Compute minimal line edits by finding common prefix and suffix
+     */
+    private computeMinimalEdits(currentContent: string, newContent: string): LineEdit[] {
+        // Finde gemeinsames Prefix (gleiche Zeilen am Anfang)
+        const currentLines = currentContent.split('\n');
+        const newLines = newContent.split('\n');
+
+        let prefixLength = 0;
+        while (prefixLength < currentLines.length &&
+               prefixLength < newLines.length &&
+               currentLines[prefixLength] === newLines[prefixLength]) {
+            prefixLength++;
+        }
+
+        // Finde gemeinsames Suffix (gleiche Zeilen am Ende)
+        let suffixLength = 0;
+        while (suffixLength < (currentLines.length - prefixLength) &&
+               suffixLength < (newLines.length - prefixLength) &&
+               currentLines[currentLines.length - 1 - suffixLength] ===
+               newLines[newLines.length - 1 - suffixLength]) {
+            suffixLength++;
+        }
+
+        // Berechne den zu ersetzenden Bereich
+        const startLine = prefixLength + 1; // 1-indexed
+        const endLine = currentLines.length - suffixLength;
+        const replacementLines = newLines.slice(prefixLength, newLines.length - suffixLength);
+
+        if (startLine > endLine && replacementLines.length === 0) {
+            return []; // Keine Änderungen
+        }
+
+        return [{
+            type: 'replace',
+            startLine,
+            endLine: Math.max(startLine, endLine),
+            content: replacementLines.join('\n'),
+        }];
     }
 
     /**
@@ -889,7 +936,7 @@ export class ACPBridge {
             prompt: string;
             context?: string;
         };
-    }): Promise<any> {
+    }): Promise<AgentResponse> {
         if (!this.isConnected) {
             throw new Error('ACP bridge is not connected');
         }
