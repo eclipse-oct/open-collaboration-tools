@@ -28,46 +28,64 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+const SCROLL_THRESHOLD_PX = 80;
+
+let inSetupStage = true;
+
 function App() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         // Listen for incoming chat messages
 
         messenger.sendRequest(getHistory, { type: 'extension' }).then((history) => {
-            setMessages(history.reverse());
+            setMessages(history);
         });
 
         const disposable = messenger.onNotification(messageReceived, (message) => {
-            setMessages(prev => [message, ...prev]
-            );
+            inSetupStage = false;
+            setMessages(prev => [...prev, message]);
         });
         return () => disposable.dispose();
     }, []);
 
     const sendChatMessage = () => {
+        inSetupStage = false;
         const trimmed = input.trim();
         if (trimmed) {
             // For demo, use 'me' as senderId. In real app, use actual user id.
             messenger.sendNotification(sendMessage, { type: 'extension' }, { message: trimmed });
-            setMessages(prev => [{ user: 'me', message: trimmed }, ...prev]);
+            setMessages(prev => [...prev, { user: 'me', message: trimmed }]);
             setInput('');
         }
     };
 
+    React.useEffect(() => {
+        if (messagesRef.current) {
+            const isAtBottom = (messagesRef.current.scrollHeight - messagesRef.current.scrollTop)
+                <= (messagesRef.current.clientHeight + SCROLL_THRESHOLD_PX);
+            if(messages[messages.length -1]?.user !== 'me' && isAtBottom) {
+                return;
+            }
+            messagesRef.current.scroll({
+                top: messagesRef.current.scrollHeight,
+                behavior: inSetupStage ? 'instant' : 'smooth'
+            });
+        }
+    }, [messages]);
+
     return (
         <div className='chat-container'>
             <h2 className='title'>Session Chat</h2>
-            <div className='messages-container'>
+            <div className='messages-container' ref={messagesRef}>
                 {messages.map((msg, idx) => (
                     <div key={idx} className='message'>
                         <span style={{ color: getColorCss(msg.color) }}>{msg.user}:</span>
                         <pre>{msg.message}</pre>
                     </div>
                 ))}
-                <div ref={messagesEndRef} />
             </div>
             <div className='inputArea'>
                 <TextArea

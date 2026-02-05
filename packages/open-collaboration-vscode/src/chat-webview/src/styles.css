@@ -18,15 +18,15 @@
 .messages-container {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 1rem;
+    padding: 0 1rem;
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .message {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
 }
 
 .message pre {
