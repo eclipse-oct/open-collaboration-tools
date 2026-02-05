@@ -4,10 +4,12 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { NotificationType } from 'vscode-messenger-common';
+import { NotificationType, RequestType } from 'vscode-messenger-common';
 
 export type ChatMessage = {message: string, user: string, color?: string}
 
 export const sendMessage: NotificationType<{message: string, target?: string}> = { method: 'chat/sendMessage' };
 
 export const messageReceived: NotificationType<ChatMessage> = { method: 'chat/messageReceived' };
+
+export const getHistory: RequestType<void, ChatMessage[]> = { method: 'chat/getHistory' };

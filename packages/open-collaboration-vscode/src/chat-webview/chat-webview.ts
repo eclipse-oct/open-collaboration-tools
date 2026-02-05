@@ -5,27 +5,53 @@
 // ******************************************************************************
 import * as vscode from 'vscode';
 import { Messenger } from 'vscode-messenger';
-import { messageReceived, sendMessage } from './messages';
+import { ChatMessage, getHistory, messageReceived, sendMessage } from './messages';
 import { CollaborationInstance } from '../collaboration-instance';
+import { WebviewIdMessageParticipant } from 'vscode-messenger-common';
+import { inject, injectable } from 'inversify';
+import { ExtensionContext } from '../inversify';
+import { CollaborationRoomService } from '../collaboration-room-service';
 
+@injectable()
 export class ChatWebview implements vscode.WebviewViewProvider {
     static readonly viewType = 'oct.chatView';
 
-    static register(extensionUri: vscode.Uri) {
-        vscode.window.registerWebviewViewProvider(
-            ChatWebview.viewType,
-            new ChatWebview(extensionUri)
-        );
+    @inject(ExtensionContext)
+    private readonly context: vscode.ExtensionContext;
+
+    @inject(CollaborationRoomService)
+    private readonly roomService: CollaborationRoomService;
+
+    register() {
+        vscode.window.registerWebviewViewProvider(ChatWebview.viewType, this);
+
+        this.messenger = new Messenger();
+
+        this.roomService.onDidJoinRoom(collabInstance => {
+            collabInstance.connection.chat.onMessage(async (userId, message) => {
+                const user = (await CollaborationInstance.Current?.connectedUsers)?.find(u => u.id === userId);
+                const messageObj = { message, user: user?.name ?? 'unkown user', color: user?.color};
+                this.chatHistory.push(messageObj);
+
+                if(this.currentWebviewId) {
+                    this.messenger.sendNotification(messageReceived, this.currentWebviewId, messageObj);
+                }
+            });
+
+            collabInstance.onDidDispose(() => {
+                this.chatHistory = [];
+            });
+        });
     }
 
     private messenger: Messenger;
 
-    constructor(private readonly extensionUri: vscode.Uri) {
-        this.messenger = new Messenger();
-    }
+    private chatHistory: ChatMessage[] = [];
+
+    private currentWebviewId?: WebviewIdMessageParticipant;
 
     resolveWebviewView(webviewView: vscode.WebviewView): Thenable<void> | void {
-        const extensionFolder = vscode.Uri.joinPath(this.extensionUri, 'dist');
+        const extensionFolder = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
         webviewView.webview.options = {
             enableScripts: true,
             enableCommandUris: true,
@@ -61,16 +87,16 @@ export class ChatWebview implements vscode.WebviewViewProvider {
     }
 
     registerMessengerHandlers(webview: vscode.WebviewView): void {
-        const id = this.messenger.registerWebviewView(webview);
+        this.currentWebviewId = this.messenger.registerWebviewView(webview);
 
         this.messenger.onNotification(sendMessage, (message) => {
+            this.chatHistory.push({ user: 'me', message: message.message });
             CollaborationInstance.Current?.connection.chat.sendMessage(message.message);
-        }, { sender: id });
+        }, { sender: this.currentWebviewId });
 
-        CollaborationInstance.Current?.connection.chat.onMessage(async (userId, message) => {
-            const user = (await CollaborationInstance.Current?.connectedUsers)?.find(u => u.id === userId);
-            this.messenger.sendNotification(messageReceived, id, { message, user: user?.name ?? 'unkown user', color: user?.color});
-        });
+        this.messenger.onRequest(getHistory, () => {
+            return this.chatHistory;
+        }, { sender: this.currentWebviewId });
     }
 
 }

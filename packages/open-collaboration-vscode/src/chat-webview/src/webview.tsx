@@ -8,7 +8,7 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Messenger, VsCodeApi } from 'vscode-messenger-webview';
-import { ChatMessage, messageReceived, sendMessage } from '../messages';
+import { ChatMessage, getHistory, messageReceived, sendMessage } from '../messages';
 import './styles.css';
 import '../../../../../node_modules/baukasten-ui/dist/baukasten-base.css';
 import '../../../../../node_modules/baukasten-ui/dist/baukasten-vscode.css';
@@ -29,35 +29,30 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function App() {
-    const [messages, setMessages] = useState<ChatMessage[]>(vscodeApi.getState() as ChatMessage[] ?? []);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         // Listen for incoming chat messages
 
+        messenger.sendRequest(getHistory, { type: 'extension' }).then((history) => {
+            setMessages(history.reverse());
+        });
+
         const disposable = messenger.onNotification(messageReceived, (message) => {
-            setMessages(prev => [...prev, message]);
+            setMessages(prev => [message, ...prev]
+            );
         });
         return () => disposable.dispose();
     }, []);
-
-    useEffect(() => {
-        // Persist messages in webview state
-        vscodeApi.setState(messages);
-    }, [messages]);
-
-    useEffect(() => {
-        // Scroll to bottom on new message
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
 
     const sendChatMessage = () => {
         const trimmed = input.trim();
         if (trimmed) {
             // For demo, use 'me' as senderId. In real app, use actual user id.
             messenger.sendNotification(sendMessage, { type: 'extension' }, { message: trimmed });
-            setMessages(prev => [...prev, { user: 'me', message: trimmed }]);
+            setMessages(prev => [{ user: 'me', message: trimmed }, ...prev]);
             setInput('');
         }
     };

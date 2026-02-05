@@ -26,9 +26,8 @@ export async function activate(context: vscode.ExtensionContext) {
     container.bind(Fetch).toConstantValue(fetch);
     const commands = container.get(Commands);
     commands.initialize();
+    container.get(ChatWebview).register();
     const roomService = container.get(CollaborationRoomService);
-
-    ChatWebview.register(context.extensionUri);
 
     const connection = await roomService.tryConnect();
     if (connection) {
