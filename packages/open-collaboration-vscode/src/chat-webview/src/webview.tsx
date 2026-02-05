@@ -66,13 +66,14 @@ function App() {
         if (messagesRef.current) {
             const isAtBottom = (messagesRef.current.scrollHeight - messagesRef.current.scrollTop)
                 <= (messagesRef.current.clientHeight + SCROLL_THRESHOLD_PX);
-            if(messages[messages.length -1]?.user !== 'me' && isAtBottom) {
-                return;
+            // only scroll to bottom if the message is ours or scroll was already at bottom
+            if(inSetupStage || messages[messages.length -1]?.user === 'me' || isAtBottom) {
+                messagesRef.current.scroll({
+                    top: messagesRef.current.scrollHeight,
+                    behavior: inSetupStage ? 'instant' : 'smooth'
+                });
             }
-            messagesRef.current.scroll({
-                top: messagesRef.current.scrollHeight,
-                behavior: inSetupStage ? 'instant' : 'smooth'
-            });
+
         }
     }, [messages]);
 
