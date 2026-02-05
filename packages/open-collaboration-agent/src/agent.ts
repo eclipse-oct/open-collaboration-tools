@@ -122,8 +122,10 @@ export interface TriggerDetectionOptions {
         docPath: string
         docContent: string
         prompt: string
-        change: DocumentInsert // Only insert changes can trigger (newline detection)
+        change?: DocumentInsert // Only present for document triggers (newline detection)
         animationAbort: AbortController
+        source: 'document' | 'chat'
+        sendChatResponse?: (message: string) => Promise<void> // Only present for chat triggers
     }) => Promise<void>
 }
 
@@ -193,6 +195,7 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
                                 prompt,
                                 change,
                                 animationAbort: state.animationAbort,
+                                source: 'document',
                             });
                         } catch (error) {
                             // Abort the animation in case of error
@@ -219,6 +222,74 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
         console.error(`[DEBUG] Error registering handlers: ${error}`);
         throw error;
     }
+
+    // Register chat message handler for @agent triggers in chat
+    const { documentOps } = options;
+    const connection = documentOps.getConnection();
+
+    const chatMessageHandler = async (origin: string, message: string) => {
+        console.error(`[DEBUG] chatMessageHandler called, message: "${message}"`);
+
+        // Check if the message contains the trigger
+        const triggerIndex = message.indexOf(trigger);
+        if (triggerIndex === -1) {
+            return;
+        }
+
+        // Extract the prompt after the trigger
+        const prompt = message.substring(triggerIndex + trigger.length).trim();
+        if (prompt.length === 0) {
+            console.error('[DEBUG] Chat trigger found but no prompt provided');
+            return;
+        }
+
+        // Check if already executing
+        if (state.executing) {
+            console.error('[DEBUG] Already executing, skipping chat trigger');
+            // Send a chat response to inform the user
+            await connection.chat.sendMessage('I am currently processing another request. Please wait.');
+            return;
+        }
+
+        // Get active document context
+        const docPath = documentSync.getActiveDocumentPath();
+        const docContent = documentSync.getActiveDocumentContent();
+
+        if (!docPath || !docContent) {
+            console.error('[DEBUG] No active document for chat trigger');
+            await connection.chat.sendMessage('No active document available. Please open a document first.');
+            return;
+        }
+
+        console.error(`[DEBUG] Chat trigger found, prompt: "${prompt}", docPath: ${docPath}`);
+
+        // Create an AbortController for the loading animation
+        state.animationAbort = new AbortController();
+        try {
+            state.executing = true;
+
+            await onTrigger({
+                docPath,
+                docContent,
+                prompt,
+                animationAbort: state.animationAbort,
+                source: 'chat',
+                sendChatResponse: (msg: string) => connection.chat.sendMessage(msg),
+            });
+        } catch (error) {
+            // Abort the animation in case of error
+            state.animationAbort?.abort();
+            console.error('Error executing chat trigger:', error);
+            await connection.chat.sendMessage(`Error processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            state.executing = false;
+            state.documentChanged = false;
+            state.animationAbort = undefined;
+        }
+    };
+
+    connection.chat.onMessage(chatMessageHandler);
+    console.error('[DEBUG] Chat message handler registered successfully');
 
     // Return cleanup function
     return () => {
@@ -263,9 +334,12 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
             agentName: identity.name,
             documentSync,
             documentOps,
-            onTrigger: async ({ docPath, docContent, prompt, change, animationAbort }) => {
+            onTrigger: async ({ docPath, docContent, prompt, change, animationAbort, source, sendChatResponse }) => {
                 // Generate unique trigger ID
                 const triggerId = `trig-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+                // Determine trigger line (1-indexed) - for chat triggers, use end of document
+                const triggerLine = change ? change.position.line + 1 : docContent.split('\n').length;
 
                 // Convert to ACP trigger message format
                 const acpTrigger = {
@@ -273,7 +347,7 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
                     source: {
                         type: 'document' as const,
                         path: docPath,
-                        line: change.position.line + 1, // ACP uses 1-indexed lines
+                        line: triggerLine,
                     },
                     content: {
                         prompt,
@@ -282,7 +356,7 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
                 };
 
                 // Send trigger to ACP agent
-                console.error(`[ACP] Sending trigger ${triggerId} to ACP agent`);
+                console.error(`[ACP] Sending trigger ${triggerId} to ACP agent (source: ${source})`);
                 let response;
                 try {
                     response = await acpBridge.sendTrigger(acpTrigger);
@@ -292,21 +366,26 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
                         // Abort the animation
                         animationAbort.abort();
 
-                        // Insert error message into document after the trigger line
-                        const triggerLine = change.position.line + 1; // 1-indexed
-                        const errorMessage = `// Error: ACP session not initialized. Please ensure the ACP agent started successfully.`;
-                        await documentOps.applyEditsAnimated(docPath, [{
-                            type: 'insert',
-                            startLine: triggerLine + 1,
-                            content: errorMessage,
-                        }]);
+                        const errorMessage = 'Error: ACP session not initialized. Please ensure the ACP agent started successfully.';
 
-                        // Remove the trigger line
-                        const trigger = `@${identity.name}`;
-                        documentOps.removeTriggerLine(docPath, trigger);
+                        if (source === 'chat' && sendChatResponse) {
+                            // Send error via chat
+                            await sendChatResponse(errorMessage);
+                        } else if (change) {
+                            // Insert error message into document after the trigger line
+                            await documentOps.applyEditsAnimated(docPath, [{
+                                type: 'insert',
+                                startLine: triggerLine + 1,
+                                content: `// ${errorMessage}`,
+                            }]);
 
-                        // Clear cursor
-                        documentOps.updateCursor(docPath, 0);
+                            // Remove the trigger line
+                            const trigger = `@${identity.name}`;
+                            documentOps.removeTriggerLine(docPath, trigger);
+
+                            // Clear cursor
+                            documentOps.updateCursor(docPath, 0);
+                        }
 
                         // Re-throw to be caught by outer catch block for logging
                         throw error;
@@ -327,15 +406,22 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
 
                 // Process the ACP response
                 // Pass the trigger line number (1-indexed) so text can be inserted after it
-                const triggerLine = change.position.line + 1; // Convert to 1-indexed
                 await processACPResponse(response, docPath, currentContent, documentOps, triggerId, triggerLine);
 
-                // Remove the trigger line LAST (after all edits are applied)
-                const trigger = `@${identity.name}`;
-                documentOps.removeTriggerLine(docPath, trigger);
+                // For document triggers, remove the trigger line and clear cursor
+                if (source === 'document' && change) {
+                    // Remove the trigger line LAST (after all edits are applied)
+                    const trigger = `@${identity.name}`;
+                    documentOps.removeTriggerLine(docPath, trigger);
 
-                // Clear the agent's cursor position after all work is done
-                documentOps.updateCursor(docPath, 0);
+                    // Clear the agent's cursor position after all work is done
+                    documentOps.updateCursor(docPath, 0);
+                }
+
+                // For chat triggers, send a response
+                if (source === 'chat' && sendChatResponse) {
+                    await sendChatResponse('Done! I have applied the changes to the active document.');
+                }
             },
         });
 

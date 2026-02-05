@@ -107,6 +107,10 @@ export class DocumentSync implements IDocumentSync {
         });
     }
 
+    getConnection(): ProtocolBroadcastConnection {
+        return this.connection;
+    }
+
     /**
      * Sets the agent's peer ID in the awareness state
      * This makes the agent's cursor visible to other collaborators

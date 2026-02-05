@@ -19,7 +19,7 @@ export async function processACPResponse(
 ): Promise<void> {
     console.error(`[ACP] Processing response for trigger ${triggerId}:`, JSON.stringify(response, null, 2));
 
-    // Handle agent/action messages
+    // Handle agent/action messages - Currently not used at all
     if (response.type === 'agent/action' && response.action === 'edit' && response.payload) {
         const payload = response.payload;
         if (payload.file && payload.edits) {
@@ -97,6 +97,7 @@ export async function processACPResponse(
         if (textContent.trim()) {
             // Log agent response for future chat integration
             console.log(`[ACP Agent Response] ${textContent}`);
+            documentOps.getConnection().chat.sendMessage(textContent);
         } else {
             console.error('[ACP] Received empty text response');
         }

@@ -4,6 +4,7 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
+import { ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import type { DocumentSync } from './document-sync.js';
 
 /**
@@ -82,7 +83,11 @@ export class DocumentSyncOperations implements DocumentOperations {
     constructor(
         private readonly documentSync: DocumentSync,
         private readonly sessionInfo: SessionInfo
-    ) {}
+    ) { }
+
+    getConnection(): ProtocolBroadcastConnection {
+        return this.documentSync.getConnection();
+    }
 
     getDocument(path: string): string | undefined {
         return this.documentSync.getDocumentContent(path);
