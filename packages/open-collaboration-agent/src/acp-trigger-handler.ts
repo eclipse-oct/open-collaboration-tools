@@ -97,7 +97,7 @@ export async function processACPResponse(
         if (textContent.trim()) {
             // Log agent response for future chat integration
             console.log(`[ACP Agent Response] ${textContent}`);
-            documentOps.getConnection().chat.sendMessage(textContent);
+            // documentOps.getConnection().chat.sendMessage(textContent);
         } else {
             console.error('[ACP] Received empty text response');
         }

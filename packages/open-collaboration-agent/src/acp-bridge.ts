@@ -517,6 +517,8 @@ export class ACPBridge {
     private handleAgentMessageChunk(content: ContentBlock): void {
         console.info(`[ACP] Handling agent message chunk: ${content}`);
         if (content.type === 'text' && typeof content.text === 'string') {
+            // Immediately send the text to the chat
+            this.documentOps?.getConnection().chat.sendMessage(content.text);
             console.info(`[ACP] Text content: ${content.text}`);
             // Find the most recent pending prompt (for the current request)
             const pendingEntries = Array.from(this.pendingPrompts.entries());
@@ -739,7 +741,7 @@ export class ACPBridge {
 
             // Compute minimal edits by finding common prefix/suffix
             const lineEdits = this.computeMinimalEdits(currentContent, newContent);
-            
+
             if (lineEdits.length === 0) {
                 console.info(`[ACP] No changes detected, skipping write`);
                 this.sendMessage({
@@ -749,7 +751,7 @@ export class ACPBridge {
                 });
                 return;
             }
-            
+
             console.info(`[ACP] Applying ${lineEdits.length} minimal edits (lines ${lineEdits[0]?.startLine}-${lineEdits[0]?.endLine})`);
 
             try {
@@ -786,17 +788,17 @@ export class ACPBridge {
 
         let prefixLength = 0;
         while (prefixLength < currentLines.length &&
-               prefixLength < newLines.length &&
-               currentLines[prefixLength] === newLines[prefixLength]) {
+            prefixLength < newLines.length &&
+            currentLines[prefixLength] === newLines[prefixLength]) {
             prefixLength++;
         }
 
         // Finde gemeinsames Suffix (gleiche Zeilen am Ende)
         let suffixLength = 0;
         while (suffixLength < (currentLines.length - prefixLength) &&
-               suffixLength < (newLines.length - prefixLength) &&
-               currentLines[currentLines.length - 1 - suffixLength] ===
-               newLines[newLines.length - 1 - suffixLength]) {
+            suffixLength < (newLines.length - prefixLength) &&
+            currentLines[currentLines.length - 1 - suffixLength] ===
+            newLines[newLines.length - 1 - suffixLength]) {
             suffixLength++;
         }
 
@@ -1027,4 +1029,11 @@ export class ACPBridge {
     get connected(): boolean {
         return this.isConnected;
     }
+}
+/**
+ * Hello World function
+ * @returns A friendly greeting message
+ */
+export function helloWorld(): string {
+    return 'Hello, World!';
 }
