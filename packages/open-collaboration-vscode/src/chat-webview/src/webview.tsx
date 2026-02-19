@@ -92,7 +92,7 @@ function App() {
                 { type: 'extension' },
                 { message: trimmed, target },
             );
-            setMessages((prev) => [...prev, { user: 'me', message: trimmed }]);
+            setMessages((prev) => [...prev, { user: 'me', message: trimmed, isDirect: !!target }]);
             setInput('');
         }
     };
@@ -124,7 +124,7 @@ function App() {
                 {messages.map((msg, idx) => (
                     <div key={idx} className="message">
                         <span style={{ color: getColorCss(msg.color) }}>
-                            {msg.user}:
+                            {msg.user}{msg.isDirect ? '*' : ''}:
                         </span>
                         <pre>{msg.message}</pre>
                     </div>

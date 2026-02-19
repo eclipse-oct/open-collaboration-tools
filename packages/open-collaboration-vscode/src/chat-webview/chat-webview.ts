@@ -28,9 +28,9 @@ export class ChatWebview implements vscode.WebviewViewProvider {
         this.messenger = new Messenger();
 
         this.roomService.onDidJoinRoom(collabInstance => {
-            collabInstance.connection.chat.onMessage(async (userId, message) => {
+            collabInstance.connection.chat.onMessage(async (userId, message, isDirect) => {
                 const user = (await CollaborationInstance.Current?.connectedUsers)?.find(u => u.id === userId);
-                const messageObj = { message, user: user?.name ?? 'unkown user', color: user?.color};
+                const messageObj: ChatMessage = { message, user: user?.name ?? 'unkown user', color: user?.color, isDirect };
                 this.chatHistory.push(messageObj);
 
                 if(this.currentWebviewId) {
@@ -96,7 +96,7 @@ export class ChatWebview implements vscode.WebviewViewProvider {
         this.currentWebviewId = this.messenger.registerWebviewView(webview);
 
         this.messenger.onNotification(sendMessage, (message) => {
-            this.chatHistory.push({ user: 'me', message: message.message });
+            this.chatHistory.push({ user: 'me', message: message.message, isDirect: !!message.target });
             if(message.target) {
                 CollaborationInstance.Current?.connection.chat.sendDirectMessage(message.target, message.message);
             } else {

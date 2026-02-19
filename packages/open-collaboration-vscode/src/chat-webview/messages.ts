@@ -7,7 +7,7 @@
 import { NotificationType, RequestType } from 'vscode-messenger-common';
 import { PeerWithColor } from '../collaboration-instance';
 
-export type ChatMessage = {message: string, user: string, color?: string}
+export type ChatMessage = {message: string, user: string, color?: string, isDirect: boolean};
 
 export const sendMessage: NotificationType<{message: string, target?: string}> = { method: 'chat/sendMessage' };
 
