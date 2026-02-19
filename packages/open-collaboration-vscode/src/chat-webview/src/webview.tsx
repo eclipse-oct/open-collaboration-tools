@@ -175,7 +175,7 @@ function App() {
                                             sendChatMessage(user.id)
                                         }
                                     >
-                                        <span>to {user.name}</span>
+                                        to <span style={{color: getColorCss(user.color)}}>{user.name}</span>
                                     </MenuItem>
                                 ))}
                             </Menu>
