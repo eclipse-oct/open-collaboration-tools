@@ -5,7 +5,7 @@
 // ******************************************************************************
 import * as vscode from 'vscode';
 import { Messenger } from 'vscode-messenger';
-import { ChatMessage, getHistory, messageReceived, sendMessage } from './messages';
+import { ChatMessage, getHistory, getUsers, messageReceived, sendMessage, usersChanged } from './messages';
 import { CollaborationInstance } from '../collaboration-instance';
 import { WebviewIdMessageParticipant } from 'vscode-messenger-common';
 import { inject, injectable } from 'inversify';
@@ -35,6 +35,12 @@ export class ChatWebview implements vscode.WebviewViewProvider {
 
                 if(this.currentWebviewId) {
                     this.messenger.sendNotification(messageReceived, this.currentWebviewId, messageObj);
+                }
+            });
+
+            collabInstance.onDidUsersChange(async () => {
+                if(this.currentWebviewId) {
+                    this.messenger.sendNotification(usersChanged, this.currentWebviewId, await this.getOtherUsers());
                 }
             });
 
@@ -91,12 +97,26 @@ export class ChatWebview implements vscode.WebviewViewProvider {
 
         this.messenger.onNotification(sendMessage, (message) => {
             this.chatHistory.push({ user: 'me', message: message.message });
-            CollaborationInstance.Current?.connection.chat.sendMessage(message.message);
+            if(message.target) {
+                CollaborationInstance.Current?.connection.chat.sendDirectMessage(message.target, message.message);
+            } else {
+                CollaborationInstance.Current?.connection.chat.sendMessage(message.message);
+            }
         }, { sender: this.currentWebviewId });
 
         this.messenger.onRequest(getHistory, () => {
             return this.chatHistory;
         }, { sender: this.currentWebviewId });
+
+        this.messenger.onRequest(getUsers,
+            () => this.getOtherUsers(),
+            { sender: this.currentWebviewId });
+    }
+
+    private async getOtherUsers() {
+        const connectedUsers = await CollaborationInstance.Current?.connectedUsers;
+        const ownUserId = (await CollaborationInstance.Current?.ownUserData)?.id;
+        return connectedUsers?.filter(u => u.id !== ownUserId) ?? [];
     }
 
 }

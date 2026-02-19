@@ -303,7 +303,7 @@
   },
   "dependencies": {
     "async-mutex": "~0.5.0",
-    "baukasten-ui": "^0.2.3",
+    "baukasten-ui": "^0.2.6",
     "inversify": "~6.2.2",
     "lodash": "~4.17.21",
     "minimatch": "^10.1.1",

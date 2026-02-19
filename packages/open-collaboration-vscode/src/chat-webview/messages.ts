@@ -5,6 +5,7 @@
 // ******************************************************************************
 
 import { NotificationType, RequestType } from 'vscode-messenger-common';
+import { PeerWithColor } from '../collaboration-instance';
 
 export type ChatMessage = {message: string, user: string, color?: string}
 
@@ -13,3 +14,7 @@ export const sendMessage: NotificationType<{message: string, target?: string}> =
 export const messageReceived: NotificationType<ChatMessage> = { method: 'chat/messageReceived' };
 
 export const getHistory: RequestType<void, ChatMessage[]> = { method: 'chat/getHistory' };
+
+export const getUsers: RequestType<void, PeerWithColor[]> = { method: 'chat/getUsers' };
+
+export const usersChanged: NotificationType<PeerWithColor[]> = { method: 'chat/usersChanged' };

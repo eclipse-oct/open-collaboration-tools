@@ -48,6 +48,23 @@
     gap: 0.5rem;
 }
 
-.inputArea div {
+.inputArea > div {
     flex-grow: 1;
+}
+
+.messageInput {
+    padding: 8px 8px;
+    min-height: unset;
+}
+
+::highlight(messageTarget) {
+    color: blue;
+}
+
+.sendButtonGroup {
+    align-self: flex-end;
+}
+
+.sendButton {
+    padding: 8px 8px;
 }
