@@ -50,6 +50,7 @@ export namespace Messages {
     export namespace Chat {
         export const ChatMessage = new BroadcastType<[message: string]>('chat/message');
         export const DirectChatMessage = new NotificationType<[message: string]>('chat/directMessage');
+        export const IsWriting = new BroadcastType('chat/writing');
     }
 
 }

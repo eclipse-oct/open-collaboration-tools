@@ -5,7 +5,7 @@
 // ******************************************************************************
 import * as vscode from 'vscode';
 import { Messenger } from 'vscode-messenger';
-import { ChatMessage, getHistory, getUsers, messageReceived, sendMessage, usersChanged } from './messages';
+import { ChatMessage, getHistory, getUsers, isWriting, messageReceived, sendMessage, usersChanged } from './messages';
 import { CollaborationInstance } from '../collaboration-instance';
 import { WebviewIdMessageParticipant } from 'vscode-messenger-common';
 import { inject, injectable } from 'inversify';
@@ -41,6 +41,12 @@ export class ChatWebview implements vscode.WebviewViewProvider {
             collabInstance.onDidUsersChange(async () => {
                 if(this.currentWebviewId) {
                     this.messenger.sendNotification(usersChanged, this.currentWebviewId, await this.getOtherUsers());
+                }
+            });
+
+            collabInstance.connection.chat.onIsWriting(async (userId) => {
+                if(this.currentWebviewId) {
+                    this.messenger.sendNotification(isWriting, this.currentWebviewId, userId);
                 }
             });
 
@@ -111,6 +117,10 @@ export class ChatWebview implements vscode.WebviewViewProvider {
         this.messenger.onRequest(getUsers,
             () => this.getOtherUsers(),
             { sender: this.currentWebviewId });
+
+        this.messenger.onNotification(isWriting, () => {
+            CollaborationInstance.Current?.connection.chat.isWriting();
+        }, { sender: this.currentWebviewId });
     }
 
     private async getOtherUsers() {

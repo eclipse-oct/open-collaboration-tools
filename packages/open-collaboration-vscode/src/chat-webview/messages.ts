@@ -13,8 +13,12 @@ export const sendMessage: NotificationType<{message: string, target?: string}> =
 
 export const messageReceived: NotificationType<ChatMessage> = { method: 'chat/messageReceived' };
 
+// params: peerId
+export const isWriting: NotificationType<string | undefined> = { method: 'chat/isWriting' };
+
 export const getHistory: RequestType<void, ChatMessage[]> = { method: 'chat/getHistory' };
 
 export const getUsers: RequestType<void, PeerWithColor[]> = { method: 'chat/getUsers' };
 
 export const usersChanged: NotificationType<PeerWithColor[]> = { method: 'chat/usersChanged' };
+

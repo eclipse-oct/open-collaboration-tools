@@ -71,6 +71,8 @@ export interface ChatHandler {
     onMessage(handler: Handler<[string, boolean]>): void;
     sendMessage(message: string): Promise<void>;
     sendDirectMessage(target: MessageTarget, message: string): Promise<void>;
+    onIsWriting(handler: Handler<[]>): void;
+    isWriting(): Promise<void>;
 }
 
 export interface ProtocolBroadcastConnection extends BroadcastConnection {
@@ -180,10 +182,12 @@ export class ProtocolBroadcastConnectionImpl extends AbstractBroadcastConnection
     chat: ChatHandler = {
         sendMessage: (message) => this.sendBroadcast(Messages.Chat.ChatMessage, message),
         sendDirectMessage: (target, message) => this.sendNotification(Messages.Chat.DirectChatMessage, target, message),
+        isWriting: () => this.sendBroadcast(Messages.Chat.IsWriting),
         onMessage: (handler) => {
             this.onBroadcast(Messages.Chat.ChatMessage, (orign, msg) => handler(orign, msg, false));
             this.onNotification(Messages.Chat.DirectChatMessage, (orign, msg) => handler(orign, msg, true));
-        }
+        },
+        onIsWriting: (handler) => this.onBroadcast(Messages.Chat.IsWriting, handler)
     };
 
     // Track peers manually for their public encryption keys

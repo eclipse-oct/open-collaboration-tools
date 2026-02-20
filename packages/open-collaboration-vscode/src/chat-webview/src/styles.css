@@ -42,19 +42,23 @@
     text-align: center;
 }
 
-.inputArea {
+.messageInputContainer {
     display: flex;
     padding: 0.5rem;
     gap: 0.5rem;
 }
 
-.inputArea > div {
+.messageInputContainer > div:first-child {
     flex-grow: 1;
 }
 
 .messageInput {
     padding: 8px 8px;
     min-height: unset;
+}
+
+.inputArea > div {
+    width: 100%;
 }
 
 ::highlight(messageTarget) {
@@ -67,4 +71,12 @@
 
 .sendButton {
     padding: 8px 8px;
+}
+
+.writingIndicator {
+    color: var(--vscode-descriptionForeground);
+    font-size: small;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
 }
