@@ -10,6 +10,7 @@ import { MessageRelay } from './message-relay.js';
 import { Peer, Room, User, isUser } from './types.js';
 import { Messages, BroadcastMessage, NotificationMessage, RequestMessage, ResponseMessage, isObject, Info, Event, Disposable, Emitter, JoinRoomResponse, JoinRoomPollResponse, JoinResponse } from 'open-collaboration-protocol';
 import { Logger } from './utils/logging.js';
+import { generateSecureId } from './utils/cryptography.js';
 
 export interface PreparedRoom {
     id: string;
@@ -67,7 +68,7 @@ export class RoomManager {
     }
 
     async prepareRoom(user: User): Promise<PreparedRoom> {
-        const id = this.credentials.secureId();
+        const id = generateSecureId(24);
         const claim: RoomClaim = {
             room: id,
             user: {
@@ -164,7 +165,7 @@ export class RoomManager {
 
     async requestJoin(room: Room, user: User): Promise<string> {
         this.logger.info(`Request to join room [id: '${room.id}'] by user [id: '${user.id}' | name: '${user.name}' | email: '${user.email ?? '<none>'}']`);
-        const responseId = this.credentials.secureId();
+        const responseId = generateSecureId(24);
         const timeout = setTimeout(() => {
             pollResult.update({
                 code: 'JoinTimeout',
@@ -189,7 +190,7 @@ export class RoomManager {
         };
         this.pollResults.set(responseId, pollResult);
         try {
-            const requestMessage = RequestMessage.create(Messages.Peer.Join, this.credentials.secureId(), '', room.host.id, [user]);
+            const requestMessage = RequestMessage.create(Messages.Peer.Join, generateSecureId(24), '', room.host.id, [user]);
             const responsePromise = this.messageRelay.sendRequest(
                 room.host,
                 requestMessage,
