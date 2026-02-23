@@ -22,6 +22,9 @@ export class ApiKeyAuthEndpoint implements AuthEndpoint {
 
     @postConstruct()
     protected initialize(): void {
+        if (!this.shouldActivate()) {
+            return;
+        }
         const configuredKey = this.configuration.getValue('oct-api-key');
         if (configuredKey) {
             this.apiKey = configuredKey;
@@ -33,7 +36,7 @@ export class ApiKeyAuthEndpoint implements AuthEndpoint {
     }
 
     shouldActivate(): boolean {
-        return true;
+        return this.configuration.getValue('oct-activate-api-key-auth', 'boolean') ?? false;
     }
 
     getProtocolProvider(): FormAuthProvider {
