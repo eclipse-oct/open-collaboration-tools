@@ -1,3 +1,8 @@
+// ******************************************************************************
+// Copyright 2024 TypeFox GmbH
+// This program and the accompanying materials are made available under the
+// terms of the MIT License, which is available in the project root.
+// ******************************************************************************
 import { inject, injectable, postConstruct } from 'inversify';
 import { type Express } from 'express';
 import { Emitter, FormAuthProvider, Info } from 'open-collaboration-protocol';
