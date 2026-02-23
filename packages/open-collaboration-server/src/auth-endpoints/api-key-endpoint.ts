@@ -4,7 +4,7 @@ import { Emitter, FormAuthProvider, Info } from 'open-collaboration-protocol';
 import { AuthEndpoint, AuthSuccessEvent } from './auth-endpoint.js';
 import { Logger } from '../utils/logging.js';
 import { Configuration } from '../utils/configuration.js';
-import { customAlphabet } from 'nanoid';
+import { generateSecureId } from '../utils/cryptography.js';
 
 @injectable()
 export class ApiKeyAuthEndpoint implements AuthEndpoint {
@@ -27,7 +27,7 @@ export class ApiKeyAuthEndpoint implements AuthEndpoint {
             this.apiKey = configuredKey;
             this.logger.info('API key authentication enabled (key provided via configuration)');
         } else {
-            this.apiKey = this.generateApiKey();
+            this.apiKey = generateSecureId(48);
             this.logger.info(`API key authentication enabled (auto-generated key): ${this.apiKey}`);
         }
     }
@@ -101,20 +101,5 @@ export class ApiKeyAuthEndpoint implements AuthEndpoint {
                 res.send('Failed to perform API key login');
             }
         });
-    }
-
-    private generateApiKey(): string {
-        let alphabet = '';
-        for (let digit = 48; digit <= 57; digit++) {
-            alphabet += String.fromCharCode(digit);
-        }
-        for (let letter = 65; letter <= 90; letter++) {
-            alphabet += String.fromCharCode(letter);
-        }
-        for (let letter = 97; letter <= 122; letter++) {
-            alphabet += String.fromCharCode(letter);
-        }
-        const generate = customAlphabet(alphabet, 48);
-        return generate();
     }
 }

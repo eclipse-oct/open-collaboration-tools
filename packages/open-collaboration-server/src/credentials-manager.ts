@@ -8,7 +8,7 @@ import { inject, injectable, postConstruct } from 'inversify';
 import { User, isUser } from './types.js';
 import { UserManager } from './user-manager.js';
 import * as jose from 'jose';
-import { nanoid, customAlphabet } from 'nanoid';
+import { generateSecureId } from './utils/cryptography.js';
 import { Disposable, Emitter, Event } from 'open-collaboration-protocol';
 import { Logger } from './utils/logging.js';
 import { UserInfo } from './auth-endpoints/auth-endpoint.js';
@@ -33,7 +33,6 @@ export class CredentialsManager {
     @inject(Configuration) protected configuration: Configuration;
 
     protected deferredAuths = new Map<string, DelayedAuth>();
-    protected nanoid = this.generateAlphabet();
 
     @postConstruct()
     initialize() {
@@ -61,7 +60,7 @@ export class CredentialsManager {
     }
 
     async startAuth(): Promise<string> {
-        const confirmToken = this.secureId();
+        const confirmToken = generateSecureId(24);
         const updateEmitter = new Emitter<string>();
         const failureEmitter = new Emitter<Error>();
         const dispose = () => {
@@ -130,23 +129,5 @@ export class CredentialsManager {
 
     protected async getJwtExpiration(): Promise<string | number | undefined> {
         return undefined;
-    }
-
-    protected generateAlphabet(): typeof nanoid {
-        let alphabet = '';
-        for (let digit = 48 /* '0' */; digit <= 57 /* '9' */; digit++) {
-            alphabet += String.fromCharCode(digit);
-        }
-        for (let letter = 65 /* 'A' */; letter <= 90 /* 'Z' */; letter++) {
-            alphabet += String.fromCharCode(letter);
-        }
-        for (let letter = 97 /* 'a' */; letter <= 122 /* 'z' */; letter++) {
-            alphabet += String.fromCharCode(letter);
-        }
-        return customAlphabet(alphabet, 24);
-    }
-
-    secureId(): string {
-        return this.nanoid(24);
     }
 }
