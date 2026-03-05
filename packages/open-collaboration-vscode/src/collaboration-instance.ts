@@ -679,6 +679,39 @@ export class CollaborationInstance implements vscode.Disposable {
                 awarenessDebounce();
             }
         });
+
+        this.connection.editor.onProposeChanges(async (_, path, changes) => this.createDiffEditor(path, changes));
+    }
+
+    private async createDiffEditor(path: string, changes: types.TextDiffChange[]): Promise<void> {
+        const originalUri = CollaborationUri.getResourceUri(path);
+
+        if(!originalUri) {
+            vscode.window.showErrorMessage(vscode.l10n.t('Could not open file for diff editor'));
+            return;
+        }
+
+        const tempUri = vscode.Uri.parse(`untitled:${path}.modified`);
+
+        await vscode.workspace.openTextDocument(tempUri);
+        const edit = new vscode.WorkspaceEdit();
+        for(const change of changes) {
+            edit.replace(originalUri, new vscode.Range(
+                change.range.start.line,
+                change.range.start.character,
+                change.range.end.line,
+                change.range.end.character
+            ), change.text);
+        }
+
+        await vscode.workspace.applyEdit(edit);
+
+        await vscode.commands.executeCommand(
+            'vscode.diff',
+            vscode.Uri.file(path),
+            tempUri,
+            'Proposed Changes (Preview)'
+        );
     }
 
     private createFileWatcher(): void {
