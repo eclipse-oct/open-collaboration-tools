@@ -30,7 +30,8 @@
             "request": "launch",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
-                "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-1"
+                "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-1",
+                "${workspaceFolder}/packages/open-collaboration-vscode"
             ],
             "env": {
                 "DEVELOPMENT": "true"

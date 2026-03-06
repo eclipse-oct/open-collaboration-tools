@@ -181,6 +181,18 @@
           "when": "viewItem == pendingPeer",
           "group": "inline"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "oct.sendDiff",
+          "when": "oct.connection && editorLangId != 'oct-temp-diff'",
+          "group": "navigation"
+        },
+        {
+          "command": "oct.createTempDiffDocument",
+          "when": "oct.connection && editorLangId != 'oct-temp-diff'",
+          "group": "navigation"
+        }
       ]
     },
     "commands": [
@@ -238,6 +250,18 @@
         "title": "%oct.signOut%",
         "category": "Open Collaboration Tools",
         "icon": "$(sign-out)"
+      },
+      {
+        "command": "oct.createTempDiffDocument",
+        "title": "%oct.createTempDiffDocument%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "oct.sendDiff",
+        "title": "%oct.sendDiff%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(send)"
       }
     ],
     "colors": [

@@ -680,10 +680,14 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
 
-        this.connection.editor.onProposeChanges(async (_, path, changes) => this.createDiffEditor(path, changes));
+        this.connection.editor.onProposeChanges(async (_, path, changes) => this.onDidProposeChanges(path, changes));
     }
 
-    private async createDiffEditor(path: string, changes: types.TextDiffChange[]): Promise<void> {
+    proposeChanges(path: string, changes: types.TextDiffChange[]): void {
+        this.connection.editor.proposeChanges(this.options.hostId, path, changes);
+    }
+
+    private async onDidProposeChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
         const originalUri = CollaborationUri.getResourceUri(path);
 
         if(!originalUri) {
@@ -691,12 +695,12 @@ export class CollaborationInstance implements vscode.Disposable {
             return;
         }
 
-        const tempUri = vscode.Uri.parse(`untitled:${path}.modified`);
+        const tempUri = vscode.Uri.parse(`untitled:${originalUri.path}.modified`);
 
         await vscode.workspace.openTextDocument(tempUri);
         const edit = new vscode.WorkspaceEdit();
         for(const change of changes) {
-            edit.replace(originalUri, new vscode.Range(
+            edit.replace(tempUri, new vscode.Range(
                 change.range.start.line,
                 change.range.start.character,
                 change.range.end.line,
@@ -708,7 +712,7 @@ export class CollaborationInstance implements vscode.Disposable {
 
         await vscode.commands.executeCommand(
             'vscode.diff',
-            vscode.Uri.file(path),
+            originalUri,
             tempUri,
             'Proposed Changes (Preview)'
         );
