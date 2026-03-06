@@ -695,10 +695,18 @@ export class CollaborationInstance implements vscode.Disposable {
             return;
         }
 
+        const originalDocument = await vscode.workspace.openTextDocument(originalUri);
+
         const tempUri = vscode.Uri.parse(`untitled:${originalUri.path}.modified`);
 
         await vscode.workspace.openTextDocument(tempUri);
         const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+            tempUri,
+            new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, 0),
+            originalDocument.getText()
+        );
+
         for(const change of changes) {
             edit.replace(tempUri, new vscode.Range(
                 change.range.start.line,
@@ -712,8 +720,8 @@ export class CollaborationInstance implements vscode.Disposable {
 
         await vscode.commands.executeCommand(
             'vscode.diff',
-            originalUri,
             tempUri,
+            originalUri,
             'Proposed Changes (Preview)'
         );
     }
