@@ -29,7 +29,25 @@
             "type": "extensionHost",
             "request": "launch",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode"
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
+                "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-1"
+            ],
+            "env": {
+                "DEVELOPMENT": "true"
+            },
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/packages/open-collaboration-vscode/dist/**/*.js"
+            ]
+        },
+        {
+            "name": "Run VS Code Extension - Second Instance",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
+                "--user-data-dir=${workspaceFolder}/.vscode/test-user-data-2",
+                "${workspaceFolder}/test-collab-project"
             ],
             "env": {
                 "DEVELOPMENT": "true"
@@ -84,6 +102,13 @@
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": []
-        }
+        },
+
+    ],
+    "compounds": [
+      {
+        "name": "Debug parallel vscode extensions",
+        "configurations": ["Run VS Code Extension", "Run VS Code Extension - Second Instance"]
+      }
     ]
 }
