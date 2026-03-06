@@ -5,3 +5,6 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .env
+
+test-collab-project/*
+!test-collab-project/.gitkeep
