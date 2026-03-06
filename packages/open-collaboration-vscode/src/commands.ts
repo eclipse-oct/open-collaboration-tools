@@ -16,8 +16,9 @@ import { CollaborationStatusService } from './collaboration-status-service.js';
 import { SecretStorage } from './secret-storage.js';
 import { RoomUri } from './utils/uri.js';
 import { Settings } from './utils/settings.js';
-import { CodeCommands, OctCommands } from './commands-list.js';
+import { CodeCommands, DiffSupportCommands, OctCommands } from './commands-list.js';
 import { TreeUserData } from './collaboration-status-view.js';
+import { CollaborationDiffService } from './collaboration-diff-service.js';
 
 @injectable()
 export class Commands {
@@ -40,7 +41,11 @@ export class Commands {
     @inject(SecretStorage)
     private secretStorage: SecretStorage;
 
+    @inject(CollaborationDiffService)
+    private diffService: CollaborationDiffService;
+
     initialize(): void {
+        console.log('Initializing commands');
         this.context.subscriptions.push(
             vscode.commands.registerCommand(OctCommands.FollowPeer, (peer?: PeerWithColor) => this.followService.followPeer(peer?.id)),
             vscode.commands.registerCommand(OctCommands.StopFollowPeer, () => this.followService.unfollowPeer()),
@@ -75,7 +80,14 @@ export class Commands {
                 await vscode.commands.executeCommand(OctCommands.CloseConnection);
                 await this.secretStorage.deleteUserTokens();
                 vscode.window.showInformationMessage(vscode.l10n.t('Signed out successfully!'));
-            })
+            }),
+            // Diff support
+            vscode.commands.registerCommand(DiffSupportCommands.CreateTempDiffDocument, async (file: vscode.Uri) =>
+                this.diffService.createTempDiffDocument(file)
+            ),
+            vscode.commands.registerCommand(DiffSupportCommands.SendDiff, async (file: vscode.Uri) =>
+                this.diffService.sendDiff(file)
+            )
         );
         if (typeof process === 'object' && process && process.env?.DEVELOPMENT === 'true') {
             this.contextKeyService.set('oct.dev', true);
