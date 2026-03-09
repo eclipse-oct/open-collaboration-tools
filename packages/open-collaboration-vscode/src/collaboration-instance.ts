@@ -704,7 +704,7 @@ export class CollaborationInstance implements vscode.Disposable {
         edit.replace(
             tempUri,
             new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, 0),
-            originalDocument.getText()
+            originalDocument.getText(),
         );
 
         for(const change of changes) {
@@ -718,12 +718,12 @@ export class CollaborationInstance implements vscode.Disposable {
 
         await vscode.workspace.applyEdit(edit);
 
-        await vscode.commands.executeCommand(
-            'vscode.diff',
-            tempUri,
-            originalUri,
-            'Proposed Changes (Preview)'
-        );
+        await vscode.commands.executeCommand('_open.mergeEditor', {
+            base: originalUri,
+            input1: { uri: originalUri, title: 'Your Changes', description: 'Local' },
+            input2: { uri: tempUri, title: 'Collaborator Changes', description: 'Remote' },
+            output: originalUri
+        });
     }
 
     private createFileWatcher(): void {
