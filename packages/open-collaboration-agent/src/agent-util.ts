@@ -273,24 +273,46 @@ export async function applyLineEditsAnimated(
         const currentContent = documentSync.getDocumentContent(docPath) || '';
 
         if (edit.type === 'replace' && edit.endLine !== undefined && edit.content !== undefined) {
-            // Replace: delete old content first, then type new content
+            // Replace only the differing middle segment:
+            // - apply deletions immediately
+            // - animate only newly inserted characters
             const startOffset = calculateOffset(currentContent, edit.startLine - 1);
             const endOffset = calculateOffset(currentContent, edit.endLine);
-            const length = endOffset - startOffset;
+            const oldSegment = currentContent.substring(startOffset, endOffset);
+            const newSegment = edit.content;
 
-            console.log(`Replacing lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${length})`);
+            console.log(`Replacing lines ${edit.startLine}-${edit.endLine} (offset ${startOffset}, length ${oldSegment.length})`);
 
-            // Delete old content character by character (backwards for visual effect)
-            for (let deleteLen = length; deleteLen > 0; deleteLen--) {
-                documentSync.applyEdit(docPath, '', startOffset, 1);
-                // Update cursor position to show where the agent is working
-                documentSync.updateCursorPosition(docPath, startOffset);
-                await new Promise(resolve => setTimeout(resolve, 5)); // Fast deletion
+            // Find common prefix
+            let prefixLength = 0;
+            const maxPrefix = Math.min(oldSegment.length, newSegment.length);
+            while (prefixLength < maxPrefix && oldSegment[prefixLength] === newSegment[prefixLength]) {
+                prefixLength++;
             }
 
-            // Type new content character by character
-            let insertOffset = startOffset;
-            for (const char of edit.content) {
+            // Find common suffix (without overlapping prefix)
+            let suffixLength = 0;
+            while (
+                suffixLength < (oldSegment.length - prefixLength) &&
+                suffixLength < (newSegment.length - prefixLength) &&
+                oldSegment[oldSegment.length - 1 - suffixLength] === newSegment[newSegment.length - 1 - suffixLength]
+            ) {
+                suffixLength++;
+            }
+
+            const oldDiffLength = oldSegment.length - prefixLength - suffixLength;
+            const insertText = newSegment.slice(prefixLength, newSegment.length - suffixLength);
+            const diffOffset = startOffset + prefixLength;
+
+            // Apply deletions/replacements immediately
+            if (oldDiffLength > 0) {
+                documentSync.applyEdit(docPath, '', diffOffset, oldDiffLength);
+                documentSync.updateCursorPosition(docPath, diffOffset);
+            }
+
+            // Animate only newly inserted text
+            let insertOffset = diffOffset;
+            for (const char of insertText) {
                 documentSync.applyEdit(docPath, char, insertOffset, 0);
                 insertOffset++;
                 // Update cursor position after each character insertion

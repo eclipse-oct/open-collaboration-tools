@@ -399,8 +399,8 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
 
                 // Get current content in case it changed during execution
                 let currentContent = docContent;
-                const currentDocContent = documentSync.getActiveDocumentContent();
-                if (currentDocContent && currentDocContent !== docContent) {
+                const currentDocContent = documentSync.getDocumentContent(docPath);
+                if (currentDocContent !== undefined && currentDocContent !== docContent) {
                     currentContent = currentDocContent;
                 }
 

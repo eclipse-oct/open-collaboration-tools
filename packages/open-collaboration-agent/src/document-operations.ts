@@ -95,7 +95,7 @@ export class DocumentSyncOperations implements DocumentOperations {
 
     getDocumentRange(path: string, startLine: number, endLine: number): string[] | undefined {
         const content = this.documentSync.getDocumentContent(path);
-        if (!content) {
+        if (content === undefined) {
             return undefined;
         }
 
@@ -109,7 +109,7 @@ export class DocumentSyncOperations implements DocumentOperations {
 
     applyEdit(path: string, edit: LineEdit): void {
         const content = this.documentSync.getDocumentContent(path);
-        if (!content) {
+        if (content === undefined) {
             throw new Error(`Document not found: ${path}`);
         }
 
@@ -141,7 +141,7 @@ export class DocumentSyncOperations implements DocumentOperations {
     async applyEditsAnimated(path: string, edits: LineEdit[]): Promise<void> {
         const { applyLineEditsAnimated } = await import('./agent-util.js');
         const content = this.documentSync.getDocumentContent(path);
-        if (!content) {
+        if (content === undefined) {
             throw new Error(`Document not found: ${path}`);
         }
         await applyLineEditsAnimated(path, content, edits, this.documentSync);
@@ -149,7 +149,7 @@ export class DocumentSyncOperations implements DocumentOperations {
 
     removeTriggerLine(path: string, trigger: string): void {
         const content = this.documentSync.getDocumentContent(path);
-        if (!content) {
+        if (content === undefined) {
             return;
         }
 

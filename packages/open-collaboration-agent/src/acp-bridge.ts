@@ -703,7 +703,7 @@ export class ACPBridge {
                 });
             }
         } else if (message.method === 'fs/write_text_file') {
-            // Write file to OCT document for synchronization
+            // Write file to local workspace and OCT document for synchronization
             const absolutePath = this.getAbsoluteFilePath(message);
             if (!absolutePath) {
                 return;
@@ -718,6 +718,23 @@ export class ACPBridge {
                     error: {
                         code: -32602,
                         message: 'Missing required parameter: content',
+                    },
+                });
+                return;
+            }
+
+            // Ensure the file exists on local filesystem first (create parent directories if needed).
+            // This prevents follow-up writes from failing when a file did not exist yet.
+            try {
+                fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+                fs.writeFileSync(absolutePath, newContent, 'utf8');
+            } catch (error: any) {
+                this.sendMessage({
+                    jsonrpc: '2.0',
+                    id: message.id,
+                    error: {
+                        code: -32603,
+                        message: `Failed to write local file: ${error.message || 'Unknown error'}`,
                     },
                 });
                 return;

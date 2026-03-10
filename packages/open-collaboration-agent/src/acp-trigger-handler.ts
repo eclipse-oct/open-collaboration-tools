@@ -23,71 +23,21 @@ export async function processACPResponse(
     if (response.type === 'agent/action' && response.action === 'edit' && response.payload) {
         const payload = response.payload;
         if (payload.file && payload.edits) {
-            const requestedFilePath = payload.file;
-            const activeDocPath = documentOps.getActiveDocumentPath() || docPath;
-            const isNewFile = requestedFilePath !== activeDocPath;
+            const requestedFilePath = payload.file as string;
+            const targetDocPath = requestedFilePath || docPath;
+            const lineEdits = convertACPEditsToLineEdits(payload.edits);
+            if (lineEdits.length > 0) {
+                const targetContent = documentOps.getDocument(targetDocPath) ?? currentContent;
+                console.error(`[ACP] Applying ${lineEdits.length} line edits to ${targetDocPath}`);
 
-            // Detect workspace mode: single-file vs multi-file
-            // For now, we'll use a simple heuristic: if the requested file differs from active,
-            // and we're in what appears to be a single-file context, redirect to active document
-            // In a real implementation, we'd get this from workspace info
-            // For now, we'll assume single-file if the file path differs (typical OCT playground scenario)
-            const workspaceMode = isNewFile ? 'single-file' : 'multi-file'; // Simple heuristic
+                // Set initial cursor position at the start of the first edit
+                const firstEdit = lineEdits[0];
+                const initialOffset = firstEdit.startLine > 0
+                    ? targetContent.split('\n').slice(0, firstEdit.startLine - 1).reduce((acc, line) => acc + line.length + 1, 0)
+                    : 0;
+                documentOps.updateCursor(targetDocPath, initialOffset);
 
-            if (isNewFile && workspaceMode === 'single-file') {
-                // Single-file workspace: Redirect new file creation to active document
-                console.error(`[ACP] Single-file workspace: Redirecting edits from ${requestedFilePath} to active OCT document ${activeDocPath}`);
-
-                // Convert edits to append to end of active document
-                const lineEdits = convertACPEditsToLineEdits(payload.edits);
-                const lines = currentContent.split('\n');
-                const insertLine = lines.length + 1;
-
-                // Add separator comment for new file content
-                if (currentContent.trim().length > 0) {
-                    const separatorEdit: LineEdit = {
-                        type: 'insert',
-                        startLine: insertLine,
-                        content: `\n// ============================================================================\n// New file: ${requestedFilePath}\n// ============================================================================\n`,
-                    };
-                    // Adjust line numbers for subsequent edits
-                    const separatorLines = 4;
-                    const adjustedEdits = lineEdits.map(edit => ({
-                        ...edit,
-                        startLine: edit.startLine + insertLine + separatorLines - 1,
-                        endLine: edit.endLine ? edit.endLine + insertLine + separatorLines - 1 : undefined,
-                    }));
-
-                    await documentOps.applyEditsAnimated(activeDocPath, [separatorEdit, ...adjustedEdits]);
-                } else {
-                    // Empty document - just append edits
-                    const adjustedEdits = lineEdits.map(edit => ({
-                        ...edit,
-                        startLine: edit.startLine + insertLine - 1,
-                        endLine: edit.endLine ? edit.endLine + insertLine - 1 : undefined,
-                    }));
-                    await documentOps.applyEditsAnimated(activeDocPath, adjustedEdits);
-                }
-            } else {
-                // Multi-file workspace or same file: Apply edits normally
-                // TODO: In multi-file mode, we should create the file in OCT workspace
-                // For now, we'll apply to the active document as a fallback
-                if (isNewFile) {
-                    console.error(`[ACP] Multi-file workspace: New file ${requestedFilePath} requested, but applying to active document ${activeDocPath} (file creation in OCT workspace not yet implemented)`);
-                }
-
-                const lineEdits = convertACPEditsToLineEdits(payload.edits);
-                if (lineEdits.length > 0) {
-                    console.error(`[ACP] Applying ${lineEdits.length} line edits to ${activeDocPath}`);
-                    // Set initial cursor position at the start of the first edit
-                    const firstEdit = lineEdits[0];
-                    const initialOffset = firstEdit.startLine > 0
-                        ? currentContent.split('\n').slice(0, firstEdit.startLine - 1).reduce((acc, line) => acc + line.length + 1, 0)
-                        : 0;
-                    documentOps.updateCursor(activeDocPath, initialOffset);
-
-                    await documentOps.applyEditsAnimated(activeDocPath, lineEdits);
-                }
+                await documentOps.applyEditsAnimated(targetDocPath, lineEdits);
             }
         }
     } else if (response.type === 'agent/response' && response.content !== undefined) {
