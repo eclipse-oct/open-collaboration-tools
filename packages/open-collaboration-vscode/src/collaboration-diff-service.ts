@@ -20,7 +20,7 @@ export class CollaborationDiffService {
     private documentChanges = new Map<string, TextDiffChange[]>();
 
     @postConstruct()
-    private init(): void {
+    protected init(): void {
         // Listen for changes to temp diff document
         vscode.workspace.onDidChangeTextDocument(async (event) => {
             const tempUriString = event.document.uri.toString();
@@ -65,7 +65,6 @@ export class CollaborationDiffService {
 
     async sendDiff(diffFileUri: vscode.Uri): Promise<void> {
         const originalFilePath = this.diffDocuments.get(diffFileUri.toString());
-
 
         if(!originalFilePath) {
             vscode.window.showErrorMessage(vscode.l10n.t('No original file found for the provided diff document.'));
