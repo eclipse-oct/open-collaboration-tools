@@ -7,7 +7,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { DocumentSyncOperations, LineEdit } from './document-operations.js';
+import type { DocumentSyncOperations } from './document-operations.js';
+import type { TextDiffChange } from 'open-collaboration-protocol';
 import { AgentNotification, AgentRequest, AgentResponse, ClientRequest, ContentBlock, InitializeRequest, InitializeResponse, NewSessionRequest, NewSessionResponse, PermissionOption, PromptResponse, ReadTextFileRequest, RequestId, RequestPermissionRequest, SessionNotification, SessionUpdate, ToolCall, ToolCallUpdate, WriteTextFileRequest } from '@agentclientprotocol/sdk';
 
 /**
@@ -663,8 +664,8 @@ export class ACPBridge {
                     return;
                 }
 
-                // Convert to OCT document path (includes workspace name)
-                const workspaceName = path.basename(process.cwd());
+                const activeDocPath = this.documentOps?.getActiveDocumentPath();
+                const workspaceName = activeDocPath?.split('/')[0] ?? path.basename(process.cwd());
                 const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
 
                 // Try OCT document first, fallback to local filesystem
@@ -703,14 +704,12 @@ export class ACPBridge {
                 });
             }
         } else if (message.method === 'fs/write_text_file') {
-            // Write file to local workspace and OCT document for synchronization
             const absolutePath = this.getAbsoluteFilePath(message);
             if (!absolutePath) {
                 return;
             }
             console.info(`[ACP] Writing file to OCT document: ${absolutePath}`);
             const newContent = (message.params as WriteTextFileRequest).content;
-            console.info(`[ACP] New content: ${newContent}`);
             if (newContent === undefined) {
                 this.sendMessage({
                     jsonrpc: '2.0',
@@ -723,46 +722,45 @@ export class ACPBridge {
                 return;
             }
 
-            // Ensure the file exists on local filesystem first (create parent directories if needed).
-            // This prevents follow-up writes from failing when a file did not exist yet.
-            try {
-                fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-                fs.writeFileSync(absolutePath, newContent, 'utf8');
-            } catch (error: any) {
+            const activeDocPath = this.documentOps.getActiveDocumentPath();
+            const workspaceName = activeDocPath?.split('/')[0] ?? path.basename(process.cwd());
+            const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
+            console.info(`[ACP] OCT path: ${octPath} (workspaceName from ${activeDocPath ? 'activeDoc' : 'cwd'})`);
+
+            const currentContent = this.documentOps.getDocument(octPath);
+            console.info(`[ACP] Current content from OCT: ${currentContent !== undefined ? 'found' : 'not found'}`);
+
+            if (currentContent === undefined) {
+                // Document not tracked by OCT — write to local filesystem as fallback
+                // so the file exists for subsequent operations.
+                if (!fs.existsSync(absolutePath)) {
+                    try {
+                        fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+                        fs.writeFileSync(absolutePath, newContent, 'utf8');
+                        console.info(`[ACP] Document not in OCT, created local file: ${octPath}`);
+                    } catch (error: any) {
+                        this.sendMessage({
+                            jsonrpc: '2.0',
+                            id: message.id,
+                            error: {
+                                code: -32603,
+                                message: `Failed to write local file: ${error.message || 'Unknown error'}`,
+                            },
+                        });
+                        return;
+                    }
+                } else {
+                    console.info(`[ACP] Document not in OCT, local file already exists: ${octPath}`);
+                }
                 this.sendMessage({
                     jsonrpc: '2.0',
                     id: message.id,
-                    error: {
-                        code: -32603,
-                        message: `Failed to write local file: ${error.message || 'Unknown error'}`,
-                    },
+                    result: null,
                 });
                 return;
             }
 
-            // Use relative path from workspace root as OCT document path
-            // OCT uses workspace name as prefix, so we need to include it
-            const workspaceName = path.basename(process.cwd());
-            const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
-            console.info(`[ACP] OCT path: ${octPath}`);
-            // Get current content (try OCT first, fallback to local filesystem)
-            let currentContent = this.documentOps.getDocument(octPath);
-            console.info(`[ACP] Current content: ${currentContent}`);
-            if (currentContent === undefined) {
-                // Try reading from local filesystem
-                console.info(`[ACP] No content in OCT, reading from local filesystem: ${absolutePath}`);
-                try {
-                    currentContent = fs.readFileSync(absolutePath, 'utf8');
-                } catch (error: any) {
-                    console.info(`[ACP] Error reading from local filesystem: ${error.message}`);
-                    currentContent = ''; // New file
-                }
-            }
-
-            // Compute minimal edits by finding common prefix/suffix
-            const lineEdits = this.computeMinimalEdits(currentContent, newContent);
-
-            if (lineEdits.length === 0) {
+            if (currentContent === newContent) {
                 console.info(`[ACP] No changes detected, skipping write`);
                 this.sendMessage({
                     jsonrpc: '2.0',
@@ -772,71 +770,39 @@ export class ACPBridge {
                 return;
             }
 
-            console.info(`[ACP] Applying ${lineEdits.length} minimal edits (lines ${lineEdits[0]?.startLine}-${lineEdits[0]?.endLine})`);
-
             try {
-                // Write to OCT session - this synchronizes with all participants
-                await this.documentOps.applyEditsAnimated(octPath, lineEdits);
+                const connection = this.documentOps.getConnection();
+                const { hostId } = this.documentOps.getSessionInfo();
+                console.info(`[ACP] proposeChanges — hostId: ${hostId}, octPath: ${octPath}, cwd: ${process.cwd()}`);
+                const currentLines = currentContent.split('\n');
+                const lastLine = currentLines.length - 1;
+                const changes: TextDiffChange[] = [{
+                    range: {
+                        start: { line: 0, character: 0 },
+                        end: { line: lastLine, character: currentLines[lastLine].length },
+                    },
+                    text: newContent,
+                }];
+                await connection.editor.proposeChanges(hostId, octPath, changes);
 
                 this.sendMessage({
                     jsonrpc: '2.0',
                     id: message.id,
                     result: null,
                 });
-                console.error(`[ACP] Wrote file via FS API to OCT session: ${octPath}`);
+                console.info(`[ACP] Proposed changes via diff editor for: ${octPath}`);
             } catch (error: any) {
-                console.info(`[ACP] Error writing file: ${error.message}`);
+                console.info(`[ACP] Error proposing changes: ${error.message}`);
                 this.sendMessage({
                     jsonrpc: '2.0',
                     id: message.id,
                     error: {
                         code: -32603,
-                        message: `Failed to write file: ${error.message || 'Unknown error'}`,
+                        message: `Failed to propose changes: ${error.message || 'Unknown error'}`,
                     },
                 });
             }
         }
-    }
-
-    /**
-     * Compute minimal line edits by finding common prefix and suffix
-     */
-    private computeMinimalEdits(currentContent: string, newContent: string): LineEdit[] {
-        // Finde gemeinsames Prefix (gleiche Zeilen am Anfang)
-        const currentLines = currentContent.split('\n');
-        const newLines = newContent.split('\n');
-
-        let prefixLength = 0;
-        while (prefixLength < currentLines.length &&
-            prefixLength < newLines.length &&
-            currentLines[prefixLength] === newLines[prefixLength]) {
-            prefixLength++;
-        }
-
-        // Finde gemeinsames Suffix (gleiche Zeilen am Ende)
-        let suffixLength = 0;
-        while (suffixLength < (currentLines.length - prefixLength) &&
-            suffixLength < (newLines.length - prefixLength) &&
-            currentLines[currentLines.length - 1 - suffixLength] ===
-            newLines[newLines.length - 1 - suffixLength]) {
-            suffixLength++;
-        }
-
-        // Berechne den zu ersetzenden Bereich
-        const startLine = prefixLength + 1; // 1-indexed
-        const endLine = currentLines.length - suffixLength;
-        const replacementLines = newLines.slice(prefixLength, newLines.length - suffixLength);
-
-        if (startLine > endLine && replacementLines.length === 0) {
-            return []; // Keine Änderungen
-        }
-
-        return [{
-            type: 'replace',
-            startLine,
-            endLine: Math.max(startLine, endLine),
-            content: replacementLines.join('\n'),
-        }];
     }
 
     /**

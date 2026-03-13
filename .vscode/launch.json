@@ -43,7 +43,7 @@
       "name": "Spawn Second Extension Instance",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "node",
+      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
       "program": "${workspaceFolder}/.vscode/launch-extension-host.js",
       "args": [
         "packages/open-collaboration-vscode",
