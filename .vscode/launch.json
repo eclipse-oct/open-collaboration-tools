@@ -145,6 +145,7 @@
         "http://localhost:8100"
         // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
       ],
+      "cwd": "${input:workspaceFolder}",
       "console": "integratedTerminal",
       "restart": true,
       "env": {
@@ -158,6 +159,12 @@
       "id": "roomToken",
       "type": "promptString",
       "description": "Enter the room token to join"
+    },
+    {
+      "id": "workspaceFolder",
+      "type": "promptString",
+      "description": "Enter the workspace folder to use",
+      "default": "${workspaceFolder}"
     }
   ]
 }

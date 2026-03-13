@@ -690,7 +690,7 @@ export class CollaborationInstance implements vscode.Disposable {
     private async onDidProposeChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
         const originalUri = CollaborationUri.getResourceUri(path);
 
-        if(!originalUri) {
+        if (!originalUri) {
             vscode.window.showErrorMessage(vscode.l10n.t('Could not open file for diff editor'));
             return;
         }
@@ -700,23 +700,29 @@ export class CollaborationInstance implements vscode.Disposable {
         const tempUri = vscode.Uri.parse(`untitled:${originalUri.path}.modified`);
 
         await vscode.workspace.openTextDocument(tempUri);
-        const edit = new vscode.WorkspaceEdit();
-        edit.replace(
+
+        const initEdit = new vscode.WorkspaceEdit();
+        initEdit.replace(
             tempUri,
             new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, 0),
             originalDocument.getText(),
         );
+        await vscode.workspace.applyEdit(initEdit);
 
-        for(const change of changes) {
-            edit.replace(tempUri, new vscode.Range(
-                change.range.start.line,
-                change.range.start.character,
-                change.range.end.line,
-                change.range.end.character
-            ), change.text);
+        const changeEdit = new vscode.WorkspaceEdit();
+        for (const change of changes) {
+            changeEdit.replace(
+                tempUri,
+                new vscode.Range(
+                    change.range.start.line,
+                    change.range.start.character,
+                    change.range.end.line,
+                    change.range.end.character,
+                ),
+                change.text,
+            );
         }
-
-        await vscode.workspace.applyEdit(edit);
+        await vscode.workspace.applyEdit(changeEdit);
 
         await vscode.commands.executeCommand('_open.mergeEditor', {
             base: originalUri,
