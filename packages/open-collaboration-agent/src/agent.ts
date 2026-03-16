@@ -5,6 +5,8 @@
 // ******************************************************************************
 
 import { webcrypto } from 'node:crypto';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { ConnectionProvider, SocketIoTransportProvider, initializeProtocol } from 'open-collaboration-protocol';
 import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protocol';
 import { DocumentSync, DocumentChange, type DocumentInsert } from './document-sync.js';
@@ -129,6 +131,77 @@ export interface TriggerDetectionOptions {
     }) => Promise<void>
 }
 
+function levenshteinDistance(a: string, b: string): number {
+    const m = a.length, n = b.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i - 1] === b[j - 1]
+                ? dp[i - 1][j - 1]
+                : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+    }
+    return dp[m][n];
+}
+
+/**
+ * Searches the workspace for files matching a user-provided path.
+ * Uses suffix matching (e.g. "src/agent.ts" matches "packages/foo/src/agent.ts"),
+ * exact filename matching, and falls back to fuzzy matching via Levenshtein distance
+ * to catch typos (e.g. "text.txt" finds "test.txt").
+ */
+function findMatchingFiles(rootDir: string, userPath: string, maxResults = 5): string[] {
+    const exactResults: string[] = [];
+    const fuzzyResults: { relativePath: string; distance: number }[] = [];
+    const normalizedSearch = userPath.replace(/\\/g, '/');
+    const searchFileName = path.basename(userPath).toLowerCase();
+    const maxDistance = Math.max(2, Math.ceil(searchFileName.length / 3));
+
+    function walk(dir: string, depth: number) {
+        if (depth > 10) return;
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    walk(fullPath, depth + 1);
+                } else {
+                    const relativePath = path.relative(rootDir, fullPath).replace(/\\/g, '/');
+                    if (relativePath.endsWith(normalizedSearch) || entry.name.toLowerCase() === searchFileName) {
+                        exactResults.push(relativePath);
+                    } else {
+                        const distance = levenshteinDistance(entry.name.toLowerCase(), searchFileName);
+                        if (distance <= maxDistance) {
+                            fuzzyResults.push({ relativePath, distance });
+                        }
+                    }
+                }
+            }
+        } catch {
+            // Ignore permission errors
+        }
+    }
+
+    walk(rootDir, 0);
+
+    if (exactResults.length > 0) {
+        exactResults.sort((a, b) => {
+            const aSuffix = a.endsWith(normalizedSearch);
+            const bSuffix = b.endsWith(normalizedSearch);
+            if (aSuffix && !bSuffix) return -1;
+            if (!aSuffix && bSuffix) return 1;
+            return a.length - b.length;
+        });
+        return exactResults.slice(0, maxResults);
+    }
+
+    fuzzyResults.sort((a, b) => a.distance - b.distance || a.relativePath.length - b.relativePath.length);
+    return fuzzyResults.slice(0, maxResults).map(r => r.relativePath);
+}
+
 /**
  * Sets up trigger detection for @agent mentions in documents
  * Returns a cleanup function to stop monitoring
@@ -138,11 +211,15 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
         executing: boolean
         documentChanged: boolean
         animationAbort: AbortController | undefined
+        awaitingDocPath: boolean
+        pendingPrompt: string | undefined
     }
     const state: State = {
         executing: false,
         documentChanged: false,
-        animationAbort: undefined
+        animationAbort: undefined,
+        awaitingDocPath: false,
+        pendingPrompt: undefined
     };
 
     const { agentName, documentSync, onTrigger } = options;
@@ -227,47 +304,10 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
     const { documentOps } = options;
     const connection = documentOps.getConnection();
 
-    const chatMessageHandler = async (origin: string, message: string) => {
-        console.error(`[DEBUG] chatMessageHandler called, message: "${message}"`);
-
-        // Check if the message contains the trigger
-        const triggerIndex = message.indexOf(trigger);
-        if (triggerIndex === -1) {
-            return;
-        }
-
-        // Extract the prompt after the trigger
-        const prompt = message.substring(triggerIndex + trigger.length).trim();
-        if (prompt.length === 0) {
-            console.error('[DEBUG] Chat trigger found but no prompt provided');
-            return;
-        }
-
-        // Check if already executing
-        if (state.executing) {
-            console.error('[DEBUG] Already executing, skipping chat trigger');
-            // Send a chat response to inform the user
-            await connection.chat.sendMessage('I am currently processing another request. Please wait.');
-            return;
-        }
-
-        // Get active document context
-        const docPath = documentSync.getActiveDocumentPath();
-        const docContent = documentSync.getActiveDocumentContent();
-
-        if (!docPath || !docContent) {
-            console.error('[DEBUG] No active document for chat trigger');
-            await connection.chat.sendMessage('No active document available. Please open a document first.');
-            return;
-        }
-
-        console.error(`[DEBUG] Chat trigger found, prompt: "${prompt}", docPath: ${docPath}`);
-
-        // Create an AbortController for the loading animation
+    const executeChatTrigger = async (docPath: string, docContent: string, prompt: string) => {
         state.animationAbort = new AbortController();
         try {
             state.executing = true;
-
             await onTrigger({
                 docPath,
                 docContent,
@@ -277,7 +317,6 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
                 sendChatResponse: (msg: string) => connection.chat.sendMessage(msg),
             });
         } catch (error) {
-            // Abort the animation in case of error
             state.animationAbort?.abort();
             console.error('Error executing chat trigger:', error);
             await connection.chat.sendMessage(`Error processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -288,17 +327,126 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
         }
     };
 
+    const isFileAtPath = (filePath: string): boolean => {
+        try {
+            return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+        } catch {
+            return false;
+        }
+    };
+
+    const openDocumentAndExecute = async (octPath: string, pendingPrompt: string): Promise<boolean> => {
+        const hostId = documentOps.getSessionInfo().hostId;
+        const docContent = await documentSync.openAndWaitForContent(hostId, octPath);
+        if (!docContent) {
+            await connection.chat.sendMessage('The document could not be loaded. Please try a different file path.');
+            return false;
+        }
+
+        state.awaitingDocPath = false;
+        state.pendingPrompt = undefined;
+        await executeChatTrigger(octPath, docContent, pendingPrompt);
+        return true;
+    };
+
+    const handleDocPathResponse = async (userPath: string) => {
+        const pendingPrompt = state.pendingPrompt!;
+        const workspaceRoot = process.cwd();
+        const workspaceName = path.basename(workspaceRoot);
+        const absolutePath = path.resolve(workspaceRoot, userPath);
+
+        if (!absolutePath.startsWith(workspaceRoot)) {
+            await connection.chat.sendMessage('The provided path is outside the workspace. Please provide a path within the project.');
+            return;
+        }
+
+        if (isFileAtPath(absolutePath)) {
+            const octPath = path.join(workspaceName, path.relative(workspaceRoot, absolutePath));
+            await openDocumentAndExecute(octPath, pendingPrompt);
+            return;
+        }
+
+        const matches = findMatchingFiles(workspaceRoot, userPath);
+
+        if (matches.length === 1) {
+            const octPath = path.join(workspaceName, matches[0]);
+            await connection.chat.sendMessage(`I found "${matches[0]}". Opening it now...`);
+            await openDocumentAndExecute(octPath, pendingPrompt);
+        } else if (matches.length > 1) {
+            const suggestions = matches.map(m => `  - ${m}`).join('\n');
+            await connection.chat.sendMessage(
+                `I couldn't find "${userPath}" at that exact path. Did you mean one of these?\n${suggestions}\nPlease provide the correct file path.`
+            );
+        } else {
+            await connection.chat.sendMessage(
+                `I couldn't find "${userPath}" in the workspace. You could create a new file at this path, or provide a different file path.`
+            );
+        }
+    };
+
+    const chatMessageHandler = async (_origin: string, message: string) => {
+        console.error(`[DEBUG] chatMessageHandler called, message: "${message}"`);
+
+        if (state.awaitingDocPath && state.pendingPrompt) {
+            if (message.includes(trigger)) {
+                state.awaitingDocPath = false;
+                state.pendingPrompt = undefined;
+            } else {
+                try {
+                    await handleDocPathResponse(message.trim());
+                } catch (error) {
+                    console.error('Error handling document path response:', error);
+                    await connection.chat.sendMessage(
+                        `Something went wrong while looking up the file. Please try again with a different path.`
+                    );
+                }
+                return;
+            }
+        }
+
+        const triggerIndex = message.indexOf(trigger);
+        if (triggerIndex === -1) {
+            return;
+        }
+
+        const prompt = message.substring(triggerIndex + trigger.length).trim();
+        if (prompt.length === 0) {
+            console.error('[DEBUG] Chat trigger found but no prompt provided');
+            return;
+        }
+
+        if (state.executing) {
+            console.error('[DEBUG] Already executing, skipping chat trigger');
+            await connection.chat.sendMessage('I am currently processing another request. Please wait.');
+            return;
+        }
+
+        const docPath = documentSync.getActiveDocumentPath();
+        const docContent = documentSync.getActiveDocumentContent();
+
+        if (!docPath || !docContent) {
+            console.error('[DEBUG] No active document for chat trigger');
+            await connection.chat.sendMessage(
+                'No active document is currently open. Please provide the file path you\'d like me to work on.'
+            );
+            state.awaitingDocPath = true;
+            state.pendingPrompt = prompt;
+            return;
+        }
+
+        console.error(`[DEBUG] Chat trigger found, prompt: "${prompt}", docPath: ${docPath}`);
+        await executeChatTrigger(docPath, docContent, prompt);
+    };
+
     connection.chat.onMessage(chatMessageHandler);
     console.error('[DEBUG] Chat message handler registered successfully');
 
-    // Return cleanup function
     return () => {
-        // Abort any running animation
         if (state.animationAbort) {
             state.animationAbort.abort();
         }
-        // Note: DocumentSync doesn't provide removeListener methods,
-        // so handlers will remain registered until the connection is closed
+        state.awaitingDocPath = false;
+        state.pendingPrompt = undefined;
     };
 }
 

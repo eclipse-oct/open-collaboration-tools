@@ -247,6 +247,44 @@ export class DocumentSync implements IDocumentSync {
         this.onActiveDocumentChangeCallback = callback;
     }
 
+    /**
+     * Requests the host to open a document and waits for its content to be synced via Yjs.
+     * @returns The document content, or undefined if the sync times out
+     */
+    async openAndWaitForContent(hostId: string, documentPath: string, timeoutMs = 10000): Promise<string | undefined> {
+        const existing = this.getDocumentContent(documentPath);
+        if (existing) {
+            return existing;
+        }
+
+        this.connection.editor.open(hostId, documentPath);
+
+        return new Promise((resolve) => {
+            const ytext = this.yjs.getText(documentPath);
+            const timeout = setTimeout(() => {
+                ytext.unobserve(observer);
+                resolve(undefined);
+            }, timeoutMs);
+
+            const observer = () => {
+                const content = ytext.toString();
+                if (content) {
+                    clearTimeout(timeout);
+                    ytext.unobserve(observer);
+                    resolve(content);
+                }
+            };
+            ytext.observe(observer);
+
+            const content = ytext.toString();
+            if (content) {
+                clearTimeout(timeout);
+                ytext.unobserve(observer);
+                resolve(content);
+            }
+        });
+    }
+
     dispose(): void {
         if (this.activeDocument) {
             this.activeDocument.unobserve(this.handleContentChange);

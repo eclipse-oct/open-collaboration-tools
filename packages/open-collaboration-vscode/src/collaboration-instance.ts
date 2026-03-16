@@ -615,7 +615,8 @@ export class CollaborationInstance implements vscode.Disposable {
         this.connection.editor.onOpen(async (_, path) => {
             const uri = CollaborationUri.getResourceUri(path);
             if (uri) {
-                await vscode.workspace.openTextDocument(uri);
+                const document = await vscode.workspace.openTextDocument(uri);
+                await vscode.window.showTextDocument(document, { preview: false });
             } else {
                 throw new Error('Could not open file');
             }
@@ -730,6 +731,14 @@ export class CollaborationInstance implements vscode.Disposable {
             input2: { uri: tempUri, title: 'Collaborator Changes', description: 'Remote' },
             output: originalUri
         });
+
+        for (const group of vscode.window.tabGroups.all) {
+            for (const tab of group.tabs) {
+                if (tab.input instanceof vscode.TabInputText && tab.input.uri.toString() === tempUri.toString()) {
+                    await vscode.window.tabGroups.close(tab);
+                }
+            }
+        }
     }
 
     private createFileWatcher(): void {
