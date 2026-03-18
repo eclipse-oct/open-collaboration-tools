@@ -22,7 +22,7 @@
   "oct.joinAllowlist": "List of user emails allowed to join automatically when using 'Allowlist' join accept mode. See also `#oct.joinAcceptMode#`.",
   "oct.files.exclude": "A list of glob patterns for files that should not be shared in a collaboration session.",
   "oct.chatView": "Session Chat",
-  "oct.actionsView": "Collaboration",
+  "oct.actionsView": "Open Collaboration Tools",
   "oct.viewsWelcome.noWorkspace": "Collaborate in real-time with your team.\n[Join Collaboration Session](command:oct.joinRoom)",
   "oct.viewsWelcome.withWorkspace": "Collaborate in real-time with your team.\n[Create Collaboration Session](command:oct.createRoom)\n[Join Collaboration Session](command:oct.joinRoom)"
 }

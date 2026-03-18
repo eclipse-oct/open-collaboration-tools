@@ -21,7 +21,7 @@
   "oct.joinAcceptMode.auto.description": "Aceptar automáticamente todas las solicitudes de adhesión sin preguntar.",
   "oct.joinAllowlist": "Lista de correos electrónicos de usuarios a los que se permite unirse automáticamente cuando se utiliza el modo de aceptación de uniones 'Allowlist'. Véase también `#oct.joinAcceptMode#`.",
   "oct.files.exclude": "Una lista de patrones glob para archivos que no deben compartirse en una sesión de colaboración.",
-  "oct.actionsView": "Colaboración",
+  "oct.actionsView": "Open Collaboration Tools",
   "oct.viewsWelcome.noWorkspace": "Colabora con tu equipo en tiempo real.\n[Unirse a la sesión de colaboración](command:oct.joinRoom)",
   "oct.viewsWelcome.withWorkspace": "Colabora con tu equipo en tiempo real.\n[Crear sesión de colaboración](command:oct.createRoom)\n[Unirse a la sesión de colaboración](command:oct.joinRoom)"
 }

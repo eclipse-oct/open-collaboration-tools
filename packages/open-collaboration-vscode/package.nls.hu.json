@@ -21,7 +21,7 @@
   "oct.joinAcceptMode.auto.description": "Automatikusan, kérés nélkül elfogad minden csatlakozási kérelmet.",
   "oct.joinAllowlist": "Az automatikus csatlakozásra engedélyezett felhasználói e-mailek listája, ha az \"Allowlist\" csatlakozás elfogadási módot használja. Lásd még `#oct.joinAcceptMode#`.",
   "oct.files.exclude": "Azon fájlok glob-mintáinak listája, amelyeket nem szabad megosztani egy együttműködési munkamenetben.",
-  "oct.actionsView": "Együttműködés",
+  "oct.actionsView": "Open Collaboration Tools",
   "oct.viewsWelcome.noWorkspace": "Együttműködjön csapatával valós időben.\n[Csatlakozzon az együttműködési üléshez](command:oct.joinRoom)",
   "oct.viewsWelcome.withWorkspace": "Együttműködjön csapatával valós időben.\n[Együttműködési munkamenet létrehozása](command:oct.createRoom)\n[Csatlakozzon az együttműködési üléshez](command:oct.joinRoom)"
 }

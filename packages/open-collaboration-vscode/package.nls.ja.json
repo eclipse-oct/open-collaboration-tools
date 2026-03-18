@@ -21,7 +21,7 @@
   "oct.joinAcceptMode.auto.description": "プロンプトを表示することなく、すべての参加リクエストを自動的に受け付けます。",
   "oct.joinAllowlist": "Allowlist'参加受付モードを使用している場合に自動参加を許可するユーザーメールのリスト。`#oct.joinAcceptMode#`も参照。",
   "oct.files.exclude": "コラボレーションセッションで共有すべきでないファイルのグロブパターンのリスト。",
-  "oct.actionsView": "コラボレーション",
+  "oct.actionsView": "Open Collaboration Tools",
   "oct.viewsWelcome.noWorkspace": "チームとリアルタイムでコラボレーションしましょう。\n[共同作業部屋に参加](command:oct.joinRoom)",
   "oct.viewsWelcome.withWorkspace": "チームとリアルタイムでコラボレーションしましょう。\n[共同作業部屋を作成](command:oct.createRoom)\n[共同作業部屋に参加](command:oct.joinRoom)"
 }

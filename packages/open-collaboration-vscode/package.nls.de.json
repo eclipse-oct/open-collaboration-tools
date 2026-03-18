@@ -21,7 +21,7 @@
   "oct.joinAcceptMode.auto.description": "Automatische Annahme aller Beitrittsanfragen ohne Aufforderung.",
   "oct.joinAllowlist": "Liste der Benutzer-E-Mails, die automatisch beitreten dürfen, wenn der Join-Accept-Modus \"Allowlist\" verwendet wird. Siehe auch `#oct.joinAcceptMode#`.",
   "oct.files.exclude": "Eine Liste von Glob-Mustern für Dateien, die nicht in einer Kooperationssitzung freigegeben werden sollen.",
-  "oct.actionsView": "Zusammenarbeit",
+  "oct.actionsView": "Open Collaboration Tools",
   "oct.viewsWelcome.noWorkspace": "Arbeiten Sie mit Ihrem Team in Echtzeit zusammen.\n[An der Collaboration-Session teilnehmen](command:oct.joinRoom)",
   "oct.viewsWelcome.withWorkspace": "Arbeiten Sie mit Ihrem Team in Echtzeit zusammen.\n[Collaboration-Session erstellen](command:oct.createRoom)\n[An der Collaboration-Session teilnehmen](command:oct.joinRoom)"
 }
