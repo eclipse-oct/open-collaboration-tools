@@ -15,6 +15,8 @@ export namespace OctCommands {
     export const CloseConnection = 'oct.closeConnection';
     export const SignOut = 'oct.signOut';
     export const DevFuzzing = 'oct.dev.fuzzing';
+    export const InviteToRoom = 'oct.inviteToRoom';
+    export const ConfigureRoom = 'oct.configureRoom';
 }
 
 export namespace CodeCommands {

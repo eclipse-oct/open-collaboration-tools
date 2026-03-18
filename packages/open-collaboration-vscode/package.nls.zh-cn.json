@@ -20,5 +20,8 @@
   "oct.joinAcceptMode.allowlist.description": "当用户的加入请求被接受时，将其添加到允许列表，允许他们在未来自动加入。",
   "oct.joinAcceptMode.auto.description": "自动接受所有加入请求，无需提示。",
   "oct.joinAllowlist": "使用 \"Allowlist \"加入接受模式时允许自动加入的用户电子邮件列表。另请参阅 `#oct.joinAcceptMode#`。",
-  "oct.files.exclude": "在协作会话中不应共享的文件的 glob 模式列表。"
+  "oct.files.exclude": "在协作会话中不应共享的文件的 glob 模式列表。",
+  "oct.actionsView": "协作",
+  "oct.viewsWelcome.noWorkspace": "与您的团队实时协作。\n[参加协作会话](command:oct.joinRoom)",
+  "oct.viewsWelcome.withWorkspace": "与您的团队实时协作。\n[创建协作会话](command:oct.createRoom)\n[参加协作会话](command:oct.joinRoom)"
 }

@@ -20,5 +20,8 @@
   "oct.joinAcceptMode.allowlist.description": "Kullanıcıların katılım istekleri kabul edildiğinde onları bir izin listesine ekler ve gelecekte otomatik olarak katılmalarını sağlar.",
   "oct.joinAcceptMode.auto.description": "Tüm katılma isteklerini sormadan otomatik olarak kabul edin.",
   "oct.joinAllowlist": "'Allowlist' join accept modu kullanıldığında otomatik olarak katılmasına izin verilen kullanıcı e-postalarının listesi. Ayrıca bakınız `#oct.joinAcceptMode#`.",
-  "oct.files.exclude": "Bir işbirliği oturumunda paylaşılmaması gereken dosyalar için glob kalıplarının bir listesi."
+  "oct.files.exclude": "Bir işbirliği oturumunda paylaşılmaması gereken dosyalar için glob kalıplarının bir listesi.",
+  "oct.actionsView": "İşbirliği",
+  "oct.viewsWelcome.noWorkspace": "Ekibinizle gerçek zamanlı işbirliği yapın.\n[İşbirliği Oturumuna Katılın](command:oct.joinRoom)",
+  "oct.viewsWelcome.withWorkspace": "Ekibinizle gerçek zamanlı işbirliği yapın.\n[İşbirliği Oturumu Oluşturun](command:oct.createRoom)\n[İşbirliği Oturumuna Katılın](command:oct.joinRoom)"
 }

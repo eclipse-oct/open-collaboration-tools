@@ -20,5 +20,8 @@
   "oct.joinAcceptMode.allowlist.description": "Přidá uživatele do seznamu povolených uživatelů, když jsou jejich žádosti o připojení přijaty, a umožní jim tak automatické připojení v budoucnu.",
   "oct.joinAcceptMode.auto.description": "Automaticky přijímat všechny žádosti o připojení bez vyzvání.",
   "oct.joinAllowlist": "Seznam e-mailů uživatelů, kteří se mohou automaticky připojit při použití režimu \"Allowlist\". Viz také `#oct.joinAcceptMode#`.",
-  "oct.files.exclude": "Seznam globálních vzorů pro soubory, které by neměly být sdíleny v relaci spolupráce."
+  "oct.files.exclude": "Seznam globálních vzorů pro soubory, které by neměly být sdíleny v relaci spolupráce.",
+  "oct.actionsView": "Spolupráce",
+  "oct.viewsWelcome.noWorkspace": "Spolupracujte se svým týmem v reálném čase.\n[Připojte se k zasedání o spolupráci](command:oct.joinRoom)",
+  "oct.viewsWelcome.withWorkspace": "Spolupracujte se svým týmem v reálném čase.\n[Vytvořit relaci spolupráce](command:oct.createRoom)\n[Připojte se k zasedání o spolupráci](command:oct.joinRoom)"
 }

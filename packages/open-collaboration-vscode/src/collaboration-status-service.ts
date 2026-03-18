@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { inject, injectable, postConstruct } from 'inversify';
 import { CollaborationRoomService } from './collaboration-room-service.js';
 import { CollaborationStatusViewDataProvider } from './collaboration-status-view.js';
+import { CollaborationActionsViewDataProvider } from './collaboration-actions-view.js';
 import { ExtensionContext } from './inversify.js';
 import { ContextKeyService } from './context-key-service.js';
 import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js';
@@ -31,6 +32,9 @@ export class CollaborationStatusService {
     @inject(CollaborationStatusViewDataProvider)
     private viewDataProvider: CollaborationStatusViewDataProvider;
 
+    @inject(CollaborationActionsViewDataProvider)
+    private actionsViewDataProvider: CollaborationActionsViewDataProvider;
+
     @inject(ContextKeyService)
     private contextKeyService: ContextKeyService;
 
@@ -41,6 +45,7 @@ export class CollaborationStatusService {
         this.roomService.onDidJoinRoom(instance => {
             this.setState(instance.host ? StatusBarState.Sharing : StatusBarState.Connected);
             this.viewDataProvider.onConnection(instance);
+            this.actionsViewDataProvider.onConnection(instance);
             this.contextKeyService.setConnection(instance);
             instance.onDidDispose(() => {
                 this.setState(StatusBarState.Idle);
@@ -53,6 +58,8 @@ export class CollaborationStatusService {
         });
         this.context.subscriptions.push(
             vscode.window.registerTreeDataProvider('oct.roomView', this.viewDataProvider),
+            vscode.window.registerTreeDataProvider('oct.actionsView', this.actionsViewDataProvider),
+            vscode.workspace.onDidChangeWorkspaceFolders(() => this.actionsViewDataProvider.update()),
             this.statusBarItem
         );
     }

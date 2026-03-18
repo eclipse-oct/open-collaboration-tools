@@ -20,5 +20,8 @@
   "oct.joinAcceptMode.allowlist.description": "Aggiunge gli utenti a una allowlist quando le loro richieste di iscrizione vengono accettate, consentendo loro di iscriversi automaticamente in futuro.",
   "oct.joinAcceptMode.auto.description": "Accettare automaticamente tutte le richieste di adesione, senza che venga richiesto.",
   "oct.joinAllowlist": "Elenco delle email degli utenti a cui è consentito unirsi automaticamente quando si utilizza la modalità di accettazione dei join 'Allowlist'. Vedere anche `#oct.joinAcceptMode#`.",
-  "oct.files.exclude": "Un elenco di pattern glob per i file che non devono essere condivisi in una sessione di collaborazione."
+  "oct.files.exclude": "Un elenco di pattern glob per i file che non devono essere condivisi in una sessione di collaborazione.",
+  "oct.actionsView": "Collaborazione",
+  "oct.viewsWelcome.noWorkspace": "Collabora con il tuo team in tempo reale.\n[Partecipa alla sessione di collaborazione](command:oct.joinRoom)",
+  "oct.viewsWelcome.withWorkspace": "Collabora con il tuo team in tempo reale.\n[Creare una sessione di collaborazione](command:oct.createRoom)\n[Partecipa alla sessione di collaborazione](command:oct.joinRoom)"
 }

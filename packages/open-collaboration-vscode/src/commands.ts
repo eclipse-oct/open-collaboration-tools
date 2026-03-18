@@ -75,6 +75,18 @@ export class Commands {
                 await vscode.commands.executeCommand(OctCommands.CloseConnection);
                 await this.secretStorage.deleteUserTokens();
                 vscode.window.showInformationMessage(vscode.l10n.t('Signed out successfully!'));
+            }),
+            vscode.commands.registerCommand(OctCommands.InviteToRoom, async () => {
+                const instance = CollaborationInstance.Current;
+                if (instance) {
+                    await this.inviteCallback(instance);
+                }
+            }),
+            vscode.commands.registerCommand(OctCommands.ConfigureRoom, async () => {
+                const instance = CollaborationInstance.Current;
+                if (instance) {
+                    await this.updatePermissions(instance);
+                }
             })
         );
         if (typeof process === 'object' && process && process.env?.DEVELOPMENT === 'true') {

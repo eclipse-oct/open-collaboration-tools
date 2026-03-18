@@ -122,6 +122,13 @@
       }
     },
     "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "oct_activitybar_container",
+          "title": "Open Collaboration Tools",
+          "icon": "data/oct-view-icon.svg"
+        }
+      ],
       "secondarySidebar": [
         {
           "id": "oct_chat_container",
@@ -139,6 +146,14 @@
           "when": "oct.connection"
         }
       ],
+      "oct_activitybar_container": [
+        {
+          "id": "oct.actionsView",
+          "name": "%oct.actionsView%",
+          "type": "tree",
+          "icon": "data/oct-view-icon.svg"
+        }
+      ],
       "oct_chat_container": [
         {
           "type": "webview",
@@ -149,6 +164,18 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "oct.actionsView",
+        "contents": "%oct.viewsWelcome.noWorkspace%",
+        "when": "workbenchState == empty && !oct.connection"
+      },
+      {
+        "view": "oct.actionsView",
+        "contents": "%oct.viewsWelcome.withWorkspace%",
+        "when": "workbenchState != empty && !oct.connection"
+      }
+    ],
     "menus": {
       "commandPalette": [
         {
