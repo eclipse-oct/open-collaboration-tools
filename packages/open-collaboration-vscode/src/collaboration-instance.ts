@@ -177,6 +177,30 @@ export class CollaborationInstance implements vscode.Disposable {
 
     static Current: CollaborationInstance | undefined;
 
+    private static proposedContentProvider: vscode.TextDocumentContentProvider & { contents: Map<string, string> };
+    private static proposedContentScheme = 'oct-proposed';
+    private static providerRegistered = false;
+
+    private static ensureContentProvider(): typeof CollaborationInstance.proposedContentProvider {
+        if (!CollaborationInstance.providerRegistered) {
+            const contents = new Map<string, string>();
+            const onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+            CollaborationInstance.proposedContentProvider = {
+                contents,
+                onDidChange: onDidChangeEmitter.event,
+                provideTextDocumentContent(uri: vscode.Uri): string {
+                    return contents.get(uri.toString()) ?? '';
+                }
+            };
+            vscode.workspace.registerTextDocumentContentProvider(
+                CollaborationInstance.proposedContentScheme,
+                CollaborationInstance.proposedContentProvider
+            );
+            CollaborationInstance.providerRegistered = true;
+        }
+        return CollaborationInstance.proposedContentProvider;
+    }
+
     private yjs: Y.Doc = new Y.Doc();
     private yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
     private identity = new Deferred<types.Peer>();
@@ -685,7 +709,7 @@ export class CollaborationInstance implements vscode.Disposable {
     }
 
     proposeChanges(path: string, changes: types.TextDiffChange[]): void {
-        this.connection.editor.proposeChanges(this.options.hostId, path, changes);
+        this.connection.editor.proposeChanges(path, changes);
     }
 
     private async onDidProposeChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
@@ -697,33 +721,30 @@ export class CollaborationInstance implements vscode.Disposable {
         }
 
         const originalDocument = await vscode.workspace.openTextDocument(originalUri);
+        const originalText = originalDocument.getText();
 
-        const tempUri = vscode.Uri.parse(`untitled:${originalUri.path}.modified`);
+        let modifiedText = originalText;
+        const sorted = [...changes].sort((a, b) => {
+            const lineDiff = b.range.start.line - a.range.start.line;
+            return lineDiff !== 0 ? lineDiff : b.range.start.character - a.range.start.character;
+        });
+        for (const change of sorted) {
+            const startOffset = originalDocument.offsetAt(
+                new vscode.Position(change.range.start.line, change.range.start.character)
+            );
+            const endOffset = originalDocument.offsetAt(
+                new vscode.Position(change.range.end.line, change.range.end.character)
+            );
+            modifiedText = modifiedText.substring(0, startOffset) + change.text + modifiedText.substring(endOffset);
+        }
+
+        const provider = CollaborationInstance.ensureContentProvider();
+        const tempUri = vscode.Uri.parse(
+            `${CollaborationInstance.proposedContentScheme}:${originalUri.path}.modified`
+        );
+        provider.contents.set(tempUri.toString(), modifiedText);
 
         await vscode.workspace.openTextDocument(tempUri);
-
-        const initEdit = new vscode.WorkspaceEdit();
-        initEdit.replace(
-            tempUri,
-            new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, 0),
-            originalDocument.getText(),
-        );
-        await vscode.workspace.applyEdit(initEdit);
-
-        const changeEdit = new vscode.WorkspaceEdit();
-        for (const change of changes) {
-            changeEdit.replace(
-                tempUri,
-                new vscode.Range(
-                    change.range.start.line,
-                    change.range.start.character,
-                    change.range.end.line,
-                    change.range.end.character,
-                ),
-                change.text,
-            );
-        }
-        await vscode.workspace.applyEdit(changeEdit);
 
         await vscode.commands.executeCommand('_open.mergeEditor', {
             base: originalUri,
@@ -731,14 +752,6 @@ export class CollaborationInstance implements vscode.Disposable {
             input2: { uri: tempUri, title: 'Collaborator Changes', description: 'Remote' },
             output: originalUri
         });
-
-        for (const group of vscode.window.tabGroups.all) {
-            for (const tab of group.tabs) {
-                if (tab.input instanceof vscode.TabInputText && tab.input.uri.toString() === tempUri.toString()) {
-                    await vscode.window.tabGroups.close(tab);
-                }
-            }
-        }
     }
 
     private createFileWatcher(): void {

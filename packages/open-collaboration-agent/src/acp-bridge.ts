@@ -772,8 +772,7 @@ export class ACPBridge {
 
             try {
                 const connection = this.documentOps.getConnection();
-                const { hostId } = this.documentOps.getSessionInfo();
-                console.info(`[ACP] proposeChanges — hostId: ${hostId}, octPath: ${octPath}, cwd: ${process.cwd()}`);
+                console.info(`[ACP] proposeChanges — octPath: ${octPath}, cwd: ${process.cwd()}`);
                 const currentLines = currentContent.split('\n');
                 const lastLine = currentLines.length - 1;
                 const changes: TextDiffChange[] = [{
@@ -783,7 +782,7 @@ export class ACPBridge {
                     },
                     text: newContent,
                 }];
-                await connection.editor.proposeChanges(hostId, octPath, changes);
+                await connection.editor.proposeChanges(octPath, changes);
 
                 this.sendMessage({
                     jsonrpc: '2.0',
