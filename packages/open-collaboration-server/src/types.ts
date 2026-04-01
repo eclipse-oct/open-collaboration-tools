@@ -31,7 +31,7 @@ export interface User {
     id: string;
     name: string;
     email?: string;
-    authProvider?: string;
+    authProvider: string;
 }
 
 export function isUser(obj: unknown): obj is User {

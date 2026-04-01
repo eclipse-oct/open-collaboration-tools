@@ -63,6 +63,8 @@ export class CollaborationServer {
     @multiInject(AuthEndpoint)
     protected readonly authEndpoints: AuthEndpoint[];
 
+    protected readonly activeAuthProviders = new Set<string>();
+
     startServer(opts: CollaborationServerOptions): void {
         this.logger.debug('Starting Open Collaboration Server ...');
 
@@ -120,6 +122,7 @@ export class CollaborationServer {
                         throw new Error('Failed to confirm user');
                     }
                 });
+                this.activeAuthProviders.add(authEndpoint.getName());
             }
         }
 
@@ -165,6 +168,14 @@ export class CollaborationServer {
         const auth = (req.headers['x-oct-jwt'] ?? req.cookies?.['oct-jwt']) as string;
         try {
             const user = await this.credentials.getUser(auth);
+            // Confirm that the provider used for authentication is still active
+            if (user) {
+                const provider = user.authProvider;
+                if (!this.activeAuthProviders.has(provider)) {
+                    // Provider is no longer active
+                    return undefined;
+                }
+            }
             return user;
         } catch {
             return undefined;
