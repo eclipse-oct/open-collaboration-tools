@@ -12,6 +12,8 @@ import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js
 import { createContainer } from './inversify.js';
 import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
+import { CollaborationRoomService } from './collaboration-room-service.js';
+import { createOpenCollaborationApi, OpenCollaborationApiV1 } from './api.js';
 
 initializeProtocol({
     cryptoModule: globalThis.crypto
@@ -22,6 +24,10 @@ export async function activate(context: vscode.ExtensionContext) {
     container.bind(Fetch).toConstantValue(fetch);
     const commands = container.get(Commands);
     commands.initialize();
+    const roomService = container.get(CollaborationRoomService);
+    const api = createOpenCollaborationApi(roomService);
+    context.subscriptions.push(api);
+    return api satisfies OpenCollaborationApiV1;
 }
 
 export async function deactivate(): Promise<void> {
