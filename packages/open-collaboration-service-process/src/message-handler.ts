@@ -4,10 +4,10 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import type * as types from 'open-collaboration-protocol';
-import { CloseSessionRequest, CreateRoomRequest, fromEncodedOCPMessage, InternalError, JoinRoomRequest,
-    LoginRequest, OCPBroadCast, OCPNotification, OCPRequest, OpenDocument,
-    SessionData, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import * as types from 'open-collaboration-protocol';
+import { BinaryData, BinaryResponse, CloseSessionRequest, CreateRoomRequest, fromBinaryMessage, InternalError, JoinRoomRequest,
+    LoginRequest, OpenDocument,
+    SessionData, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { CollaborationInstance } from './collaboration-instance.js';
 import { MessageConnection } from 'vscode-jsonrpc';
 
@@ -17,60 +17,106 @@ export class MessageHandler {
 
     protected lastRequestId = 0;
 
-    constructor(private connectionProvider: types.ConnectionProvider, private communicationHandler: MessageConnection) {
-        communicationHandler.onRequest(LoginRequest, async () => this.login());
-        communicationHandler.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
-        communicationHandler.onRequest(CreateRoomRequest, this.createRoom.bind(this));
-        communicationHandler.onRequest(CloseSessionRequest, () => this.currentCollaborationInstance?.currentConnection.dispose());
-        communicationHandler.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
-        communicationHandler.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
-        communicationHandler.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
-        communicationHandler.onError(([error]) => communicationHandler.sendNotification(InternalError, {message: error.message, stack: error.stack}));
+    constructor(private octConnectionProvider: types.ConnectionProvider, private clientCommunication: MessageConnection) {
+        clientCommunication.onRequest(LoginRequest, async () => this.login());
+        clientCommunication.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
+        clientCommunication.onRequest(CreateRoomRequest, this.createRoom.bind(this));
+        clientCommunication.onRequest(CloseSessionRequest, async () => {
+            if(this.currentCollaborationInstance && !this.currentCollaborationInstance.isDisposed) {
+                await this.currentCollaborationInstance?.leaveRoom();
+                this.currentCollaborationInstance = undefined;
+            }
+        });
+        clientCommunication.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
+        clientCommunication.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
+        clientCommunication.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
+        clientCommunication.onError(([error]) => clientCommunication.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
-        communicationHandler.onRequest(OCPRequest, (rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            return this.currentCollaborationInstance?.currentConnection.sendRequest(message.method, message.target, ...message.params);
+        clientCommunication.onRequest(async (method, params) => {
+            if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
+                throw new Error(`Invalid parameters for non service process specific request with method: ${method}, missing target`);
+            }
+
+            const target = params[params.length - 1] as string;
+            const messageParams = params.slice(0, params.length - 1).map((param) => {
+                if(BinaryData.is(param)) {
+                    return fromBinaryMessage(param.data);
+                }
+                return param;
+            });
+
+            const result = await this.currentCollaborationInstance?.octConnection.sendRequest(method, target, ...messageParams);
+
+            return BinaryData.shouldConvert(result) ? {
+                type: 'binaryData',
+                method,
+                data: toBinaryMessage(result),
+            } as BinaryResponse : result;
         });
-        communicationHandler.onNotification(OCPNotification, async (rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            this.currentCollaborationInstance?.currentConnection.sendNotification(message.method, message.target, ...message.params);
-        });
-        communicationHandler.onNotification(OCPBroadCast, async (rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            this.currentCollaborationInstance?.currentConnection.sendBroadcast(message.method, ...message.params);
+        clientCommunication.onNotification(async (method, params) => {
+            if(!types.isArray(params) || params.length === 0 || typeof params[params.length - 1] !== 'string') {
+                throw new Error(`Invalid parameters for non service process specific notification or broadcast with method: ${method}, missing target or 'broadcast'`);
+            }
+
+            const metaDataParam = params[params.length - 1];
+
+            const messageParams = params.slice(0, params.length - 1).map((param) => {
+                if(BinaryData.is(param)) {
+                    return fromBinaryMessage(param.data);
+                }
+                return param;
+            });
+
+            if(metaDataParam === 'broadcast') {
+                this.currentCollaborationInstance?.octConnection.sendBroadcast(method, ...messageParams);
+            } else {
+                this.currentCollaborationInstance?.octConnection.sendNotification(method, metaDataParam, ...messageParams);
+            }
         });
     }
 
     async login(): Promise<string> {
-        const authToken = await this.connectionProvider.login({ });
-        return authToken;
+        try {
+            const authToken = await this.octConnectionProvider.login({ });
+            return authToken;
+        } catch (error) {
+            throw new Error(`Failed to login: ${error}`);
+        }
     }
 
     async joinRoom(roomId: string): Promise<SessionData> {
-        const resp = await this.connectionProvider.joinRoom({ roomId });
-        this.onConnection(await this.connectionProvider.connect(resp.roomToken), false);
-        return {
-            roomId: resp.roomId,
-            roomToken: resp.roomToken,
-            authToken: resp.loginToken ?? this.connectionProvider.authToken,
-            workspace: resp.workspace
-        };
+        try {
+            const resp = await this.octConnectionProvider.joinRoom({ roomId });
+            this.onConnection(await this.octConnectionProvider.connect(resp.roomToken), false);
+            return {
+                roomId: resp.roomId,
+                roomToken: resp.roomToken,
+                authToken: resp.loginToken ?? this.octConnectionProvider.authToken,
+                workspace: resp.workspace
+            };
+        } catch (error) {
+            throw new Error(`Failed to join room: ${error}`);
+        }
     }
 
     async createRoom(workspace: types.Workspace): Promise<SessionData> {
-        const resp = await this.connectionProvider.createRoom({});
-        this.onConnection(await this.connectionProvider.connect(resp.roomToken), true, workspace);
-        return {
-            roomId: resp.roomId,
-            roomToken: resp.roomToken,
-            authToken: resp.loginToken ?? this.connectionProvider.authToken,
-            workspace,
-        };
+        try {
+            const resp = await this.octConnectionProvider.createRoom({});
+            this.onConnection(await this.octConnectionProvider.connect(resp.roomToken), true, workspace);
+            return {
+                roomId: resp.roomId,
+                roomToken: resp.roomToken,
+                authToken: resp.loginToken ?? this.octConnectionProvider.authToken,
+                workspace,
+            };
+        } catch (error) {
+            throw new Error(`Failed to create room: ${error}`);
+        }
     }
 
     onConnection(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
         this.currentCollaborationInstance?.dispose();
-        this.currentCollaborationInstance = new CollaborationInstance(connection, this.communicationHandler, host, workspace);
+        this.currentCollaborationInstance = new CollaborationInstance(connection, this.clientCommunication, host, workspace);
     }
 
     dispose() {
