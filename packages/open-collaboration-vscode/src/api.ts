@@ -83,7 +83,7 @@ export interface OpenCollaborationSession {
 /**
  * Root interface for accessing the Open Collaboration API.
  */
-export interface OpenCollaborationExtension extends vscodeType.Disposable {
+export interface OpenCollaborationExtension {
     /**
      * Retrieves the Open Collaboration API for a given version.
      * @returns The API, or null if not available or activation failed.
@@ -123,15 +123,10 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
 
     private currentInstance: CollaborationInstance | undefined;
     private peersByUserId: Map<string, Peer> = new Map();
-    private disposables: vscode.Disposable[] = [];
 
     constructor(private readonly roomService: CollaborationRoomService) {
-        this.disposables.push(this.onDidChangeSessionEmitter);
-        this.disposables.push(this.onDidChangePeersEmitter);
 
-        this.disposables.push(
-            this.roomService.onDidJoinRoom(instance => this.attachInstance(instance))
-        );
+        this.roomService.onDidJoinRoom(instance => this.attachInstance(instance));
 
         // Wire up an already-active instance (e.g. extension re-activation)
         if (CollaborationInstance.Current) {
@@ -236,12 +231,6 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
             await this.currentInstance.leave();
         }
     }
-
-    dispose(): void {
-        for (const disposable of this.disposables) {
-            disposable.dispose();
-        }
-    }
 }
 
 /**
@@ -260,10 +249,6 @@ class OpenCollaborationExtensionImpl implements OpenCollaborationExtension {
             return null;
         }
         return this.api;
-    }
-
-    dispose(): void {
-        this.api.dispose();
     }
 }
 

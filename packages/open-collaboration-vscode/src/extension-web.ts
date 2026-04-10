@@ -26,7 +26,6 @@ export async function activate(context: vscode.ExtensionContext) {
     commands.initialize();
     const roomService = container.get(CollaborationRoomService);
     const api = createOpenCollaborationExtensionApi(roomService);
-    context.subscriptions.push(api);
     return api satisfies OpenCollaborationExtension;
 }
 

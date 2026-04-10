@@ -30,7 +30,6 @@ export async function activate(context: vscode.ExtensionContext) {
     container.get(ChatWebview).register();
     const roomService = container.get(CollaborationRoomService);
     const api = createOpenCollaborationExtensionApi(roomService);
-    context.subscriptions.push(api);
 
     const connection = await roomService.tryConnect();
     if (connection) {
