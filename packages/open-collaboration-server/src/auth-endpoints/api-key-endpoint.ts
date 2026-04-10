@@ -110,4 +110,8 @@ export class ApiKeyAuthEndpoint implements AuthEndpoint {
             }
         });
     }
+
+    getName(): string {
+        return 'API Key Authentication';
+    }
 }
