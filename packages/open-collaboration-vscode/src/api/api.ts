@@ -8,77 +8,35 @@ import type * as vscodeType from 'vscode';
 import * as vscode from 'vscode';
 import {
     Access,
+    type ContactServiceProvider,
+    type ContactsCollection,
+    LiveShare,
     Role,
+    type Server,
+    type Activity,
     type JoinOptions,
     type Peer,
     type PeersChangeEvent,
+    type PresenceProvider,
+    type PresenceProviderEvent,
+    type Services,
     type Session,
     type SessionChangeEvent,
     type ShareOptions,
-    type UserInfo
+    type SharedService,
+    type SharedServiceProxy,
+    type UserInfo,
+    View
 } from 'vsls/vscode';
 
-import { CollaborationInstance } from './collaboration-instance.js';
-import { CollaborationRoomService } from './collaboration-room-service.js';
+import { CollaborationInstance } from '../collaboration-instance.js';
+import { CollaborationRoomService } from '../collaboration-room-service.js';
+import { OctSharedService, OctSharedServiceProxy } from './shared-service.js';
 
 /**
  * Re-export Live Share types for compatibility.
  */
-export type { Access, JoinOptions, Peer, PeersChangeEvent, Role, Session, SessionChangeEvent, ShareOptions, UserInfo };
-
-/**
- * Main Open Collaboration API. This interface provides session lifecycle management,
- * peer information, and event notifications for collaboration sessions.
- *
- * This API is designed as a drop-in compatible replacement for VS Live Share's API,
- * adapted for Open Collaboration Tools.
- */
-export interface OpenCollaborationSession {
-    /**
-     * Status of the current collaboration session, including session info and user details.
-     */
-    readonly session: Session;
-
-    /**
-     * Event that notifies listeners when the collaboration session starts or ends.
-     */
-    readonly onDidChangeSession: vscodeType.Event<SessionChangeEvent>;
-
-    /**
-     * List of peers connected to the current session (excluding the current user).
-     */
-    readonly peers: readonly Peer[];
-
-    /**
-     * Event that notifies listeners when peers join or leave the session.
-     */
-    readonly onDidChangePeers: vscodeType.Event<PeersChangeEvent>;
-
-    /**
-     * Starts a new collaboration session, sharing the current workspace.
-     *
-     * @param options Configuration for the shared session.
-     * @returns A promise that resolves to a share link (room ID URI), or null if sharing failed.
-     */
-    share(options?: ShareOptions): Promise<vscodeType.Uri | null>;
-
-    /**
-     * Joins an existing collaboration session using a room ID or share link.
-     *
-     * Joining another session typically requires reloading the window/workspace.
-     *
-     * @param link The room ID or share link (format: room-id or oct://workspace/room-id).
-     * @param options Configuration for joining.
-     */
-    join(link: vscodeType.Uri | string, options?: JoinOptions): Promise<void>;
-
-    /**
-     * Ends the current collaboration session.
-     * - As a host: stops sharing and disconnects all guests.
-     * - As a guest: disconnects from the session and closes the workspace.
-     */
-    end(): Promise<void>;
-}
+export type { Access, Activity, JoinOptions, Peer, PeersChangeEvent, PresenceProvider, PresenceProviderEvent, Role, Services, Session, SessionChangeEvent, ShareOptions, SharedService, SharedServiceProxy, UserInfo };
 
 /**
  * Root interface for accessing the Open Collaboration API.
@@ -88,7 +46,7 @@ export interface OpenCollaborationExtension {
      * Retrieves the Open Collaboration API for a given version.
      * @returns The API, or null if not available or activation failed.
      */
-    getApi(apiVersion: string): Promise<OpenCollaborationSession | null>;
+    getApi(apiVersion: string): Promise<LiveShare | null>;
 }
 
 // Session state when no collaboration session is active
@@ -113,7 +71,7 @@ let peerCounter = 1;
  * This matches the Live Share contract where getApi() always returns the same
  * stable object and consumers observe changes via events.
  */
-class OpenCollaborationSessionImpl implements OpenCollaborationSession {
+class OpenCollaborationSessionImpl implements LiveShare {
 
     private readonly onDidChangeSessionEmitter = new vscode.EventEmitter<SessionChangeEvent>();
     readonly onDidChangeSession = this.onDidChangeSessionEmitter.event;
@@ -123,6 +81,8 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
 
     private currentInstance: CollaborationInstance | undefined;
     private peersByUserId: Map<string, Peer> = new Map();
+    private readonly sharedServices = new Map<string, OctSharedService>();
+    private readonly sharedServiceProxies = new Map<string, OctSharedServiceProxy>();
 
     constructor(private readonly roomService: CollaborationRoomService) {
 
@@ -137,6 +97,7 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
     private attachInstance(instance: CollaborationInstance): void {
         this.currentInstance = instance;
         this.peersByUserId.clear();
+        this.updateServiceAvailability();
         this.onDidChangeSessionEmitter.fire({ session: this.buildSession(instance) });
 
         const usersDisposable = instance.onDidUsersChange(() => this.syncPeers(instance));
@@ -150,8 +111,23 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
                 this.onDidChangePeersEmitter.fire({ added: [], removed });
             }
             this.currentInstance = undefined;
+            this.updateServiceAvailability();
             this.onDidChangeSessionEmitter.fire({ session: SESSION_NO_ACTIVE });
         });
+    }
+
+    private updateServiceAvailability(): void {
+        const canShare = Boolean(this.currentInstance?.host);
+        const canUseProxy = Boolean(this.currentInstance && !this.currentInstance.host);
+        const hostPeerId = this.currentInstance?.hostId;
+
+        for (const service of this.sharedServices.values()) {
+            service.setAvailable(canShare);
+        }
+        for (const proxy of this.sharedServiceProxies.values()) {
+            proxy.setHostPeerId(hostPeerId);
+            proxy.setAvailable(canUseProxy);
+        }
     }
 
     private buildSession(instance: CollaborationInstance): Session {
@@ -208,7 +184,7 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
             : SESSION_NO_ACTIVE;
     }
 
-    get peers(): readonly Peer[] {
+    get peers(): Peer[] {
         return Array.from(this.peersByUserId.values());
     }
 
@@ -224,6 +200,121 @@ class OpenCollaborationSessionImpl implements OpenCollaborationSession {
     async join(link: vscodeType.Uri | string, options?: JoinOptions): Promise<void> {
         const roomId = typeof link === 'string' ? link : link.toString();
         await this.roomService.joinRoom(roomId, options?.newWindow);
+    }
+
+    async shareService(name: string): Promise<SharedService | null> {
+        if (!this.currentInstance?.host) {
+            return null;
+        }
+        const existing = this.sharedServices.get(name);
+        if (existing) {
+            return existing;
+        }
+        const service = new OctSharedService(this.currentInstance.connection, name, true);
+        this.sharedServices.set(name, service);
+        this.updateServiceAvailability();
+        return service;
+    }
+
+    async unshareService(name: string): Promise<void> {
+        const service = this.sharedServices.get(name);
+        if (service) {
+            service.deactivate();
+            this.sharedServices.delete(name);
+        }
+    }
+
+    async getSharedService(name: string): Promise<SharedServiceProxy | null> {
+        if (!this.currentInstance || this.currentInstance.host) {
+            return null;
+        }
+
+        const existing = this.sharedServiceProxies.get(name);
+        if (existing) {
+            existing.setHostPeerId(this.currentInstance.hostId);
+            existing.setAvailable(true);
+            return existing;
+        }
+
+        const proxy = new OctSharedServiceProxy(
+            this.currentInstance.connection,
+            name,
+            this.currentInstance.hostId,
+            true,
+        );
+        this.sharedServiceProxies.set(name, proxy);
+        this.updateServiceAvailability();
+        return proxy;
+    }
+
+    convertLocalUriToShared(localUri: vscodeType.Uri): vscodeType.Uri {
+        // OCT uses oct:// scheme. For now, convert file:// URIs to oct:// if in a shared workspace.
+        // Placeholder: return the input URI as-is.
+        return localUri;
+    }
+
+    convertSharedUriToLocal(sharedUri: vscodeType.Uri): vscodeType.Uri {
+        // Placeholder: return the input URI as-is.
+        return sharedUri;
+    }
+
+    get presenceProviders(): PresenceProvider[] {
+        // Not yet implemented in OCT.
+        return [];
+    }
+
+    private readonly onPresenceProviderRegisteredEmitter = new vscode.EventEmitter<PresenceProviderEvent>();
+    readonly onPresenceProviderRegistered = this.onPresenceProviderRegisteredEmitter.event;
+
+    get services(): Services {
+        // Return a minimal Services object. Extended as OCT supports more features.
+        return {
+            async getRemoteServiceBroker() {
+                // Not yet implemented in OCT.
+                return null;
+            },
+        };
+    }
+
+    registerCommand(
+        _command: string,
+        _isEnabled?: () => boolean,
+        _thisArg?: any,
+    ): vscodeType.Disposable | null {
+        return null;
+    }
+
+    registerTreeDataProvider<T>(
+        _viewId: View,
+        _treeDataProvider: vscodeType.TreeDataProvider<T>,
+    ): vscodeType.Disposable | null {
+        return null;
+    }
+
+    registerContactServiceProvider(
+        _name: string,
+        _contactServiceProvider: ContactServiceProvider,
+    ): vscodeType.Disposable | null {
+        return null;
+    }
+
+    async shareServer(_server: Server): Promise<vscodeType.Disposable> {
+        throw new Error('shareServer is not yet supported in Open Collaboration Tools.');
+    }
+
+    async getContacts(_emails: string[]): Promise<ContactsCollection> {
+        return {
+            contacts: {},
+            async dispose() {
+                // no-op
+            },
+        };
+    }
+
+    async getPeerForTextDocumentChangeEvent(e: vscodeType.TextDocumentChangeEvent): Promise<Peer> {
+        // Placeholder: cannot determine peer from OCT given a text document change.
+        // This would require OCT's change event tracking; for now return a dummy peer.
+        throw new Error('getPeerForTextDocumentChangeEvent is not yet supported in Open Collaboration Tools.');
     }
 
     async end(): Promise<void> {
@@ -244,7 +335,7 @@ class OpenCollaborationExtensionImpl implements OpenCollaborationExtension {
         this.api = new OpenCollaborationSessionImpl(roomService);
     }
 
-    async getApi(apiVersion: string): Promise<OpenCollaborationSession | null> {
+    async getApi(apiVersion: string): Promise<LiveShare | null> {
         if (apiVersion !== '1' && apiVersion !== '1.0') {
             return null;
         }

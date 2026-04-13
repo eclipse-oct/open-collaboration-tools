@@ -239,6 +239,10 @@ export class CollaborationInstance implements vscode.Disposable {
         return this.options.host;
     }
 
+    get hostId(): string | undefined {
+        return this.options.hostId;
+    }
+
     get roomId(): string {
         return this.options.roomId;
     }

@@ -13,7 +13,7 @@ import { createContainer } from './inversify.js';
 import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
 import { CollaborationRoomService } from './collaboration-room-service.js';
-import { createOpenCollaborationExtensionApi, OpenCollaborationExtension } from './api.js';
+import { createOpenCollaborationExtensionApi, OpenCollaborationExtension } from './api/api.js';
 
 initializeProtocol({
     cryptoModule: globalThis.crypto
