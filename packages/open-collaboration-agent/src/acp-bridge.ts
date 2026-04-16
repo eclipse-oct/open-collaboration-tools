@@ -134,6 +134,11 @@ export class ACPBridge {
         toolCall: any;
         docPath: string;
     }>();
+    private pendingProposals = new Map<string, {
+        octPath: string;
+        currentContent: string;
+        newContent: string;
+    }>();
     private config: AgentConfig;
 
     constructor(
@@ -360,38 +365,75 @@ export class ACPBridge {
         const pending = this.pendingPrompts.get(requestId);
         if (pending) {
             this.pendingPrompts.delete(requestId);
-            if ('error' in message) {
-                pending.reject(new Error(message.error.message || 'ACP request failed'));
-            } else if ('result' in message) {
-                // Combine accumulated text with the result
-                const result = message.result as PromptResponse;
-                const accumulatedText = pending.accumulatedText || '';
 
-                // Format response for processACPResponse
-                // If we have accumulated text, format as agent/response
-                if (accumulatedText) {
-                    if (accumulatedText.trim()) {
-                        void this.documentOps?.getConnection().chat.sendMessage(accumulatedText);
+            // Flush buffered proposals before resolving, so that the peer
+            // receives a single consolidated diff per file for this prompt cycle.
+            void this.flushPendingProposals().then(() => {
+                if ('error' in message) {
+                    pending.reject(new Error(message.error.message || 'ACP request failed'));
+                } else if ('result' in message) {
+                    const result = message.result as PromptResponse;
+                    const accumulatedText = pending.accumulatedText || '';
+
+                    if (accumulatedText) {
+                        if (accumulatedText.trim()) {
+                            void this.documentOps?.getConnection().chat.sendMessage(accumulatedText);
+                        }
+                        pending.resolve({
+                            type: 'agent/response',
+                            content: accumulatedText,
+                            stopReason: result.stopReason,
+                        });
+                    } else if (result.stopReason) {
+                        pending.resolve({
+                            type: 'agent/response',
+                            content: '',
+                            stopReason: result.stopReason,
+                        });
+                    } else {
+                        pending.resolve(result);
                     }
-                    pending.resolve({
-                        type: 'agent/response',
-                        content: accumulatedText,
-                        stopReason: result.stopReason,
-                    });
-                } else if (result.stopReason) {
-                    // If we have a stopReason but no text, still format as response
-                    // (empty response is valid)
-                    pending.resolve({
-                        type: 'agent/response',
-                        content: '',
-                        stopReason: result.stopReason,
-                    });
-                } else {
-                    // Fallback: return the result as-is
-                    pending.resolve(result);
                 }
+            });
+        }
+    }
+
+    /**
+     * Flush all buffered proposals as proposeChanges broadcasts.
+     * Called after a prompt cycle completes so that multiple writes to the same
+     * file are collapsed into a single diff on the peer side.
+     */
+    private async flushPendingProposals(): Promise<void> {
+        if (this.pendingProposals.size === 0) {
+            return;
+        }
+
+        const connection = this.documentOps?.getConnection();
+        if (!connection) {
+            console.error('[ACP] Cannot flush proposals: no connection available');
+            this.pendingProposals.clear();
+            return;
+        }
+
+        console.info(`[ACP] Flushing ${this.pendingProposals.size} pending proposal(s)`);
+        for (const { octPath, currentContent, newContent } of this.pendingProposals.values()) {
+            try {
+                const currentLines = currentContent.split('\n');
+                const lastLine = currentLines.length - 1;
+                const changes: TextDiffChange[] = [{
+                    range: {
+                        start: { line: 0, character: 0 },
+                        end: { line: lastLine, character: currentLines[lastLine].length },
+                    },
+                    text: newContent,
+                }];
+                await connection.editor.proposeChanges(octPath, changes);
+                console.info(`[ACP] Proposed changes via diff editor for: ${octPath}`);
+            } catch (error: any) {
+                console.error(`[ACP] Error proposing changes for ${octPath}: ${error.message}`);
             }
         }
+        this.pendingProposals.clear();
     }
 
     private isAgentRequest(message: AgentRequest | AgentNotification): message is AgentRequest {
@@ -770,37 +812,22 @@ export class ACPBridge {
                 return;
             }
 
-            try {
-                const connection = this.documentOps.getConnection();
-                console.info(`[ACP] proposeChanges — octPath: ${octPath}, cwd: ${process.cwd()}`);
-                const currentLines = currentContent.split('\n');
-                const lastLine = currentLines.length - 1;
-                const changes: TextDiffChange[] = [{
-                    range: {
-                        start: { line: 0, character: 0 },
-                        end: { line: lastLine, character: currentLines[lastLine].length },
-                    },
-                    text: newContent,
-                }];
-                await connection.editor.proposeChanges(octPath, changes);
+            // Buffer the proposal instead of sending immediately.
+            // Multiple writes to the same file during a single prompt cycle are
+            // collected and only the final state is sent once the prompt completes.
+            const existing = this.pendingProposals.get(octPath);
+            this.pendingProposals.set(octPath, {
+                octPath,
+                currentContent: existing?.currentContent ?? currentContent,
+                newContent,
+            });
+            console.info(`[ACP] Queued proposal for: ${octPath} (${this.pendingProposals.size} pending)`);
 
-                this.sendMessage({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    result: null,
-                });
-                console.info(`[ACP] Proposed changes via diff editor for: ${octPath}`);
-            } catch (error: any) {
-                console.info(`[ACP] Error proposing changes: ${error.message}`);
-                this.sendMessage({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    error: {
-                        code: -32603,
-                        message: `Failed to propose changes: ${error.message || 'Unknown error'}`,
-                    },
-                });
-            }
+            this.sendMessage({
+                jsonrpc: '2.0',
+                id: message.id,
+                result: null,
+            });
         }
     }
 

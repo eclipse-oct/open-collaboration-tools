@@ -421,11 +421,10 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
             return;
         }
 
-        const docPath = documentSync.getActiveDocumentPath();
-        const docContent = documentSync.getActiveDocumentContent();
+        const activeDoc = await documentSync.waitForActiveDocument();
 
-        if (!docPath || !docContent) {
-            console.error('[DEBUG] No active document for chat trigger');
+        if (!activeDoc) {
+            console.error('[DEBUG] No active document for chat trigger after waiting');
             await connection.chat.sendMessage(
                 'No active document is currently open. Please provide the file path you\'d like me to work on.'
             );
@@ -434,8 +433,8 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
             return;
         }
 
-        console.error(`[DEBUG] Chat trigger found, prompt: "${prompt}", docPath: ${docPath}`);
-        await executeChatTrigger(docPath, docContent, prompt);
+        console.error(`[DEBUG] Chat trigger found, prompt: "${prompt}", docPath: ${activeDoc.path}`);
+        await executeChatTrigger(activeDoc.path, activeDoc.content, prompt);
     };
 
     connection.chat.onMessage(chatMessageHandler);

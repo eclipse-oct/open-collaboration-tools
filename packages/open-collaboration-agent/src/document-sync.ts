@@ -76,34 +76,30 @@ export class DocumentSync implements IDocumentSync {
         // Listen for host's active document changes
         this.yjsAwareness.on('change', (_: any, origin: string) => {
             if (origin !== LOCAL_ORIGIN && this.hostId) {
-                const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
-                for (const state of states.values()) {
-                    // Only follow documents from the host
-                    if (state.peer === this.hostId && state.selection) {
-                        this.followDocument(state.selection.path);
-                        break;
-                    }
-                }
+                this.tryFollowHostDocument();
+            } else if (origin !== LOCAL_ORIGIN && !this.hostId) {
+                console.error('[DocumentSync] Awareness change received but hostId not yet set — event will be missed');
             }
         });
 
         // Get host information
         connection.peer.onInit((_, initData) => {
             this.hostId = initData.host.id;
+            console.error(`[DocumentSync] onInit: hostId=${initData.host.id}`);
 
             // Resolve the host ID promise
             if (this.hostIdResolve) {
                 this.hostIdResolve(initData.host.id);
             }
 
-            // Now that we know the host, check if there's already a document to follow
-            const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
-            for (const state of states.values()) {
-                if (state.peer === this.hostId && state.selection) {
-                    this.followDocument(state.selection.path);
-                    break;
-                }
-            }
+            // Re-trigger the Yjs provider sync now that peers are registered.
+            // The initial connect() call happens before Peer.Init, so all
+            // broadcasts (including the awarenessQuery) are silently dropped
+            // because getPublicKeys() returns empty at that point.
+            this.yjsProvider.connect();
+
+            // Check if there's already a document to follow
+            this.tryFollowHostDocument();
         });
     }
 
@@ -131,6 +127,7 @@ export class DocumentSync implements IDocumentSync {
         if (this.activeDocumentPath === documentPath) {
             return;
         }
+        console.error(`[DocumentSync] followDocument: "${documentPath}" (previous: "${this.activeDocumentPath ?? 'none'}")`);
 
         // Unsubscribe from previous document if any
         if (this.activeDocument) {
@@ -215,6 +212,66 @@ export class DocumentSync implements IDocumentSync {
 
     getActiveDocumentPath(): string | undefined {
         return this.activeDocumentPath;
+    }
+
+    /**
+     * Actively resolves the host's active document from awareness states,
+     * calling followDocument if needed, and waits for the Yjs content sync.
+     *
+     * This addresses the race condition where:
+     * - The awareness `change` event fires before `hostId` is set (skipped), AND
+     * - `peer.onInit` fires before awareness states arrive (nothing to follow),
+     * resulting in `followDocument` never being called.
+     */
+    async waitForActiveDocument(timeoutMs = 5000): Promise<{ path: string; content: string } | undefined> {
+        const pollIntervalMs = 100;
+        const deadline = Date.now() + timeoutMs;
+        let logged = false;
+        while (Date.now() < deadline) {
+            // Actively try to discover + follow the host's document from awareness
+            if (!this.activeDocumentPath) {
+                this.tryFollowHostDocument();
+            }
+            if (this.activeDocumentPath) {
+                const content = this.activeDocument?.toString();
+                if (content && content.length > 0) {
+                    return { path: this.activeDocumentPath, content };
+                }
+                if (!logged) {
+                    console.error(`[DocumentSync] waitForActiveDocument: path="${this.activeDocumentPath}" but content is empty, waiting for Yjs sync...`);
+                    logged = true;
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+        }
+        console.error(`[DocumentSync] waitForActiveDocument timed out after ${timeoutMs}ms (path="${this.activeDocumentPath ?? 'none'}", hostId="${this.hostId ?? 'none'}")`);
+        return undefined;
+    }
+
+    /**
+     * Checks the current awareness states for the host's selection
+     * and calls followDocument if a document path is found.
+     */
+    private tryFollowHostDocument(): void {
+        if (!this.hostId) {
+            return;
+        }
+        const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
+        let found = false;
+        for (const [clientId, state] of states.entries()) {
+            if (state.peer === this.hostId) {
+                found = true;
+                if (state.selection) {
+                    this.followDocument(state.selection.path);
+                } else {
+                    console.error(`[DocumentSync] Host awareness (clientId=${clientId}) found but has no selection`);
+                }
+                return;
+            }
+        }
+        if (!found) {
+            console.error(`[DocumentSync] No awareness state found for hostId=${this.hostId} (${states.size} total states)`);
+        }
     }
 
     getDocumentContent(documentPath: string): string | undefined {

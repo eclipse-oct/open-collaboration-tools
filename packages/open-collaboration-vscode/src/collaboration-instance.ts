@@ -211,6 +211,7 @@ export class CollaborationInstance implements vscode.Disposable {
     private peers = new Map<string, DisposablePeer>();
     private pending = new Map<string, PendingUser>();
     private throttles = new Map<string, () => void>();
+    private proposalDebounces = new Map<string, ReturnType<typeof debounce>>();
     private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
     private _permissions: types.Permissions = { readonly: false };
 
@@ -705,14 +706,27 @@ export class CollaborationInstance implements vscode.Disposable {
             }
         });
 
-        this.connection.editor.onProposeChanges(async (_, path, changes) => this.onDidProposeChanges(path, changes));
+        this.connection.editor.onProposeChanges((_, path, changes) => this.onDidProposeChanges(path, changes));
     }
 
     proposeChanges(path: string, changes: types.TextDiffChange[]): void {
         this.connection.editor.proposeChanges(path, changes);
     }
 
-    private async onDidProposeChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
+    private onDidProposeChanges(path: string, changes: types.TextDiffChange[]): void {
+        let debouncedOpen = this.proposalDebounces.get(path);
+        if (!debouncedOpen) {
+            debouncedOpen = debounce(
+                (p: string, c: types.TextDiffChange[]) => { void this.openProposedChanges(p, c); },
+                200,
+                { leading: false, trailing: true }
+            );
+            this.proposalDebounces.set(path, debouncedOpen);
+        }
+        debouncedOpen(path, changes);
+    }
+
+    private async openProposedChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
         const originalUri = CollaborationUri.getResourceUri(path);
 
         if (!originalUri) {

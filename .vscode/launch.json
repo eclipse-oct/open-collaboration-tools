@@ -119,6 +119,7 @@
         "https://api.open-collab.tools"
         // Optional: Add "--acp-agent", "npx @zed-industries/claude-code-acp" to override default ACP agent
       ],
+      "cwd": "${input:workspaceFolder}",
       "console": "integratedTerminal",
       "sourceMaps": true,
       "outFiles": [
@@ -130,7 +131,7 @@
       "envFile": "${workspaceFolder}/.env"
     },
     {
-      "name": "Debug Agent (Hot Reload)",
+      "name": "Debug Agent (Local)",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
