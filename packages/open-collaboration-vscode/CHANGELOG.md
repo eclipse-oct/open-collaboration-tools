@@ -1,16 +1,23 @@
 # Change Log of `open-collaboration-tools`
 
+## v0.3.5 (Nov. 2025)
+
+- Display users that have a pending join request in the status view ([#158](https://github.com/eclipse-oct/open-collaboration-tools/pull/158)).
+- Add an icon if the session view is used in a new view container ([#161](https://github.com/eclipse-oct/open-collaboration-tools/pull/161)).
+- Implement allowlist for join requests ([#166](https://github.com/eclipse-oct/open-collaboration-tools/pull/166)).
+- Fix an issue in the authentification related to URL paths ([#173](https://github.com/eclipse-oct/open-collaboration-tools/pull/173)).
+
 ## v0.3.4 (Jul. 2025)
 
-- Fixed the extension to work in Code-Server applications
+- Fixed the extension to work in Code-Server applications ([#150](https://github.com/eclipse-oct/open-collaboration-tools/pull/150))
 
 ## v0.3.3 (Jun. 2025)
 
-- Updated our extension logo again
+- Updated our extension logo again ([#146](https://github.com/eclipse-oct/open-collaboration-tools/pull/146)).
 
 ## v0.3.2 (Jun. 2025)
 
-- Updated our extension logo to match the new OCT design
+- Updated our extension logo to match the new OCT design ([#144](https://github.com/eclipse-oct/open-collaboration-tools/pull/144)).
 
 ## v0.3.1 (Apr. 2025)
 
