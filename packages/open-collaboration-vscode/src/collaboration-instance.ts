@@ -177,7 +177,11 @@ export class CollaborationInstance implements vscode.Disposable {
 
     static Current: CollaborationInstance | undefined;
 
-    private static proposedContentProvider: vscode.TextDocumentContentProvider & { contents: Map<string, string> };
+    private static proposedContentProvider: vscode.TextDocumentContentProvider & {
+        contents: Map<string, string>;
+        setContent(uri: vscode.Uri, text: string): void;
+        deleteContent(uri: vscode.Uri): void;
+    };
     private static proposedContentScheme = 'oct-proposed';
     private static providerRegistered = false;
 
@@ -190,6 +194,19 @@ export class CollaborationInstance implements vscode.Disposable {
                 onDidChange: onDidChangeEmitter.event,
                 provideTextDocumentContent(uri: vscode.Uri): string {
                     return contents.get(uri.toString()) ?? '';
+                },
+                setContent(uri: vscode.Uri, text: string): void {
+                    const key = uri.toString();
+                    const existed = contents.has(key);
+                    contents.set(key, text);
+                    // Notify VSCode that cached document content for this URI is stale
+                    // so that subsequent openTextDocument calls re-read from the provider.
+                    if (existed) {
+                        onDidChangeEmitter.fire(uri);
+                    }
+                },
+                deleteContent(uri: vscode.Uri): void {
+                    contents.delete(uri.toString());
                 }
             };
             vscode.workspace.registerTextDocumentContentProvider(
@@ -753,17 +770,31 @@ export class CollaborationInstance implements vscode.Disposable {
         }
 
         const provider = CollaborationInstance.ensureContentProvider();
-        const tempUri = vscode.Uri.parse(
-            `${CollaborationInstance.proposedContentScheme}:${originalUri.path}.modified`
-        );
-        provider.contents.set(tempUri.toString(), modifiedText);
+        const scheme = CollaborationInstance.proposedContentScheme;
+        // Three distinct virtual URIs are required by the 3-way merge editor:
+        // re-using `originalUri` for `base`, `input1` and `output` collapses the
+        // view so both visible panes render the same content.
+        const baseUri = vscode.Uri.parse(`${scheme}:${originalUri.path}.base`);
+        const localUri = vscode.Uri.parse(`${scheme}:${originalUri.path}.local`);
+        const agentUri = vscode.Uri.parse(`${scheme}:${originalUri.path}.agent`);
 
-        await vscode.workspace.openTextDocument(tempUri);
+        provider.setContent(baseUri, originalText);
+        // The host has no uncommitted local edits at review time, so input1 mirrors base.
+        provider.setContent(localUri, originalText);
+        provider.setContent(agentUri, modifiedText);
+
+        // Ensure VSCode has freshly loaded documents for each virtual URI
+        // (otherwise a previously cached document could shadow setContent).
+        await Promise.all([
+            vscode.workspace.openTextDocument(baseUri),
+            vscode.workspace.openTextDocument(localUri),
+            vscode.workspace.openTextDocument(agentUri)
+        ]);
 
         await vscode.commands.executeCommand('_open.mergeEditor', {
-            base: originalUri,
-            input1: { uri: originalUri, title: 'Your Changes', description: 'Local' },
-            input2: { uri: tempUri, title: 'Collaborator Changes', description: 'Remote' },
+            base: baseUri,
+            input1: { uri: localUri, title: 'Your Changes', description: 'Local' },
+            input2: { uri: agentUri, title: 'Agent Changes', description: 'Remote' },
             output: originalUri
         });
     }
