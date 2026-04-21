@@ -100,7 +100,7 @@ export class CollaborationRoomService {
         });
     }
 
-    async joinRoom(roomId?: string): Promise<void> {
+    async joinRoom(roomId?: string, newWindow?: boolean): Promise<void> {
         if (!roomId) {
             roomId = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Enter the invitation code') });
             if (!roomId) {
@@ -155,8 +155,8 @@ export class CollaborationRoomService {
                             // We were able to store the workspace folders in a file
                             // We now attempt to load that workspace file
                             await vscode.commands.executeCommand(CodeCommands.OpenFolder, uri, {
-                                forceNewWindow: false,
-                                forceReuseWindow: true,
+                                forceNewWindow: newWindow ?? true,
+                                forceReuseWindow: !newWindow,
                                 noRecentEntry: true
                             });
                             return true;
