@@ -114,6 +114,13 @@ export const Authentication = new NotificationType2<string, types.AuthMetadata>(
 export const OnInitNotification = new NotificationType<types.InitData>('init');
 
 /**
+ * A notification to the application containing the peer information of the current user
+ * this can be used to update the UI with the peer information
+ * params: [peer information]
+ */
+export const PeerInfoNotification = new NotificationType<types.Peer>('peerInfo');
+
+/**
  * params : [documentPath, peerId]
  */
 export const EditorOpenedNotification = new NotificationType2<string, string>('editorOpened');
