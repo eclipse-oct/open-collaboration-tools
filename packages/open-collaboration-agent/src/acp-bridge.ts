@@ -1042,10 +1042,3 @@ export class ACPBridge {
         return this.isConnected;
     }
 }
-/**
- * Hello World function
- * @returns A friendly greeting message
- */
-export function helloWorld(): string {
-    return 'Hello, World!';
-}

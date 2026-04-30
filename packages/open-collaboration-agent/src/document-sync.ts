@@ -31,6 +31,18 @@ export interface DocumentDelete {
 
 export type DocumentChange = DocumentInsert | DocumentDelete;
 
+/**
+ * Source category that resolved the active document, used for diagnostic
+ * logging in {@link DocumentSync.waitForActiveDocument}.
+ *  - `'sender'`     — the chat sender's awareness state had a selection.
+ *  - `'host'`       — the host peer's awareness state had a selection.
+ *  - `'peer'`       — some other peer's awareness state had a selection.
+ *  - `'yjs-fallback'` — no awareness selection was available, but a Y.Text in
+ *                      the local Yjs share store looked like a usable document.
+ *  - `'none'`       — no document could be resolved.
+ */
+type DocumentResolutionSource = 'sender' | 'host' | 'peer' | 'yjs-fallback' | 'none';
+
 export interface IDocumentSync {
     applyEdit(documentPath: string, text: string, offset: number, replacedLength: number): void;
     updateCursorPosition(documentPath: string, offset: number): void;
@@ -76,7 +88,7 @@ export class DocumentSync implements IDocumentSync {
         // Listen for host's active document changes
         this.yjsAwareness.on('change', (_: any, origin: string) => {
             if (origin !== LOCAL_ORIGIN && this.hostId) {
-                this.tryFollowHostDocument();
+                this.tryFollowPeerDocument();
             } else if (origin !== LOCAL_ORIGIN && !this.hostId) {
                 console.error('[DocumentSync] Awareness change received but hostId not yet set — event will be missed');
             }
@@ -99,7 +111,7 @@ export class DocumentSync implements IDocumentSync {
             this.yjsProvider.connect();
 
             // Check if there's already a document to follow
-            this.tryFollowHostDocument();
+            this.tryFollowPeerDocument();
         });
     }
 
@@ -215,63 +227,175 @@ export class DocumentSync implements IDocumentSync {
     }
 
     /**
-     * Actively resolves the host's active document from awareness states,
-     * calling followDocument if needed, and waits for the Yjs content sync.
+     * Actively resolves an active document from awareness states, calling
+     * followDocument if needed, and waits for the Yjs content sync.
+     *
+     * Resolution priority:
+     *   1. The peer matching `preferredPeerId` (typically the chat sender).
+     *   2. The host peer.
+     *   3. Any other peer with a selection (most recently updated wins).
+     *   4. As a last-resort fallback, a non-empty `Y.Text` already present in
+     *      the shared Yjs store whose key looks like a workspace path.
      *
      * This addresses the race condition where:
      * - The awareness `change` event fires before `hostId` is set (skipped), AND
      * - `peer.onInit` fires before awareness states arrive (nothing to follow),
      * resulting in `followDocument` never being called.
      */
-    async waitForActiveDocument(timeoutMs = 5000): Promise<{ path: string; content: string } | undefined> {
+    async waitForActiveDocument(timeoutMs = 5000, preferredPeerId?: string): Promise<{ path: string; content: string } | undefined> {
         const pollIntervalMs = 100;
         const deadline = Date.now() + timeoutMs;
-        let logged = false;
+        let lastSource: DocumentResolutionSource = 'none';
         while (Date.now() < deadline) {
-            // Actively try to discover + follow the host's document from awareness
+            // Actively try to discover + follow a document from awareness
             if (!this.activeDocumentPath) {
-                this.tryFollowHostDocument();
+                lastSource = this.tryFollowPeerDocument(preferredPeerId);
             }
             if (this.activeDocumentPath) {
                 const content = this.activeDocument?.toString();
                 if (content && content.length > 0) {
                     return { path: this.activeDocumentPath, content };
                 }
-                if (!logged) {
-                    console.error(`[DocumentSync] waitForActiveDocument: path="${this.activeDocumentPath}" but content is empty, waiting for Yjs sync...`);
-                    logged = true;
-                }
             }
             await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
         }
-        console.error(`[DocumentSync] waitForActiveDocument timed out after ${timeoutMs}ms (path="${this.activeDocumentPath ?? 'none'}", hostId="${this.hostId ?? 'none'}")`);
+
+        // Polling exhausted without resolving the document. Try the Yjs share-store
+        // fallback before giving up: in some reconnect scenarios no peer has
+        // re-broadcast a selection yet, but a previously synced Y.Text is still
+        // available locally and is good enough for the agent to act on.
+        if (!this.activeDocumentPath) {
+            const fallbackPath = this.tryYjsShareFallback();
+            if (fallbackPath) {
+                this.followDocument(fallbackPath);
+                lastSource = 'yjs-fallback';
+                const content = this.activeDocument?.toString();
+                if (content && content.length > 0) {
+                    console.error(
+                        `[DocumentSync] waitForActiveDocument resolved via yjs-fallback after ${timeoutMs}ms ` +
+                        `(path="${fallbackPath}")`
+                    );
+                    return { path: fallbackPath, content };
+                }
+            }
+        }
+
+        // Final summary log: which sources were considered and what was selected.
+        const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
+        const peerSummary = Array.from(states.values())
+            .map(state => `${state.peer ?? '?'}${state.selection?.path ? `:"${state.selection.path}"` : ':<no-selection>'}`)
+            .join(', ');
+        console.error(
+            `[DocumentSync] waitForActiveDocument timed out after ${timeoutMs}ms ` +
+            `(path="${this.activeDocumentPath ?? 'none'}", hostId="${this.hostId ?? 'none'}", ` +
+            `preferredPeerId="${preferredPeerId ?? 'none'}", lastSource="${lastSource}", ` +
+            `awareness=[${peerSummary}])`
+        );
         return undefined;
     }
 
     /**
-     * Checks the current awareness states for the host's selection
-     * and calls followDocument if a document path is found.
+     * Checks the current awareness states for a usable selection and follows the
+     * referenced document. Selection is chosen with the priority:
+     * preferred peer → host → any peer (most recently updated wins).
+     *
+     * Returns the source category that was used (or `'none'` if no selection
+     * was found). This method intentionally stays silent: per-call logs were
+     * very noisy when invoked from `waitForActiveDocument`'s polling loop, so
+     * the caller is responsible for emitting any summary log.
      */
-    private tryFollowHostDocument(): void {
+    private tryFollowPeerDocument(preferredPeerId?: string): DocumentResolutionSource {
         if (!this.hostId) {
-            return;
+            return 'none';
         }
         const states = this.yjsAwareness.getStates() as Map<number, ClientAwareness>;
-        let found = false;
-        for (const [clientId, state] of states.entries()) {
-            if (state.peer === this.hostId) {
-                found = true;
-                if (state.selection) {
+
+        if (preferredPeerId) {
+            for (const state of states.values()) {
+                if (state.peer === preferredPeerId && state.selection?.path) {
                     this.followDocument(state.selection.path);
-                } else {
-                    console.error(`[DocumentSync] Host awareness (clientId=${clientId}) found but has no selection`);
+                    return 'sender';
                 }
-                return;
             }
         }
-        if (!found) {
-            console.error(`[DocumentSync] No awareness state found for hostId=${this.hostId} (${states.size} total states)`);
+
+        for (const state of states.values()) {
+            if (state.peer === this.hostId && state.selection?.path) {
+                this.followDocument(state.selection.path);
+                return 'host';
+            }
         }
+
+        // Any peer: prefer the most recently updated awareness entry.
+        const meta = this.yjsAwareness.meta as Map<number, { clock: number; lastUpdated: number }>;
+        let bestPath: string | undefined;
+        let bestUpdated = -1;
+        for (const [clientId, state] of states.entries()) {
+            if (state.peer && state.selection?.path) {
+                const updated = meta.get(clientId)?.lastUpdated ?? 0;
+                if (updated > bestUpdated) {
+                    bestUpdated = updated;
+                    bestPath = state.selection.path;
+                }
+            }
+        }
+        if (bestPath) {
+            this.followDocument(bestPath);
+            return 'peer';
+        }
+
+        return 'none';
+    }
+
+    /**
+     * Searches the local Yjs share store for the most recently edited
+     * `Y.Text` whose key looks like a workspace-relative path (i.e. contains
+     * a `/` separator). Used as the last-resort fallback in
+     * `waitForActiveDocument` when no peer has published a selection.
+     *
+     * Recency is approximated by the maximum CRDT clock observed across the
+     * Y.Text's items: clocks grow monotonically per client as edits occur,
+     * so a higher max clock typically corresponds to a more-recently edited
+     * document.
+     */
+    private tryYjsShareFallback(): string | undefined {
+        let bestKey: string | undefined;
+        let bestClock = -1;
+        for (const [key, type] of this.yjs.share.entries()) {
+            if (!(type instanceof Y.Text)) {
+                continue;
+            }
+            if (!key.includes('/')) {
+                continue;
+            }
+            if (type.length === 0) {
+                continue;
+            }
+            const clock = this.maxItemClock(type);
+            if (clock > bestClock) {
+                bestClock = clock;
+                bestKey = key;
+            }
+        }
+        return bestKey;
+    }
+
+    private maxItemClock(text: Y.Text): number {
+        let max = 0;
+        // Walk the linked list of items inside the Y.Text and track the
+        // largest (clock + length) seen. Internal Yjs structures are not
+        // part of the public typings, so we cast through `any`.
+        let item: any = (text as unknown as { _start?: unknown })._start;
+        while (item) {
+            const clock = item.id?.clock ?? 0;
+            const length = item.length ?? 0;
+            const end = clock + length;
+            if (end > max) {
+                max = end;
+            }
+            item = item.right;
+        }
+        return max;
     }
 
     getDocumentContent(documentPath: string): string | undefined {

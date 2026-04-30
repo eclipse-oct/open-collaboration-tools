@@ -100,18 +100,17 @@ flowchart TB
 ```typescript
 interface DocumentOperations {
     getDocument(path: string): string | undefined
-    getDocumentRange(path: string, startLine: number, endLine: number): string[]
-    applyEdit(path: string, edit: LineEdit): void
     applyEditsAnimated(path: string, edits: LineEdit[]): Promise<void>
     removeTriggerLine(path: string, trigger: string): void
     updateCursor(path: string, offset: number): void
     getSessionInfo(): SessionInfo
+    getActiveDocumentPath(): string | undefined
 }
 ```
 
 **Benefits:**
 - Single source of truth for document operations
-- Used by ACP bridge (MCP skeleton is simplified and doesn't include OCT integration)
+- Used by ACP bridge
 - Animated cursor movement during edits
 - Line-based editing (easier for LLMs than character offsets)
 
@@ -155,7 +154,6 @@ Trigger → ACPBridge.sendTrigger() → ACP Agent → session/prompt → tool ca
 **Components:**
 - `setupTriggerDetection()` in `src/agent.ts`
 - Document change handler
-- Loading animation (`animateLoadingIndicator()`)
 - Trigger line detection (newline after `@agent`)
 
 **Detection Logic:**
@@ -289,20 +287,7 @@ sequenceDiagram
 | `acp-bridge.ts` | ACP protocol bridge for external agents | `src/acp-bridge.ts` |
 | `document-sync.ts` | Yjs-based document synchronization | `src/document-sync.ts` |
 | `document-operations.ts` | Shared document manipulation interface | `src/document-operations.ts` |
-| `agent-util.ts` | Cursor tracking, loading animations | `src/agent-util.ts` |
-| `acp-trigger-handler.ts` | ACP response processing | `src/acp-trigger-handler.ts` |
-
-### MCP Skeleton Files (Optional)
-
-The following files provide a minimal MCP server skeleton for future extensions:
-
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| `mcp-server.ts` | Minimal MCP server skeleton (~60 lines) | `src/mcp-server.ts` |
-| `mcp-tools.ts` | Example MCP tools pattern (~100 lines) | `src/mcp-tools.ts` |
-| `mcp-resources.ts` | Example MCP resources pattern (~80 lines) | `src/mcp-resources.ts` |
-
-**Note:** These are skeleton examples showing MCP protocol patterns. The main agent uses ACP exclusively. The MCP files are provided for specialized use cases where MCP integration is beneficial (custom IDE integration, context providers, etc.).
+| `agent-util.ts` | Animated line-based edits | `src/agent-util.ts` |
 
 ## Configuration
 
@@ -422,22 +407,17 @@ API keys and model selection are configured in the ACP agent (e.g. Claude Code),
 
 ## Future Enhancements
 
-1. **Chat-Based Triggering**
-   - Direct messages to agent peer
-   - Group chat @-mentions
-   - See `CHAT_CONCEPT.md` for design
-
-2. **Remote Agent Support**
+1. **Remote Agent Support**
    - File streaming over OCT protocol
    - Virtual file system abstraction
    - See `REMOTE_AGENT_CHALLENGES.md` for analysis
 
-3. **Multi-File Operations**
+2. **Multi-File Operations**
    - Agent can edit multiple files in one trigger
    - File creation/deletion support
    - Project-wide refactoring
 
-4. **Persistent Agent Sessions**
+3. **Persistent Agent Sessions**
    - Long-running agent that doesn't exit
    - Maintains conversation context
    - Background monitoring
@@ -468,12 +448,10 @@ API keys and model selection are configured in the ACP agent (e.g. Claude Code),
 
 ## Additional Documentation
 
-- **ACP_CONCEPT.md** - Agent Client Protocol design and integration
-- **MCP_NOTIFICATION_PROBLEM.md** - (Historical) MCP integration attempts and why ACP is better
-- **CLAUDE_CODE_PLUGIN_CONCEPT.md** - Claude Code integration details
-- **CHAT_CONCEPT.md** - Future chat-based triggering design
-- **REMOTE_AGENT_CHALLENGES.md** - Remote deployment challenges
 - **README.md** - Getting started guide
+- **ACP_CONCEPT.md** - Agent Client Protocol design and integration
+- **REMOTE_AGENT_CHALLENGES.md** - Remote deployment challenges
+- **DEVELOPMENT_JOURNEY.md** - Historical context: how the architecture evolved from MCP attempts to ACP
 
 ## Conclusion
 

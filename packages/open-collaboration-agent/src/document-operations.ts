@@ -29,25 +29,13 @@ export interface SessionInfo {
 }
 
 /**
- * Core document operations interface.
- * This abstraction allows both the built-in agent (direct calls) and
- * external agents (via MCP tools) to use the same underlying functionality.
+ * Core document operations interface used by the ACP bridge.
  */
 export interface DocumentOperations {
     /**
      * Get the full content of a document
      */
     getDocument(path: string): string | undefined;
-
-    /**
-     * Get a specific range of lines from a document (1-indexed, inclusive)
-     */
-    getDocumentRange(path: string, startLine: number, endLine: number): string[] | undefined;
-
-    /**
-     * Apply a line-based edit to a document
-     */
-    applyEdit(path: string, edit: LineEdit): void;
 
     /**
      * Apply multiple line-based edits with animation
@@ -77,7 +65,6 @@ export interface DocumentOperations {
 
 /**
  * Implementation of DocumentOperations backed by DocumentSync.
- * Used by both the built-in agent and the MCP server.
  */
 export class DocumentSyncOperations implements DocumentOperations {
     constructor(
@@ -91,51 +78,6 @@ export class DocumentSyncOperations implements DocumentOperations {
 
     getDocument(path: string): string | undefined {
         return this.documentSync.getDocumentContent(path);
-    }
-
-    getDocumentRange(path: string, startLine: number, endLine: number): string[] | undefined {
-        const content = this.documentSync.getDocumentContent(path);
-        if (content === undefined) {
-            return undefined;
-        }
-
-        const lines = content.split('\n');
-        if (startLine < 1 || endLine > lines.length || startLine > endLine) {
-            throw new Error(`Invalid line range: ${startLine}-${endLine} (document has ${lines.length} lines)`);
-        }
-
-        return lines.slice(startLine - 1, endLine);
-    }
-
-    applyEdit(path: string, edit: LineEdit): void {
-        const content = this.documentSync.getDocumentContent(path);
-        if (content === undefined) {
-            throw new Error(`Document not found: ${path}`);
-        }
-
-        if (edit.type === 'replace' && edit.endLine !== undefined && edit.content !== undefined) {
-            // Replace lines from startLine to endLine (inclusive, 1-indexed)
-            const startOffset = this.calculateOffset(content, edit.startLine - 1);
-            const endOffset = this.calculateOffset(content, edit.endLine);
-            const length = endOffset - startOffset;
-
-            this.documentSync.applyEdit(path, edit.content, startOffset, length);
-        } else if (edit.type === 'insert' && edit.content !== undefined) {
-            // Insert content before the specified line (1-indexed)
-            const insertOffset = edit.startLine === 1 ? 0 : this.calculateOffset(content, edit.startLine - 1);
-            const contentToInsert = edit.startLine === 1 ? edit.content + '\n' : edit.content + '\n';
-
-            this.documentSync.applyEdit(path, contentToInsert, insertOffset, 0);
-        } else if (edit.type === 'delete' && edit.endLine !== undefined) {
-            // Delete lines from startLine to endLine (inclusive, 1-indexed)
-            const startOffset = this.calculateOffset(content, edit.startLine - 1);
-            const endOffset = this.calculateOffset(content, edit.endLine);
-            const length = endOffset - startOffset;
-
-            this.documentSync.applyEdit(path, '', startOffset, length);
-        } else {
-            throw new Error(`Invalid edit: ${JSON.stringify(edit)}`);
-        }
     }
 
     async applyEditsAnimated(path: string, edits: LineEdit[]): Promise<void> {
@@ -174,19 +116,5 @@ export class DocumentSyncOperations implements DocumentOperations {
 
     getActiveDocumentPath(): string | undefined {
         return this.documentSync.getActiveDocumentPath();
-    }
-
-    /**
-     * Helper: Calculate character offset for a given line number
-     */
-    private calculateOffset(text: string, line: number): number {
-        const lines = text.split('\n');
-        let offset = 0;
-
-        for (let i = 0; i < line; i++) {
-            offset += lines[i].length + 1; // +1 for the newline character
-        }
-
-        return offset;
     }
 }

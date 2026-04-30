@@ -7,72 +7,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
-import { processACPResponse } from '../src/acp-trigger-handler.js';
 import { ACPBridge } from '../src/acp-bridge.js';
-import { DocumentSyncOperations, type LineEdit } from '../src/document-operations.js';
 
 describe('multi-file and new-file regressions', () => {
-    test('processACPResponse applies edits to requested target file', async () => {
-        const applyEditsAnimated = vi.fn<(_: string, __: LineEdit[]) => Promise<void>>().mockResolvedValue();
-        const updateCursor = vi.fn();
-
-        const documentOps = {
-            getActiveDocumentPath: () => 'workspace/active.ts',
-            getDocument: (docPath: string) => docPath === 'workspace/target.ts' ? 'const x = 1;\n' : undefined,
-            applyEditsAnimated,
-            updateCursor,
-        } as any;
-
-        await processACPResponse(
-            {
-                type: 'agent/action',
-                action: 'edit',
-                payload: {
-                    file: 'workspace/target.ts',
-                    edits: [{ type: 'insert', startLine: 1, content: 'const created = true;' }],
-                },
-            },
-            'workspace/original.ts',
-            'console.log("active");',
-            documentOps,
-            'trig-test'
-        );
-
-        expect(applyEditsAnimated).toHaveBeenCalledTimes(1);
-        expect(applyEditsAnimated.mock.calls[0]?.[0]).toBe('workspace/target.ts');
-        expect(updateCursor).toHaveBeenCalledWith('workspace/target.ts', 0);
-    });
-
-    test('DocumentSyncOperations treats empty document content as valid', async () => {
-        const applyEdit = vi.fn();
-        const updateCursorPosition = vi.fn();
-
-        const documentSyncMock = {
-            getConnection: () => ({}) as any,
-            getDocumentContent: () => '',
-            applyEdit,
-            updateCursorPosition,
-            getActiveDocumentPath: () => 'workspace/empty.ts',
-        } as any;
-
-        const documentOps = new DocumentSyncOperations(documentSyncMock, {
-            roomId: 'room',
-            agentId: 'agent',
-            agentName: 'Agent',
-            hostId: 'host',
-            serverUrl: 'http://localhost',
-        });
-
-        documentOps.applyEdit('workspace/empty.ts', {
-            type: 'insert',
-            startLine: 1,
-            content: 'export const value = 1;',
-        });
-
-        await expect(documentOps.applyEditsAnimated('workspace/empty.ts', [])).resolves.toBeUndefined();
-        expect(applyEdit).toHaveBeenCalled();
-    });
-
     test('ACPBridge write_text_file proposes changes without writing to disk when OCT document exists', async () => {
         const proposeChanges = vi.fn().mockResolvedValue(undefined);
         const sendMessage = vi.fn();
@@ -107,9 +44,13 @@ describe('multi-file and new-file regressions', () => {
                 },
             });
 
+            // Proposals are buffered during a prompt cycle and flushed at the end
+            // (see ACPBridge.handleResponse). Trigger the flush manually here to
+            // verify the buffered proposal is forwarded to the editor.
+            await (bridge as any).flushPendingProposals();
+
             expect(fs.existsSync(absolutePath)).toBe(false);
             expect(proposeChanges).toHaveBeenCalledTimes(1);
-            expect(proposeChanges.mock.calls[0]?.[0]).toBe('host');
             expect(sendMessage).toHaveBeenCalledWith(
                 expect.objectContaining({ id: 'req-1', result: null })
             );

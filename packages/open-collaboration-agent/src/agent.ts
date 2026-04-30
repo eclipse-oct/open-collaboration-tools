@@ -12,7 +12,6 @@ import type { ConnectionProviderOptions, Peer } from 'open-collaboration-protoco
 import { DocumentSync, DocumentChange, type DocumentInsert } from './document-sync.js';
 import { DocumentSyncOperations } from './document-operations.js';
 import { ACPBridge } from './acp-bridge.js';
-import { processACPResponse } from './acp-trigger-handler.js';
 
 export interface AgentOptions {
     server: string
@@ -384,7 +383,7 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
         }
     };
 
-    const chatMessageHandler = async (_origin: string, message: string) => {
+    const chatMessageHandler = async (origin: string, message: string) => {
         console.error(`[DEBUG] chatMessageHandler called, message: "${message}"`);
 
         if (state.awaitingDocPath && state.pendingPrompt) {
@@ -421,7 +420,7 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
             return;
         }
 
-        const activeDoc = await documentSync.waitForActiveDocument();
+        const activeDoc = await documentSync.waitForActiveDocument(undefined, origin);
 
         if (!activeDoc) {
             console.error('[DEBUG] No active document for chat trigger after waiting');
@@ -544,16 +543,17 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
                 // Abort the animation (the setupTriggerDetection will handle awaiting it)
                 animationAbort.abort();
 
-                // Get current content in case it changed during execution
-                let currentContent = docContent;
-                const currentDocContent = documentSync.getDocumentContent(docPath);
-                if (currentDocContent !== undefined && currentDocContent !== docContent) {
-                    currentContent = currentDocContent;
+                // Log agent text response for observability. Chat delivery is already
+                // handled inside ACPBridge.handleResponse (which forwards accumulated
+                // text to the chat connection during the prompt cycle).
+                // The bridge resolves with a custom { type, content } shape on top of
+                // the typed AgentResponse, so we read the fields defensively.
+                const wrappedResponse = response as { type?: string; content?: unknown };
+                if (wrappedResponse?.type === 'agent/response' &&
+                    typeof wrappedResponse.content === 'string' &&
+                    wrappedResponse.content.trim()) {
+                    console.log(`[ACP Agent Response] ${wrappedResponse.content}`);
                 }
-
-                // Process the ACP response
-                // Pass the trigger line number (1-indexed) so text can be inserted after it
-                await processACPResponse(response, docPath, currentContent, documentOps, triggerId, triggerLine);
 
                 // For document triggers, remove the trigger line and clear cursor
                 if (source === 'document' && change) {

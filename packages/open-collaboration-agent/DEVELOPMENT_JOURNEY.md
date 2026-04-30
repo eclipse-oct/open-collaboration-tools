@@ -47,7 +47,6 @@ The first approach attempted to integrate the agent with Claude Code using the *
 ### Problem 1: MCP Notification Limitation
 
 **Discovered:** October 20, 2025
-**Documented in:** [MCP_NOTIFICATION_PROBLEM.md](MCP_NOTIFICATION_PROBLEM.md)
 
 **What we learned:**
 - MCP notifications are **passive information updates**
@@ -81,7 +80,6 @@ sequenceDiagram
 ### Problem 2: Agent Autonomy Problem
 
 **Discovered:** October 21, 2025
-**Documented in:** [AGENT_AUTONOMY_PROBLEM.md](AGENT_AUTONOMY_PROBLEM.md)
 
 **The core issue:**
 - Task agents in Claude Code are designed for **one-off tasks**
@@ -252,10 +250,8 @@ Embedded mode (direct LLM via `executeLLM`/`prompt.ts`) was removed. The agent n
 Read in this order to understand the development process:
 
 1. **[DEVELOPMENT_JOURNEY.md](DEVELOPMENT_JOURNEY.md)** (this file) - Overview of the journey
-2. **[MCP_NOTIFICATION_PROBLEM.md](MCP_NOTIFICATION_PROBLEM.md)** - First integration attempt
-3. **[AGENT_AUTONOMY_PROBLEM.md](AGENT_AUTONOMY_PROBLEM.md)** - Why MCP failed
-4. **[ACP_CONCEPT.md](ACP_CONCEPT.md)** - The solution
-5. **[ARCHITECTURE.md](ARCHITECTURE.md)** - Final implementation
+2. **[ACP_CONCEPT.md](ACP_CONCEPT.md)** - The solution
+3. **[ARCHITECTURE.md](ARCHITECTURE.md)** - Final implementation
 
 ### For Using the Agent
 
@@ -270,7 +266,6 @@ Read in this order if you just want to use it:
 - **Integration patterns**: [ACP_CONCEPT.md](ACP_CONCEPT.md)
 - **Deployment scenarios**: [REMOTE_AGENT_CHALLENGES.md](REMOTE_AGENT_CHALLENGES.md)
 - **Architecture layers**: [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Historical context**: [MCP_NOTIFICATION_PROBLEM.md](MCP_NOTIFICATION_PROBLEM.md) and [AGENT_AUTONOMY_PROBLEM.md](AGENT_AUTONOMY_PROBLEM.md)
 
 ## Architectural Learnings
 
@@ -374,10 +369,6 @@ The current architecture is not just the result of implementation, but the resul
 
 ## Related Documentation
 
-### Historical Context
-- [MCP_NOTIFICATION_PROBLEM.md](MCP_NOTIFICATION_PROBLEM.md) - First integration challenge
-- [AGENT_AUTONOMY_PROBLEM.md](AGENT_AUTONOMY_PROBLEM.md) - Lifecycle problem with MCP
-
 ### Current Implementation
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete architecture overview
 - [ACP_CONCEPT.md](ACP_CONCEPT.md) - ACP integration design
@@ -386,7 +377,5 @@ The current architecture is not just the result of implementation, but the resul
 ### Deployment
 - [REMOTE_AGENT_CHALLENGES.md](REMOTE_AGENT_CHALLENGES.md) - Deployment scenarios and constraints
 
-### Other
-- [CHAT_CONCEPT.md](CHAT_CONCEPT.md) - Future: Chat-based triggering
-- [CLAUDE_CODE_PLUGIN_CONCEPT.md](CLAUDE_CODE_PLUGIN_CONCEPT.md) - Claude Code integration details
-- [CODE_ANALYSIS.md](CODE_ANALYSIS.md) - Code structure and implementation details
+### Alternative ACP agents
+- [OPENCODE_AS_OCT_AGENT.md](OPENCODE_AS_OCT_AGENT.md) - Using OpenCode as the ACP agent

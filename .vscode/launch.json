@@ -27,7 +27,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "${workspaceFolder}/packages/open-collaboration-protocol",
+        "/Users/janbicker/Typefox/Projects/oct-playground-demo",
         "--extensionDevelopmentPath=${workspaceFolder}/packages/open-collaboration-vscode",
         "--user-data-dir=${workspaceFolder}/.vscode/extension-host-data-1"
       ],

@@ -19,7 +19,7 @@ The agent directly reads files from the local filesystem:
 let content = fs.readFileSync(absolutePath, 'utf8');
 ```
 
-The ACP agent receives document context via the bridge; file reads for multi-file or workspace access use the local filesystem. The MCP server (oct-mcp-server) uses `DocumentSync` (Yjs) for document content.
+The ACP agent receives document context via the bridge; file reads for multi-file or workspace access use the local filesystem.
 
 ### Why This Matters
 
@@ -455,4 +455,3 @@ The current local-agent architecture is a **deliberate design choice** that prio
 - **ARCHITECTURE.md** - Complete architecture overview
 - **ACP_CONCEPT.md** - ACP protocol and external agent integration
 - **README.md** - Getting started and workspace requirements
-- **CLAUDE_CODE_PLUGIN_CONCEPT.md** - Claude Code integration details

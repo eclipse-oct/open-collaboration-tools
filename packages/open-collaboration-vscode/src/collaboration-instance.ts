@@ -398,6 +398,10 @@ export class CollaborationInstance implements vscode.Disposable {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
             this.identity.resolve(peer);
             this.onDidUsersChangeEmitter.fire();
+            // Proactively publish the current selection so peers (e.g. the agent)
+            // can resolve the active document immediately on join, even when the
+            // user has not moved the cursor since the connection was established.
+            this.updateTextSelection(vscode.window.activeTextEditor);
         });
 
         this.registerFileEvents();
@@ -685,6 +689,13 @@ export class CollaborationInstance implements vscode.Disposable {
         this.toDispose.push(vscode.window.onDidChangeVisibleTextEditors(() => {
             this.updateTextSelection(vscode.window.activeTextEditor);
             this.rerenderPresence();
+        }));
+
+        // Switching the active editor (or opening the first one after join) does
+        // not always trigger selection/visible-range events, so publish the
+        // selection here too to keep awareness in sync for late joiners.
+        this.toDispose.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+            this.updateTextSelection(editor);
         }));
 
         this.toDispose.push(vscode.workspace.onDidCloseTextDocument(document => {
