@@ -6,9 +6,9 @@
 
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import { Authentication, CreateRoomRequest, fromEncodedOCPMessage, JoinRoomRequest, JoinSessionRequest, OCPRequest, OnInitNotification, OpenDocument, toEncodedOCPMessage, UpdateDocumentContent, UpdateTextSelection } from 'open-collaboration-service-process';
-import { Deferred } from 'open-collaboration-protocol';
-import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node.js';
+import { Authentication, BinaryData, CreateRoomRequest, fromBinaryMessage, JoinRoomRequest, JoinSessionRequest, OnInitNotification, OpenDocument, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from 'open-collaboration-service-process';
+import { Deferred, FileData } from 'open-collaboration-protocol';
+import { createMessageConnection, Message, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node.js';
 
 const SERVER_ADDRESS = 'http://localhost:8100';
 class Client {
@@ -27,7 +27,24 @@ class Client {
 
         this.communicationHandler = createMessageConnection(
             new StreamMessageReader(this.process.stdout),
-            new StreamMessageWriter(this.process.stdin));
+            new StreamMessageWriter(this.process.stdin), undefined, {messageStrategy: {
+                handleMessage(message, next) {
+                    // conversion of binary data to javascript objects
+                    if (Message.isNotification(message) || Message.isRequest(message)) {
+                        if (Array.isArray(message.params)) {
+                            message.params =  message.params?.map((param) =>
+                                BinaryData.is(param) ? fromBinaryMessage(param.data) : param);
+                        } else {
+                            message.params = BinaryData.is(message.params) ? fromBinaryMessage(message.params.data) as object : message.params;
+                        }
+                    } else if (Message.isResponse(message)) {
+                        if (BinaryData.is(message.result)) {
+                            message.result = fromBinaryMessage(message.result.data) as any;
+                        }
+                    }
+                    next(message);
+                },
+            }});
         this.communicationHandler.listen();
     }
 }
@@ -85,17 +102,23 @@ describe('Service Process', () => {
             selectionArived.resolve();
         });
 
-        host.communicationHandler.onRequest(OCPRequest, ((rawMessage) => {
-            const message = typeof rawMessage === 'string' ? fromEncodedOCPMessage(rawMessage) : rawMessage;
-            if(message.method === 'fileSystem/stat') {
-                return {method: 'fileSystem/stat', params: [{
-                    type: 2,
-                    mtime: 2132123,
-                    ctime: 124112,
-                    size: 1231,
-                }]};
-            }
-            return 'error';
+        host.communicationHandler.onRequest('fileSystem/stat', (() => {
+            return {method: 'fileSystem/stat', params: [{
+                type: 2,
+                mtime: 2132123,
+                ctime: 124112,
+                size: 1231,
+            }]};
+        }));
+
+        host.communicationHandler.onRequest('fileSystem/readFile', ((path: string) => {
+            expect(path).toEqual('testFolder/test.txt');
+            return {
+                type: 'binaryData',
+                data: toBinaryMessage({
+                    content: Uint8Array.from(new TextEncoder().encode('HELLO WORLD!')),
+                } as FileData),
+            } as BinaryData;
         }));
 
         // Setup guest message handlers
@@ -120,8 +143,12 @@ describe('Service Process', () => {
 
         expect(hostId).toBeTruthy();
 
-        const folderStat = await guest.communicationHandler.sendRequest(OCPRequest, toEncodedOCPMessage({ method: 'fileSystem/stat', params: ['testFolder'], target: hostId }));
+        const folderStat = await guest.communicationHandler.sendRequest('fileSystem/stat', 'testFolder', hostId);
         expect(folderStat).toBeDefined();
+
+        // sending the file path as binary only for testing the conversion
+        const fileContent = await guest.communicationHandler.sendRequest('fileSystem/readFile', {type: 'binaryData', data: toBinaryMessage('testFolder/test.txt')} as BinaryData, hostId) as FileData;
+        expect(new TextDecoder().decode(fileContent.content)).toEqual('HELLO WORLD!');
 
         host.communicationHandler.sendNotification(OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
         guest.communicationHandler.sendNotification(OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
@@ -134,7 +161,7 @@ describe('Service Process', () => {
 
         await updateArived.promise;
 
-    }, 2000000);
+    }, 60000);
 });
 
 async function makeSimpleLoginRequest(token: string, username: string) {

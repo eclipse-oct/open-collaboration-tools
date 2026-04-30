@@ -8,7 +8,7 @@ import { inject } from 'postject'
  * The resulting executable can be run as a standalone application without the need of nodejs being installed
  */
 
-var EXECUTABLE_NAME = 'oct-servcice-process'
+var EXECUTABLE_NAME = 'oct-service-process'
 
 if (process.platform === 'win32') {
     EXECUTABLE_NAME = EXECUTABLE_NAME + '.exe'

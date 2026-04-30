@@ -30,7 +30,7 @@
   "scripts": {
     "start": "node lib/process.js",
     "start:direct": "tsx src/process.ts",
-    "build": "esbuild ./lib/process.js --bundle --platform=node --format=esm --outfile=lib/bundle.js",
+    "build": "esbuild ./src/process.ts --bundle --platform=node --format=cjs --outfile=lib/bundle.cjs",
     "create:executable": "npm run build && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.mjs"
   },
   "dependencies": {
