@@ -315,7 +315,8 @@
     "react-dom": "^19.2.4",
     "reflect-metadata": "~0.2.2",
     "vscode-messenger": "^0.6.0",
-    "vscode-messenger-webview": "^0.6.0"
+    "vscode-messenger-webview": "^0.6.0",
+    "vsls": "1.0.4753"
   },
   "devDependencies": {
     "@types/node-fetch": "~2.6.12",
