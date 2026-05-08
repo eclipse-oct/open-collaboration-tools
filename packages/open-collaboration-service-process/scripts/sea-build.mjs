@@ -8,7 +8,8 @@ import { inject } from 'postject'
  * The resulting executable can be run as a standalone application without the need of nodejs being installed
  */
 
-var EXECUTABLE_NAME = 'oct-service-process'
+let EXECUTABLE_NAME = 'oct-service-process'
+const EXECUTABLE_PATH = `bin/${EXECUTABLE_NAME}`
 
 if (process.platform === 'win32') {
     EXECUTABLE_NAME = EXECUTABLE_NAME + '.exe'
@@ -20,7 +21,7 @@ if (process.platform === 'win32') {
 const postjectOptions = { sentinelFuse: 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2' }
 
 if (process.platform === 'darwin') {
-    execSync(`codesign --remove-signature ${EXECUTABLE_NAME}`)
+    execSync(`codesign --remove-signature ${EXECUTABLE_PATH}`)
     postjectOptions.machoSegmentName = 'NODE_SEA'
 }
 
@@ -29,5 +30,5 @@ console.log('injecting ', process.cwd() + '/bin/sea-prep.blob', 'into ', process
 inject(process.cwd() + '/bin/' + EXECUTABLE_NAME, 'NODE_SEA_BLOB', fs.readFileSync(process.cwd() + '/bin/sea-prep.blob'), postjectOptions)
 
 if (process.platform === 'darwin') {
-    execSync(`codesign --sign - ${EXECUTABLE_NAME}`)
+    execSync(`codesign --sign - ${EXECUTABLE_PATH}`)
 }
