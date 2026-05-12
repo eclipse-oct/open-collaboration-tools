@@ -83,12 +83,7 @@ Service process binaries are released through GitHub Actions.
 
 The workflow `.github/workflows/release-service-process.yml` creates binaries for Linux, macOS, and Windows and publishes them to a GitHub Release.
 
-Trigger a release by pushing a tag in this format:
-
-```sh
-git tag service-process-v0.3.1
-git push origin service-process-v0.3.1
-```
+Trigger a release by pushing a tag in this format: `service-process-v0.3.1`
 
 The workflow publishes:
 
