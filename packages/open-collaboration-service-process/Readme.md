@@ -74,3 +74,36 @@ Or sending Binary Data as a Parameter:
   ]
 }
 ```
+
+## Release
+
+Service process binaries are released through GitHub Actions.
+
+### Automated binary release
+
+The workflow `.github/workflows/release-service-process.yml` creates binaries for Linux, macOS, and Windows and publishes them to a GitHub Release.
+
+Trigger a release by pushing a tag in this format: `service-process-v0.3.1`
+
+The workflow publishes:
+
+- `oct-service-process-<version>-linux-x64`
+- `oct-service-process-<version>-macos-x64`
+- `oct-service-process-<version>-windows-x64.exe`
+- `SHA256SUMS.txt`
+
+You can also run the workflow manually with `workflow_dispatch` from the Actions tab.
+
+### Build locally from source
+
+If you need to build the executable without downloading a release artifact:
+
+```sh
+npm ci
+npm run create:executable --workspace=open-collaboration-service-process
+```
+
+The executable is written to:
+
+- `packages/open-collaboration-service-process/bin/oct-service-process` on Linux and macOS
+- `packages/open-collaboration-service-process/bin/oct-service-process.exe` on Windows

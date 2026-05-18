@@ -4,9 +4,7 @@
   "license": "MIT",
   "description": "A service process for integrating non Typescript projects with the Open Collaboration Tools project",
   "files": [
-    "bin",
-    "lib",
-    "src"
+    "lib/bundle.cjs"
   ],
   "type": "module",
   "main": "./lib/messages.js",
@@ -25,12 +23,13 @@
     }
   },
   "bin": {
-    "oct-daemon-service": "./bin/service"
+    "oct-service-process": "./lib/bundle.cjs"
   },
   "scripts": {
     "start": "node lib/process.js",
     "start:direct": "tsx src/process.ts",
-    "build": "esbuild ./src/process.ts --bundle --platform=node --format=cjs --outfile=lib/bundle.cjs",
+    "build": "esbuild ./src/process.ts --bundle --platform=node --format=cjs --banner:js=\"#!/usr/bin/env node\" --outfile=lib/bundle.cjs",
+    "prepublishOnly": "npm run build",
     "create:executable": "npm run build && shx mkdir -p bin && node --experimental-sea-config sea-config.json && node scripts/sea-build.mjs"
   },
   "dependencies": {
