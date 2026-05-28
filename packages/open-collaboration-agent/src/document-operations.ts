@@ -8,16 +8,6 @@ import { ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import type { DocumentSync } from './document-sync.js';
 
 /**
- * Represents a line-based edit operation
- */
-export interface LineEdit {
-    type: 'replace' | 'insert' | 'delete';
-    startLine: number;
-    endLine?: number;
-    content?: string;
-}
-
-/**
  * Session information
  */
 export interface SessionInfo {
@@ -38,19 +28,9 @@ export interface DocumentOperations {
     getDocument(path: string): string | undefined;
 
     /**
-     * Apply multiple line-based edits with animation
-     */
-    applyEditsAnimated(path: string, edits: LineEdit[]): Promise<void>;
-
-    /**
      * Remove a line containing the trigger pattern
      */
     removeTriggerLine(path: string, trigger: string): void;
-
-    /**
-     * Update the cursor position for awareness
-     */
-    updateCursor(path: string, offset: number): void;
 
     /**
      * Get session information
@@ -80,15 +60,6 @@ export class DocumentSyncOperations implements DocumentOperations {
         return this.documentSync.getDocumentContent(path);
     }
 
-    async applyEditsAnimated(path: string, edits: LineEdit[]): Promise<void> {
-        const { applyLineEditsAnimated } = await import('./agent-util.js');
-        const content = this.documentSync.getDocumentContent(path);
-        if (content === undefined) {
-            throw new Error(`Document not found: ${path}`);
-        }
-        await applyLineEditsAnimated(path, content, edits, this.documentSync);
-    }
-
     removeTriggerLine(path: string, trigger: string): void {
         const content = this.documentSync.getDocumentContent(path);
         if (content === undefined) {
@@ -104,10 +75,6 @@ export class DocumentSyncOperations implements DocumentOperations {
 
             this.documentSync.applyEdit(path, '', triggerLineOffset, triggerLineLength);
         }
-    }
-
-    updateCursor(path: string, offset: number): void {
-        this.documentSync.updateCursorPosition(path, offset);
     }
 
     getSessionInfo(): SessionInfo {
