@@ -368,7 +368,8 @@ export class ACPBridge {
 
             // Flush buffered proposals before resolving, so that the peer
             // receives a single consolidated diff per file for this prompt cycle.
-            void this.flushPendingProposals().then(() => {
+            void this.flushPendingProposals().then((proposalCount) => {
+                const editsProposed = proposalCount > 0;
                 if ('error' in message) {
                     pending.reject(new Error(message.error.message || 'ACP request failed'));
                 } else if ('result' in message) {
@@ -383,15 +384,26 @@ export class ACPBridge {
                             type: 'agent/response',
                             content: accumulatedText,
                             stopReason: result.stopReason,
+                            editsProposed,
                         });
                     } else if (result.stopReason) {
                         pending.resolve({
                             type: 'agent/response',
                             content: '',
                             stopReason: result.stopReason,
+                            editsProposed,
                         });
                     } else {
-                        pending.resolve(result);
+                        // Wrap raw result so callers can rely on a consistent shape
+                        // (including the editsProposed flag) regardless of whether
+                        // the agent emitted text or only performed edits.
+                        pending.resolve({
+                            type: 'agent/response',
+                            content: '',
+                            stopReason: result.stopReason,
+                            editsProposed,
+                            result,
+                        });
                     }
                 }
             });
@@ -402,20 +414,23 @@ export class ACPBridge {
      * Flush all buffered proposals as proposeChanges broadcasts.
      * Called after a prompt cycle completes so that multiple writes to the same
      * file are collapsed into a single diff on the peer side.
+     *
+     * @returns The number of proposals that were flushed (0 if none).
      */
-    private async flushPendingProposals(): Promise<void> {
+    private async flushPendingProposals(): Promise<number> {
         if (this.pendingProposals.size === 0) {
-            return;
+            return 0;
         }
 
         const connection = this.documentOps?.getConnection();
         if (!connection) {
             console.error('[ACP] Cannot flush proposals: no connection available');
             this.pendingProposals.clear();
-            return;
+            return 0;
         }
 
-        console.info(`[ACP] Flushing ${this.pendingProposals.size} pending proposal(s)`);
+        const flushedCount = this.pendingProposals.size;
+        console.info(`[ACP] Flushing ${flushedCount} pending proposal(s)`);
         for (const { octPath, currentContent, newContent } of this.pendingProposals.values()) {
             try {
                 const currentLines = currentContent.split('\n');
@@ -434,6 +449,7 @@ export class ACPBridge {
             }
         }
         this.pendingProposals.clear();
+        return flushedCount;
     }
 
     private isAgentRequest(message: AgentRequest | AgentNotification): message is AgentRequest {

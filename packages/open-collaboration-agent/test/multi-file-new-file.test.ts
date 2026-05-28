@@ -140,6 +140,62 @@ describe('multi-file and new-file regressions', () => {
         }
     });
 
+    test('ACPBridge flushPendingProposals returns count of flushed proposals', async () => {
+        const proposeChanges = vi.fn().mockResolvedValue(undefined);
+        const sendMessage = vi.fn();
+
+        const bridge = new ACPBridge('echo', {
+            getDocument: () => 'original content',
+            getActiveDocumentPath: () => 'workspace/active.ts',
+            getConnection: () => ({
+                editor: { proposeChanges },
+            }),
+            getSessionInfo: () => ({
+                roomId: 'room',
+                agentId: 'agent',
+                agentName: 'Agent',
+                hostId: 'host',
+                serverUrl: 'http://localhost',
+            }),
+        } as any);
+
+        (bridge as any).sendMessage = sendMessage;
+
+        // No pending proposals -> 0
+        const emptyResult = await (bridge as any).flushPendingProposals();
+        expect(emptyResult).toBe(0);
+
+        // Queue two proposals for different paths and verify the count
+        try {
+            await (bridge as any).handleFileSystemRequest({
+                id: 'req-a',
+                method: 'fs/write_text_file',
+                params: {
+                    path: path.join('tmp', `acp-count-a-${Date.now()}.ts`),
+                    content: 'updated a',
+                },
+            });
+            await (bridge as any).handleFileSystemRequest({
+                id: 'req-b',
+                method: 'fs/write_text_file',
+                params: {
+                    path: path.join('tmp', `acp-count-b-${Date.now()}.ts`),
+                    content: 'updated b',
+                },
+            });
+
+            const flushedCount = await (bridge as any).flushPendingProposals();
+            expect(flushedCount).toBe(2);
+            expect(proposeChanges).toHaveBeenCalledTimes(2);
+
+            // Subsequent flush returns 0 since the buffer was cleared
+            const afterFlush = await (bridge as any).flushPendingProposals();
+            expect(afterFlush).toBe(0);
+        } finally {
+            fs.rmSync(path.resolve(process.cwd(), 'tmp'), { recursive: true, force: true });
+        }
+    });
+
     test('ACPBridge write_text_file does not overwrite when OCT document is missing but file exists locally', async () => {
         const proposeChanges = vi.fn().mockResolvedValue(undefined);
         const sendMessage = vi.fn();

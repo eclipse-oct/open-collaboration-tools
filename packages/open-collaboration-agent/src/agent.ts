@@ -506,9 +506,13 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
                 // Log agent text response for observability. Chat delivery is already
                 // handled inside ACPBridge.handleResponse (which forwards accumulated
                 // text to the chat connection during the prompt cycle).
-                // The bridge resolves with a custom { type, content } shape on top of
-                // the typed AgentResponse, so we read the fields defensively.
-                const wrappedResponse = response as { type?: string; content?: unknown };
+                // The bridge resolves with a custom { type, content, editsProposed }
+                // shape on top of the typed AgentResponse, so we read the fields defensively.
+                const wrappedResponse = response as {
+                    type?: string;
+                    content?: unknown;
+                    editsProposed?: boolean;
+                };
                 if (wrappedResponse?.type === 'agent/response' &&
                     typeof wrappedResponse.content === 'string' &&
                     wrappedResponse.content.trim()) {
@@ -522,9 +526,15 @@ export async function runACPAgent(documentSync: DocumentSync, identity: Peer, op
                     documentOps.removeTriggerLine(docPath, trigger);
                 }
 
-                // For chat triggers, send a response
-                if (source === 'chat' && sendChatResponse) {
-                    await sendChatResponse('Done! I have applied the changes to the active document.');
+                // For chat triggers, only send a confirmation when the agent
+                // actually proposed document changes. Pure text responses are
+                // already delivered to the chat by ACPBridge.handleResponse, so
+                // an additional confirmation would be redundant and misleading
+                // when no changes were made.
+                if (source === 'chat' && sendChatResponse && wrappedResponse.editsProposed) {
+                    await sendChatResponse(
+                        'Done! I have proposed changes to the document. Please review and accept them in the editor.'
+                    );
                 }
             },
         });
