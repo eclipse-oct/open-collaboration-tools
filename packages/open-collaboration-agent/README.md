@@ -1,6 +1,6 @@
 # Open Collaboration Agent
 
-An AI agent for Open Collaboration Tools (OCT) sessions that runs in your local workspace and synchronizes changes with the collaborative session.
+An AI agent for Open Collaboration Tools (OCT) sessions that runs in your local workspace and proposes changes to the collaborative session for review.
 
 ## Setup
 
@@ -81,9 +81,8 @@ The agent MUST run in the workspace directory because:
 
 -   The agent has access to all files in your local project directory
 -   File reads come from your local filesystem
--   File writes are synchronized to the OCT session (visible to all participants)
--   Your cursor position is visible to other session participants
--   Changes made by the agent appear in real-time to all collaborators
+-   File writes are proposed via the OCT session as reviewable diffs (visible to all participants)
+-   Changes are not applied automatically – participants accept or reject them in their editor
 
 ## Using the Agent
 
@@ -107,9 +106,9 @@ The agent MUST run in the workspace directory because:
 
 4. **Collaboration:**
 
-    - The agent's cursor is visible to all participants
-    - Changes are synchronized in real-time
-    - Other participants can see the agent's edits as they happen
+    - The agent proposes file changes as diffs in the OCT session
+    - Participants review the proposed changes and accept or reject them in their editor
+    - When the agent only replies with text (no file changes), the response is delivered through the chat without an extra confirmation message
 
 ## How It Works
 
@@ -120,9 +119,9 @@ Local Workspace → oct-agent (process.cwd())
                     ↓
                 Local File Operations
                     ↓
-                OCT Session Sync
+                OCT Session: Proposed Diffs
                     ↓
-                All Participants See Changes
+                Participants Review & Accept Changes
 ```
 
 ## ACP
