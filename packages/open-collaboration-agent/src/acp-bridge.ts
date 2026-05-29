@@ -791,37 +791,38 @@ export class ACPBridge {
             const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
             console.info(`[ACP] OCT path: ${octPath} (workspaceName from ${activeDocPath ? 'activeDoc' : 'cwd'})`);
 
-            const currentContent = this.documentOps.getDocument(octPath);
+            // Prefer an already-buffered proposal (so multiple writes in a single
+            // prompt cycle accumulate correctly even for files that were not in
+            // OCT before this run).
+            const existing = this.pendingProposals.get(octPath);
+            let currentContent: string | undefined =
+                existing?.currentContent
+                ?? this.documentOps.getDocument(octPath);
             console.info(`[ACP] Current content from OCT: ${currentContent !== undefined ? 'found' : 'not found'}`);
 
+            // Multi-file support: if the document is not yet tracked by OCT (the
+            // host did not have it open), ask the host to open it so we can
+            // produce a regular diff proposal against its real content instead
+            // of silently writing to disk or skipping the edit altogether.
             if (currentContent === undefined) {
-                // Document not tracked by OCT — write to local filesystem as fallback
-                // so the file exists for subsequent operations.
-                if (!fs.existsSync(absolutePath)) {
-                    try {
-                        fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-                        fs.writeFileSync(absolutePath, newContent, 'utf8');
-                        console.info(`[ACP] Document not in OCT, created local file: ${octPath}`);
-                    } catch (error: any) {
-                        this.sendMessage({
-                            jsonrpc: '2.0',
-                            id: message.id,
-                            error: {
-                                code: -32603,
-                                message: `Failed to write local file: ${error.message || 'Unknown error'}`,
-                            },
-                        });
-                        return;
+                try {
+                    const opened = await this.documentOps.openAndWaitForContent(octPath);
+                    if (opened !== undefined) {
+                        currentContent = opened;
+                        console.info(`[ACP] Opened document on host for proposal: ${octPath}`);
                     }
-                } else {
-                    console.info(`[ACP] Document not in OCT, local file already exists: ${octPath}`);
+                } catch (error: any) {
+                    console.error(`[ACP] openAndWaitForContent failed for ${octPath}: ${error?.message ?? error}`);
                 }
-                this.sendMessage({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    result: null,
-                });
-                return;
+            }
+
+            if (currentContent === undefined) {
+                // The host has no such file — treat this as a new-file proposal.
+                // We buffer an insert hunk against empty original content so the
+                // peer receives a regular proposeChanges broadcast (no silent
+                // disk write, no lost edit).
+                currentContent = '';
+                console.info(`[ACP] No existing content for ${octPath}, proposing as new file (insert hunk)`);
             }
 
             if (currentContent === newContent) {
@@ -837,10 +838,9 @@ export class ACPBridge {
             // Buffer the proposal instead of sending immediately.
             // Multiple writes to the same file during a single prompt cycle are
             // collected and only the final state is sent once the prompt completes.
-            const existing = this.pendingProposals.get(octPath);
             this.pendingProposals.set(octPath, {
                 octPath,
-                currentContent: existing?.currentContent ?? currentContent,
+                currentContent,
                 newContent,
             });
             console.info(`[ACP] Queued proposal for: ${octPath} (${this.pendingProposals.size} pending)`);

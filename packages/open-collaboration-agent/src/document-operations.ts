@@ -41,6 +41,16 @@ export interface DocumentOperations {
      * Get the currently active document path
      */
     getActiveDocumentPath(): string | undefined;
+
+    /**
+     * Ask the host to open a document and wait until its content is synced
+     * into the local Yjs store. Returns the synced content, or undefined if
+     * the host has no such document (or the sync timed out).
+     *
+     * The hostId is read from the stored session info — callers don't need
+     * to know the host peer's identity.
+     */
+    openAndWaitForContent(path: string, timeoutMs?: number): Promise<string | undefined>;
 }
 
 /**
@@ -83,5 +93,9 @@ export class DocumentSyncOperations implements DocumentOperations {
 
     getActiveDocumentPath(): string | undefined {
         return this.documentSync.getActiveDocumentPath();
+    }
+
+    async openAndWaitForContent(path: string, timeoutMs?: number): Promise<string | undefined> {
+        return this.documentSync.openAndWaitForContent(this.sessionInfo.hostId, path, timeoutMs);
     }
 }
