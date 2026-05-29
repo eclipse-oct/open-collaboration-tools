@@ -20,14 +20,52 @@ export interface ToolWhitelistConfig {
 }
 
 /**
+ * Optional workspace context that can be injected into the ACP prompt in an
+ * agent-agnostic way (as additional text / resource_link blocks). Kept opt-in
+ * so the default bridge behavior stays minimal.
+ */
+export interface WorkspaceContextConfig {
+    /**
+     * If true, prepend a textual snapshot of the workspace tree to the prompt.
+     * Defaults to false when omitted.
+     */
+    includeTree?: boolean;
+    /**
+     * Maximum directory depth used when rendering the workspace tree.
+     * Only applies when `includeTree` is true. Defaults to 2.
+     */
+    maxDepth?: number;
+    /**
+     * Additional files (relative to the workspace root or absolute) that should
+     * be attached to the prompt as `resource_link` blocks alongside the active
+     * document.
+     */
+    extraFiles?: string[];
+}
+
+/**
  * Agent configuration loaded from oct-agent.config.json
  */
 export interface AgentConfig {
     toolWhitelist: ToolWhitelistConfig;
+    /**
+     * Optional system-prompt instructions delivered to the ACP agent before
+     * the user prompt. Provided as a single string or as an array of strings
+     * that are joined with newlines. Agent-agnostic: forwarded as a regular
+     * ACP `text` content block, never as an adapter-specific markdown file.
+     */
+    systemPrompt?: string | string[];
+    /**
+     * Optional workspace context configuration. When set, the bridge attaches
+     * additional ACP content blocks (text + resource_links) to each prompt.
+     */
+    workspaceContext?: WorkspaceContextConfig;
 }
 
 /**
- * Default configuration used when no config file is found
+ * Default configuration used when no config file is found.
+ * `systemPrompt` and `workspaceContext` are intentionally left unset so the
+ * bridge behaves identically to previous releases unless a user opts in.
  */
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     toolWhitelist: {
@@ -35,6 +73,51 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         allowedToolNames: ['mcp__acp__Read', 'mcp__acp__Edit', 'mcp__acp__Write']
     }
 };
+
+/**
+ * Normalize a raw `systemPrompt` value from a config file. Accepts a string
+ * or a string array; everything else is ignored. Returns undefined when no
+ * valid prompt is configured so callers can cheaply skip the injection.
+ */
+function normalizeSystemPrompt(raw: unknown): string | string[] | undefined {
+    if (typeof raw === 'string' && raw.length > 0) {
+        return raw;
+    }
+    if (Array.isArray(raw)) {
+        const filtered = raw.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+        return filtered.length > 0 ? filtered : undefined;
+    }
+    return undefined;
+}
+
+/**
+ * Normalize a raw `workspaceContext` value from a config file. Only known
+ * fields are picked up; unknown fields are ignored to keep forward
+ * compatibility predictable.
+ */
+function normalizeWorkspaceContext(raw: unknown): WorkspaceContextConfig | undefined {
+    if (!raw || typeof raw !== 'object') {
+        return undefined;
+    }
+    const obj = raw as Record<string, unknown>;
+    const includeTree = typeof obj.includeTree === 'boolean' ? obj.includeTree : undefined;
+    const maxDepth = typeof obj.maxDepth === 'number' && Number.isFinite(obj.maxDepth) && obj.maxDepth >= 0
+        ? Math.floor(obj.maxDepth)
+        : undefined;
+    const extraFiles = Array.isArray(obj.extraFiles)
+        ? obj.extraFiles.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+        : undefined;
+
+    if (includeTree === undefined && maxDepth === undefined && (!extraFiles || extraFiles.length === 0)) {
+        return undefined;
+    }
+
+    const normalized: WorkspaceContextConfig = {};
+    if (includeTree !== undefined) normalized.includeTree = includeTree;
+    if (maxDepth !== undefined) normalized.maxDepth = maxDepth;
+    if (extraFiles && extraFiles.length > 0) normalized.extraFiles = extraFiles;
+    return normalized;
+}
 
 /**
  * Load agent configuration from file or return defaults
@@ -45,12 +128,21 @@ function loadAgentConfig(configPath?: string): AgentConfig {
         const content = fs.readFileSync(searchPath, 'utf8');
         const parsed = JSON.parse(content);
         console.log(`[ACP] Loaded config from ${searchPath}`);
-        return {
+        const config: AgentConfig = {
             toolWhitelist: {
                 allowedKinds: parsed.toolWhitelist?.allowedKinds ?? DEFAULT_AGENT_CONFIG.toolWhitelist.allowedKinds,
                 allowedToolNames: parsed.toolWhitelist?.allowedToolNames ?? DEFAULT_AGENT_CONFIG.toolWhitelist.allowedToolNames
             }
         };
+        const systemPrompt = normalizeSystemPrompt(parsed.systemPrompt);
+        if (systemPrompt !== undefined) {
+            config.systemPrompt = systemPrompt;
+        }
+        const workspaceContext = normalizeWorkspaceContext(parsed.workspaceContext);
+        if (workspaceContext !== undefined) {
+            config.workspaceContext = workspaceContext;
+        }
+        return config;
     } catch {
         console.log(`[ACP] No config file found at ${searchPath}, using defaults`);
         return DEFAULT_AGENT_CONFIG;
@@ -893,6 +985,23 @@ export class ACPBridge {
     }
 
     /**
+     * Build the system-prompt text from the agent configuration.
+     * Accepts a string or string[] (array entries are joined with newlines so
+     * users can keep one instruction per line in their config file) and
+     * returns undefined when no usable prompt is configured. The result is
+     * delivered to the agent as an ACP `text` content block by `sendTrigger`.
+     */
+    private buildSystemPromptText(): string | undefined {
+        const sys = this.config.systemPrompt;
+        if (sys === undefined) {
+            return undefined;
+        }
+        const text = Array.isArray(sys) ? sys.join('\n') : sys;
+        const trimmed = text.trim();
+        return trimmed.length > 0 ? text : undefined;
+    }
+
+    /**
      * Normalize whitespace for text matching (handles different newline counts)
      */
     /**
@@ -995,6 +1104,19 @@ export class ACPBridge {
                     text: trigger.content.prompt,
                 },
             ];
+
+            // Prepend the configured system prompt as a regular ACP text block.
+            // This is intentionally agent-agnostic: every ACP adapter sees the
+            // same text content, so we never depend on adapter-specific files
+            // like CLAUDE.md / GEMINI.md.
+            const systemPromptText = this.buildSystemPromptText();
+            if (systemPromptText) {
+                promptContent.unshift({
+                    type: 'text',
+                    text: systemPromptText,
+                });
+                console.error(`[ACP] Prepended systemPrompt (${systemPromptText.length} chars)`);
+            }
 
             // Add resource_link for the current document
             try {

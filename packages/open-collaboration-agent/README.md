@@ -48,12 +48,76 @@ node /path/to/oct-project/packages/open-collaboration-agent/bin/agent -r {room-i
 -   `-r, --room <string>`: Room ID to join (required)
 -   `-s, --server <string>`: OCT server URL (default: `https://api.open-collab.tools/`)
 -   `--acp-agent <command>`: Command to run the ACP agent (default: `npx @zed-industries/claude-code-acp`). Use this to connect any ACP-capable agent.
+-   `--config <path>`: Path to an `oct-agent.config.json` file (see [Configuration](#configuration) below). Defaults to `./oct-agent.config.json` in the current working directory.
 
 ### Example
 
 ```bash
 cd ~/my-project
 node ~/oct-tools/packages/open-collaboration-agent/bin/agent -r my-room-id
+```
+
+## Configuration
+
+The agent reads an optional `oct-agent.config.json` file from the working directory (or from a custom path via `--config`). The file is **fully optional** — if it is missing, the agent falls back to conservative built-in defaults. Configuration is intentionally **agent-agnostic**: the same file works with any ACP-capable adapter (Claude Code, Gemini CLI, Codex-ACP, …). Adapter-specific markdown files such as `CLAUDE.md` or `GEMINI.md` are **not** part of the OCT agent contract.
+
+### Full example
+
+```json
+{
+    "toolWhitelist": {
+        "allowedKinds": ["read", "edit"],
+        "allowedToolNames": ["mcp__acp__Read", "mcp__acp__Edit", "mcp__acp__Write"]
+    },
+    "systemPrompt": [
+        "You are operating inside a collaborative OCT session.",
+        "All file changes are delivered to other participants as reviewable diff proposals, not persisted directly.",
+        "When a request affects multiple code locations or multiple files, apply all relevant edits in a single run."
+    ]
+}
+```
+
+### `toolWhitelist`
+
+Controls which ACP tool calls the bridge is allowed to approve when the agent requests permission. A tool call is allowed if **either** its declared ACP `kind` is in `allowedKinds`, **or** its tool name (as reported by the adapter) is in `allowedToolNames`. Anything else is denied.
+
+| Field              | Type       | Default                                                          | Description                                                                                                                  |
+| ------------------ | ---------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `allowedKinds`     | `string[]` | `["read", "edit"]`                                               | ACP-standard tool kinds. Common values: `read`, `edit`, `delete`, `move`, `search`, `execute`.                               |
+| `allowedToolNames` | `string[]` | `["mcp__acp__Read", "mcp__acp__Edit", "mcp__acp__Write"]`        | Adapter-specific tool names used as a fallback when an adapter does not set a standard `kind`. Override per adapter if used. |
+
+Enabling additional capabilities (for example workspace search via Glob/Grep, or shell execution) is **opt-in**:
+
+```json
+{
+    "toolWhitelist": {
+        "allowedKinds": ["read", "edit", "search"]
+    }
+}
+```
+
+### `systemPrompt`
+
+An optional instruction string (or array of strings) that is prepended to every prompt sent to the ACP agent as a standard ACP `text` content block — **before** the user prompt and any `resource_link` blocks. Because it travels through the regular ACP protocol, every adapter receives the same instructions.
+
+-   **Type:** `string | string[]`
+-   **Default:** unset (no system prompt is sent)
+-   When an array is provided, entries are joined with newlines, so you can keep one instruction per line in the config.
+-   Empty strings, whitespace-only values, and non-string array entries are ignored.
+
+Example use cases:
+
+-   Tell the agent that it is operating inside a collaborative review session and that edits are surfaced as diff proposals.
+-   Encourage the agent to perform multi-file or multi-location edits in a single run when the request warrants it.
+-   Constrain output style (e.g. "respond in English", "do not add code comments").
+
+```json
+{
+    "systemPrompt": [
+        "You are operating inside a collaborative OCT session.",
+        "All file changes are delivered to other participants as reviewable diff proposals."
+    ]
+}
 ```
 
 ## Workspace Context (IMPORTANT)
