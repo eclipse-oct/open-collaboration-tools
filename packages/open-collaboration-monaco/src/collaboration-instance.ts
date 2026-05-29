@@ -496,7 +496,7 @@ export class CollaborationInstance implements Disposable {
             value = debounce(() => {
                 this.yjsMutex(() => {
                     const yjsText = this.yjs.getText(path);
-                    const newContent = yjsText.toString();
+                    const newContent = this.adjustEol(yjsText.toString(), document.getEndOfLineSequence());
                     if (newContent !== document.getValue()) {
                         this.updateDocumentContent(document, newContent);
                     }
@@ -656,5 +656,10 @@ export class CollaborationInstance implements Disposable {
             const decoder = new TextDecoder();
             return decoder.decode(file.content);
         }
+    }
+
+    private adjustEol(text: string, eol: monaco.editor.EndOfLineSequence): string {
+        const newEol = eol === monaco.editor.EndOfLineSequence.LF ? '\n' : '\r\n';
+        return text.replace(/\r?\n/g, newEol);
     }
 }
