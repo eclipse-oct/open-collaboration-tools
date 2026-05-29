@@ -196,6 +196,99 @@ describe('multi-file and new-file regressions', () => {
         }
     });
 
+    test('ACPBridge read_text_file returns buffered proposal content for sequential edits to the same file', async () => {
+        const proposeChanges = vi.fn().mockResolvedValue(undefined);
+        const sendMessage = vi.fn();
+
+        const original = 'A\nB\nC';
+        const bridge = new ACPBridge('echo', {
+            getDocument: () => original,
+            getActiveDocumentPath: () => 'workspace/active.ts',
+            getConnection: () => ({
+                editor: { proposeChanges },
+            }),
+            getSessionInfo: () => ({
+                roomId: 'room',
+                agentId: 'agent',
+                agentName: 'Agent',
+                hostId: 'host',
+                serverUrl: 'http://localhost',
+            }),
+        } as any);
+
+        (bridge as any).sendMessage = sendMessage;
+
+        const relativePath = path.join('tmp', `acp-sequential-${Date.now()}.ts`);
+        const absolutePath = path.resolve(process.cwd(), relativePath);
+
+        try {
+            fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+            fs.writeFileSync(absolutePath, original, 'utf8');
+
+            // Edit 1: A -> A1
+            const afterEdit1 = 'A1\nB\nC';
+            await (bridge as any).handleFileSystemRequest({
+                id: 'req-write-1',
+                method: 'fs/write_text_file',
+                params: {
+                    path: relativePath,
+                    content: afterEdit1,
+                },
+            });
+
+            // Simulate the agent re-reading the file between edits. The read
+            // must observe the buffered proposal from edit 1, otherwise edit 2
+            // would clobber edit 1 in the "last write wins" buffer.
+            sendMessage.mockClear();
+            await (bridge as any).handleFileSystemRequest({
+                id: 'req-read',
+                method: 'fs/read_text_file',
+                params: {
+                    path: relativePath,
+                },
+            });
+
+            expect(sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: 'req-read',
+                    result: expect.objectContaining({ content: afterEdit1 }),
+                })
+            );
+
+            // Edit 2: cumulative write applying C -> C1 on top of edit 1.
+            const afterEdit2 = 'A1\nB\nC1';
+            await (bridge as any).handleFileSystemRequest({
+                id: 'req-write-2',
+                method: 'fs/write_text_file',
+                params: {
+                    path: relativePath,
+                    content: afterEdit2,
+                },
+            });
+
+            // The buffered proposal must reflect BOTH edits, not just the last one.
+            const activeDocPath = 'workspace/active.ts';
+            const workspaceName = activeDocPath.split('/')[0];
+            const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
+            const pending = (bridge as any).pendingProposals.get(octPath);
+            expect(pending).toBeDefined();
+            expect(pending.currentContent).toBe(original);
+            expect(pending.newContent).toBe(afterEdit2);
+
+            // Flushing emits a single proposal carrying the cumulative state.
+            await (bridge as any).flushPendingProposals();
+            expect(proposeChanges).toHaveBeenCalledTimes(1);
+            expect(proposeChanges).toHaveBeenCalledWith(
+                octPath,
+                expect.arrayContaining([
+                    expect.objectContaining({ text: afterEdit2 }),
+                ])
+            );
+        } finally {
+            fs.rmSync(path.resolve(process.cwd(), 'tmp'), { recursive: true, force: true });
+        }
+    });
+
     test('ACPBridge write_text_file does not overwrite when OCT document is missing but file exists locally', async () => {
         const proposeChanges = vi.fn().mockResolvedValue(undefined);
         const sendMessage = vi.fn();

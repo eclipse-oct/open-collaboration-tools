@@ -725,11 +725,18 @@ export class ACPBridge {
                 const workspaceName = activeDocPath?.split('/')[0] ?? path.basename(process.cwd());
                 const octPath = path.join(workspaceName, path.relative(process.cwd(), absolutePath));
 
-                // Try OCT document first, fallback to local filesystem
-                let content = this.documentOps?.getDocument(octPath);
+                // Prefer the latest buffered proposal so an agent that re-reads
+                // the file between edits observes its own pending writes.
+                // Without this, sequential writes against the same file collapse
+                // to "last write wins" and earlier edits are lost.
+                const pending = this.pendingProposals.get(octPath);
+                let content: string | undefined = pending?.newContent
+                    ?? this.documentOps?.getDocument(octPath);
                 if (content === undefined) {
                     content = fs.readFileSync(absolutePath, 'utf8');
                     console.error(`[ACP] Read file from filesystem (not in OCT): ${absolutePath}`);
+                } else if (pending) {
+                    console.error(`[ACP] Read file from pending proposal buffer: ${octPath}`);
                 } else {
                     console.error(`[ACP] Read file from OCT document: ${octPath}`);
                 }
