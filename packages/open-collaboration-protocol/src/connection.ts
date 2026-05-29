@@ -32,6 +32,8 @@ export interface EditorHandler {
     open(target: MessageTarget, path: types.Path): Promise<void>;
     onClose(handler: Handler<[types.Path]>): void;
     close(path: types.Path): Promise<void>;
+    onProposeChanges(handler: Handler<[types.Path, types.TextDiffChange[]]>): void;
+    proposeChanges(path: types.Path, changes: types.TextDiffChange[]): Promise<void>;
 }
 
 export interface FileSystemHandler {
@@ -149,7 +151,9 @@ export class ProtocolBroadcastConnectionImpl extends AbstractBroadcastConnection
         onOpen: handler => this.onNotification(Messages.Editor.Open, handler),
         open: (target, path) => this.sendNotification(Messages.Editor.Open, target, path),
         onClose: handler => this.onBroadcast(Messages.Editor.Close, handler),
-        close: path => this.sendBroadcast(Messages.Editor.Close, path)
+        close: path => this.sendBroadcast(Messages.Editor.Close, path),
+        proposeChanges: (path, changes) => this.sendBroadcast(Messages.Editor.ProposeChanges, path, changes),
+        onProposeChanges: handler => this.onBroadcast(Messages.Editor.ProposeChanges, handler)
     };
 
     sync: SyncHandler = {

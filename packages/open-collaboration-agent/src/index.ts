@@ -5,6 +5,4 @@
 // ******************************************************************************
 
 export * from './agent.js';
-export * from './prompt.js';
-export * from './agent-util.js';
 export * from './document-sync.js';

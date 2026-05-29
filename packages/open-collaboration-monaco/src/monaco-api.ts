@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { CollaborationInstance, UsersChangeEvent, FileNameChangeEvent } from './collaboration-instance.js';
+import { CollaborationInstance, UsersChangeEvent, FileNameChangeEvent, ProposedChangesEvent } from './collaboration-instance.js';
 import * as types from 'open-collaboration-protocol';
 import { createRoom, joinRoom, login } from './collaboration-connection.js';
 import * as monaco from 'monaco-editor';
@@ -24,6 +24,12 @@ export type MonacoCollabCallbacks = {
      * @param info information about the changed status
      */
     statusReporter?: (info: types.Info) => void;
+    /**
+     * Optional override for the diff display when changes are proposed.
+     * If provided, the default Monaco DiffEditor is not shown and the consuming
+     * app is responsible for presenting the diff and calling `accept()` or `reject()`.
+     */
+    onProposeChanges?: (path: string, originalText: string, modifiedText: string, accept: () => void, reject: () => void) => void;
 }
 
 export type MonacoCollabOptions = {
@@ -56,6 +62,7 @@ export type MonacoCollabApi = {
     getFileName: () => string | undefined
     setWorkspaceName: (workspaceName: string) => void
     getWorkspaceName: () => string | undefined
+    onProposedChanges: (callback: ProposedChangesEvent) => void
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -192,6 +199,12 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }
     };
 
+    const registerProposedChangesHandler = (callback: ProposedChangesEvent) => {
+        if (instance) {
+            instance.onProposedChanges(callback);
+        }
+    };
+
     const isLoggedIn = async () => {
         if (!connectionProvider) {
             return false;
@@ -225,7 +238,8 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         setFileName: doSetFileName,
         getFileName: doGetFileName,
         getWorkspaceName: doGetWorkspaceName,
-        setWorkspaceName: doSetWorkspaceName
+        setWorkspaceName: doSetWorkspaceName,
+        onProposedChanges: registerProposedChangesHandler
     };
 
 }

@@ -14,6 +14,7 @@ export namespace OctCommands {
     export const CreateRoom = 'oct.createRoom';
     export const CloseConnection = 'oct.closeConnection';
     export const SignOut = 'oct.signOut';
+    export const StartAgent = 'oct.startAgent';
     export const DevFuzzing = 'oct.dev.fuzzing';
 }
 
@@ -21,4 +22,9 @@ export namespace CodeCommands {
     export const CloseFolder = 'workbench.action.closeFolder';
     export const OpenSettings = 'workbench.action.openSettings';
     export const OpenFolder = 'vscode.openFolder';
+}
+
+export namespace DiffSupportCommands {
+    export const CreateTempDiffDocument = 'oct.createTempDiffDocument';
+    export const SendDiff = 'oct.sendDiff';
 }

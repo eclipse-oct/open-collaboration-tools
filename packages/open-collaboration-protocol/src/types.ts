@@ -341,6 +341,11 @@ export interface RelativeTextPosition {
     assoc: number
 }
 
+export interface TextDiffChange {
+    range: Range;
+    text: string;
+}
+
 export interface Position {
     line: number;
     character: number;
