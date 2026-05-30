@@ -14,7 +14,6 @@ import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js
 import { createContainer } from './inversify.js';
 import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
-import fetch from 'node-fetch';
 
 initializeProtocol({
     cryptoModule: crypto.webcrypto
