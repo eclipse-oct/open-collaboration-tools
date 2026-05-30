@@ -5,3 +5,6 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .env
+# Deploy secrets — never commit
+deploy/.env
+deploy/*.pem

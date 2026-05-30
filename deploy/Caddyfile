@@ -1,0 +1,25 @@
+# Caddy reverse proxy for the Open Collaboration Server.
+# Automatically obtains and renews a Let's Encrypt TLS certificate for the
+# domain below (requires the domain's A record to point at this host and
+# ports 80 + 443 reachable from the internet).
+#
+# Caddy forwards WebSocket upgrade headers transparently, so the socket.io /
+# ws live-collaboration traffic (WSS) works without extra configuration.
+
+oct.dev.libr.live {
+	encode zstd gzip
+
+	reverse_proxy oct-server:8100 {
+		# Pass the real client info through to the app.
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Optional: send Caddy access/error logs to stdout (visible via docker logs).
+	log {
+		output stdout
+		format console
+	}
+}

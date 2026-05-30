@@ -1,0 +1,48 @@
+services:
+  oct-server:
+    build:
+      dockerfile: ./Dockerfile
+      context: ..
+    image: oct/oct-server
+    container_name: oct-server
+    restart: unless-stopped
+    expose:
+      - "8100"
+    environment:
+      # --- Auth: simple login (no external OAuth provider) ---
+      - OCT_ACTIVATE_SIMPLE_LOGIN=true
+      # --- Identity / URLs ---
+      - OCT_SERVER_OWNER=${OCT_SERVER_OWNER:-Libr}
+      - OCT_BASE_URL=https://oct.dev.libr.live
+      # --- Security: JWT signing key (set a strong value in deploy/.env) ---
+      - OCT_JWT_PRIVATE_KEY=${OCT_JWT_PRIVATE_KEY}
+      # --- CORS: restrict to your domain (comma-separated). Leave unset to allow all. ---
+      - OCT_CORS_ALLOWED_ORIGINS=${OCT_CORS_ALLOWED_ORIGINS:-https://oct.dev.libr.live}
+    # The image's default CMD (`npm run start`) already binds to 0.0.0.0:8100,
+    # so Caddy can reach it over the shared Docker network. No command override needed.
+    networks:
+      - oct
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: oct-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - oct-server
+    networks:
+      - oct
+
+networks:
+  oct:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
