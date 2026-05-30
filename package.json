@@ -14,7 +14,7 @@
     "build:clean": "npm run clean && npm run build",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "start": "npm run start --workspace=open-collaboration-server",
+    "start": "npm run start --workspace=@hereugo/open-collaboration-server",
     "test": "vitest",
     "test-ui": "vitest --ui",
     "coverage": "vitest run --coverage",
