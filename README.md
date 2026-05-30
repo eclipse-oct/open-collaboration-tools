@@ -35,6 +35,8 @@ Build all packages:
 npm i
 npm run build
 ```
+I am here 
+
 
 Launch the server application:
 
@@ -45,6 +47,8 @@ npm run start
 ## Deployment
 
 A container image named [oct-server-dev](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server-dev) is available for simple deployment. It does not require any additional infrastructure services. However, the server uses WebSocket connections and holds session data in memory, so horizontal scaling is not yet supported.
+
+
 
 Build the container image:
 
@@ -57,3 +61,12 @@ Launch the server from inside the container
 ```shell
 docker compose up -d
 ```
+
+jkjjkladfsjklafjdlkafjdklajfdalskjfdkaljlk
+
+fjfjfdjkafjdlka;j
+
+fdjkla;fjlakd;jfl;
+
+
+fdjklafjklajfkldas
