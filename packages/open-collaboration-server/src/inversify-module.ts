@@ -21,6 +21,7 @@ import { PeerManager } from './peer-manager.js';
 import { AuthentikOAuthEndpoint } from './auth-endpoints/authentik-endpoint.js';
 import { KeycloakOAuthEndpoint } from './auth-endpoints/keycloak-endpoint.js';
 import { GenericOAuthEndpoint } from './auth-endpoints/generic-oauth-endpoint.js';
+import { ApiKeyAuthEndpoint } from './auth-endpoints/api-key-endpoint.js';
 
 /**
  * This is the default dependency injection container module for the Open Collaboration Server.
@@ -56,5 +57,7 @@ export default new ContainerModule(bind => {
     bind(AuthEndpoint).toService(KeycloakOAuthEndpoint);
     bind(GenericOAuthEndpoint).toSelf().inSingletonScope();
     bind(AuthEndpoint).toService(GenericOAuthEndpoint);
+    bind(ApiKeyAuthEndpoint).toSelf().inSingletonScope();
+    bind(AuthEndpoint).toService(ApiKeyAuthEndpoint);
 
 });

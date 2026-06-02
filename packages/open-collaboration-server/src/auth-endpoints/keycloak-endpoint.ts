@@ -78,8 +78,10 @@ export class KeycloakOAuthEndpoint extends OAuthEndpoint {
             };
             done(undefined, userInfo);
         });
-
     }
 
+    override getName(): string {
+        return this.label;
+    }
 }
 

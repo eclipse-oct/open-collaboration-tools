@@ -1,0 +1,109 @@
+name: Release service-process binaries
+
+on:
+  push:
+    tags:
+      - service-process-v*
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-binaries:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build service-process executable
+        run: npm run create:executable --workspace=open-collaboration-service-process
+
+      - name: Prepare release artifact metadata
+        id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#service-process-v}"
+
+          case "${{ runner.os }}" in
+            Linux)
+              OS_NAME="linux"
+              EXT=""
+              ;;
+            Windows)
+              OS_NAME="windows"
+              EXT=".exe"
+              ;;
+            macOS)
+              OS_NAME="macos"
+              EXT=""
+              ;;
+            *)
+              echo "Unsupported OS: ${{ runner.os }}"
+              exit 1
+              ;;
+          esac
+
+          SOURCE="packages/open-collaboration-service-process/bin/oct-service-process${EXT}"
+          TARGET="oct-service-process-${VERSION}-${OS_NAME}-x64${EXT}"
+
+          if [ ! -f "$SOURCE" ]; then
+            echo "Expected binary not found: $SOURCE"
+            exit 1
+          fi
+
+          cp "$SOURCE" "$TARGET"
+          echo "asset_name=$TARGET" >> "$GITHUB_OUTPUT"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.asset_name }}
+          path: ${{ steps.meta.outputs.asset_name }}
+          if-no-files-found: error
+
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs: build-binaries
+
+    steps:
+      - name: Download built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Flatten artifact directories
+        shell: bash
+        run: |
+          mkdir -p dist
+          find release-assets -type f -exec cp {} dist/ \;
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+          generate_release_notes: true

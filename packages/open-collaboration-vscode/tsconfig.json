@@ -3,7 +3,8 @@
     "compilerOptions": {
         "noEmit": false,
         "rootDir": "src",
-        "outDir": "lib"
+        "outDir": "lib",
+        "jsx": "react"
     },
     "references": [
         {
@@ -14,6 +15,6 @@
         }
     ],
     "include": [
-        "src/**/*.ts"
+        "src/**/*.ts*",
     ]
 }

@@ -23,6 +23,8 @@ Usage of the public instance is bound to its [Terms of Use](https://www.open-col
 | OCT_LOGIN_PAGE_URL        | Url of the login page. Defaults to /login.html?token={token}  |
 | OCT_LOGIN_SUCCESS_URL     | Url of the login success page. Defaults a simple "Login Successful. You can close this page" text  |
 | OCT_ACTIVATE_SIMPLE_LOGIN | Activates the simple login handler to alow unverified authentication just with username and optionally email |
+| OCT_ACTIVATE_API_KEY_AUTH | Activates API key authentication. When enabled, a key can be provided via `OCT_API_KEY` or one will be auto-generated and logged on startup |
+| OCT_API_KEY               | Sets a specific API key for API key authentication. If not set and API key auth is activated, a key will be auto-generated |
 | OCT_REDIRECT_URL_WHITELIST | A comma seperated list to allow usage of the specified URLs with the `redirect` query parameter when authenticating with a provider which redirects back after success. The query of a URL is ignored when validating against this list   |
 | OCT_BASE_URL              | Base URL of the server is reachable under. Used for oauth redirects |
 | OCT_CORS_ALLOWED_ORIGINS | `,` seperated list to configure the allowed origins for CORS. This will be evaluated based on the origin header of the request. if there is no match, fail the request. if not set all origin will be allowed |

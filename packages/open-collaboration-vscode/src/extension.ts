@@ -14,6 +14,8 @@ import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js
 import { createContainer } from './inversify.js';
 import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
+import fetch from 'node-fetch';
+import { ChatWebview } from './chat-webview/chat-webview.js';
 
 initializeProtocol({
     cryptoModule: crypto.webcrypto
@@ -24,6 +26,7 @@ export async function activate(context: vscode.ExtensionContext) {
     container.bind(Fetch).toConstantValue(fetch);
     const commands = container.get(Commands);
     commands.initialize();
+    container.get(ChatWebview).register();
     const roomService = container.get(CollaborationRoomService);
 
     const connection = await roomService.tryConnect();
