@@ -1,5 +1,9 @@
 # Change Log of `libr-live-extension`
 
+## v2.0.1 (Feb. 18, 2026)
+
+- Align Marketplace description with README messaging.
+
 ## v1.0.13 (Jan. 2026)
 
 - Adjust Marketplace-facing wording to avoid blocked keywords.

@@ -1,9 +1,9 @@
 {
   "name": "libr-live-extension-collaboration-tool",
   "displayName": "Libr Live Extension",
-  "version": "2.0.0",
+  "version": "2.0.9",
   "license": "MIT",
-  "description": "Real-time collaboration and shared workspaces with Libr Live.",
+  "description": "Real-time collaboration and shared workspaces with Libr Live",
   "publisher": "LibrLive",
   "categories": [
     "Other"
@@ -255,6 +255,86 @@
         "defaults": {
           "dark": "#e3008c",
           "light": "#e3008c"
+        }
+      },
+      {
+        "id": "oct.user.blue",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#8AB4F8",
+          "light": "#8AB4F8"
+        }
+      },
+      {
+        "id": "oct.user.teal",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#81C995",
+          "light": "#81C995"
+        }
+      },
+      {
+        "id": "oct.user.gold",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#FDD663",
+          "light": "#FDD663"
+        }
+      },
+      {
+        "id": "oct.user.coral",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#F28B82",
+          "light": "#F28B82"
+        }
+      },
+      {
+        "id": "oct.user.lilac",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#C58AF9",
+          "light": "#C58AF9"
+        }
+      },
+      {
+        "id": "oct.user.sky",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#9AD0F5",
+          "light": "#9AD0F5"
+        }
+      },
+      {
+        "id": "oct.user.mint",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#A7F3D0",
+          "light": "#A7F3D0"
+        }
+      },
+      {
+        "id": "oct.user.peach",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#FFD6A5",
+          "light": "#FFD6A5"
+        }
+      },
+      {
+        "id": "oct.user.rose",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#FFB3C1",
+          "light": "#FFB3C1"
+        }
+      },
+      {
+        "id": "oct.user.softGreen",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#B9F6CA",
+          "light": "#B9F6CA"
         }
       }
     ]
