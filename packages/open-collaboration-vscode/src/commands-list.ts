@@ -23,8 +23,3 @@ export namespace CodeCommands {
     export const OpenSettings = 'workbench.action.openSettings';
     export const OpenFolder = 'vscode.openFolder';
 }
-
-export namespace DiffSupportCommands {
-    export const CreateTempDiffDocument = 'oct.createTempDiffDocument';
-    export const SendDiff = 'oct.sendDiff';
-}

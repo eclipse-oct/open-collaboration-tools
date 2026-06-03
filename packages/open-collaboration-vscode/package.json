@@ -252,18 +252,6 @@
         "icon": "$(sign-out)"
       },
       {
-        "command": "oct.createTempDiffDocument",
-        "title": "%oct.createTempDiffDocument%",
-        "category": "Open Collaboration Tools",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "oct.sendDiff",
-        "title": "%oct.sendDiff%",
-        "category": "Open Collaboration Tools",
-        "icon": "$(send)"
-      },
-      {
         "command": "oct.startAgent",
         "title": "%oct.startAgent%",
         "category": "Open Collaboration Tools",
