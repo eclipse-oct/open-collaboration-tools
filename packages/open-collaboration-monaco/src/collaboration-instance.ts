@@ -434,6 +434,26 @@ export class CollaborationInstance implements Disposable {
         this.connection.editor.closeProposal(path);
     }
 
+    /**
+     * Locally cancels the currently displayed proposal for `path`: resets
+     * `stopPropagation` so local edits sync again, without broadcasting a
+     * `closeProposal` (so a peer's merge editor stays open).
+     */
+    cancelProposal(path: string): void {
+        if (this.currentDiffPath !== path) {
+            return;
+        }
+        if (this.diffCleanup) {
+            // built-in DOM diff path: cleanup already resets stopPropagation + currentDiffPath
+            this.diffCleanup();
+            this.diffCleanup = undefined;
+        } else {
+            // onProposeChanges callback path
+            this.stopPropagation = false;
+            this.currentDiffPath = undefined;
+        }
+    }
+
     setEditor(editor: monaco.editor.IStandaloneCodeEditor): void {
         this.options.editor = editor;
         this.registerEditorEvents();

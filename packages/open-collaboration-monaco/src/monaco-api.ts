@@ -64,6 +64,7 @@ export type MonacoCollabApi = {
     getWorkspaceName: () => string | undefined
     onProposedChanges: (callback: ProposedChangesEvent) => void
     closeProposal: (path: string) => void
+    cancelProposal: (path: string) => void
     onCloseProposal: (callback: CloseProposalEvent) => void
 }
 
@@ -213,6 +214,12 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }
     };
 
+    const doCancelProposal = (path: string) => {
+        if (instance) {
+            instance.cancelProposal(path);
+        }
+    };
+
     const registerCloseProposalHandler = (callback: CloseProposalEvent) => {
         if (instance) {
             instance.onCloseProposal(callback);
@@ -255,6 +262,7 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         setWorkspaceName: doSetWorkspaceName,
         onProposedChanges: registerProposedChangesHandler,
         closeProposal: doCloseProposal,
+        cancelProposal: doCancelProposal,
         onCloseProposal: registerCloseProposalHandler
     };
 
