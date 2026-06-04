@@ -5,7 +5,7 @@
 // ******************************************************************************
 
 import { ConnectionProvider, SocketIoTransportProvider } from 'open-collaboration-protocol';
-import { CollaborationInstance, UsersChangeEvent, FileNameChangeEvent, ProposedChangesEvent } from './collaboration-instance.js';
+import { CollaborationInstance, UsersChangeEvent, FileNameChangeEvent, ProposedChangesEvent, CloseProposalEvent } from './collaboration-instance.js';
 import * as types from 'open-collaboration-protocol';
 import { createRoom, joinRoom, login } from './collaboration-connection.js';
 import * as monaco from 'monaco-editor';
@@ -63,6 +63,8 @@ export type MonacoCollabApi = {
     setWorkspaceName: (workspaceName: string) => void
     getWorkspaceName: () => string | undefined
     onProposedChanges: (callback: ProposedChangesEvent) => void
+    closeProposal: (path: string) => void
+    onCloseProposal: (callback: CloseProposalEvent) => void
 }
 
 export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
@@ -205,6 +207,18 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         }
     };
 
+    const doCloseProposal = (path: string) => {
+        if (instance) {
+            instance.closeProposal(path);
+        }
+    };
+
+    const registerCloseProposalHandler = (callback: CloseProposalEvent) => {
+        if (instance) {
+            instance.onCloseProposal(callback);
+        }
+    };
+
     const isLoggedIn = async () => {
         if (!connectionProvider) {
             return false;
@@ -239,7 +253,9 @@ export function monacoCollab(options: MonacoCollabOptions): MonacoCollabApi {
         getFileName: doGetFileName,
         getWorkspaceName: doGetWorkspaceName,
         setWorkspaceName: doSetWorkspaceName,
-        onProposedChanges: registerProposedChangesHandler
+        onProposedChanges: registerProposedChangesHandler,
+        closeProposal: doCloseProposal,
+        onCloseProposal: registerCloseProposalHandler
     };
 
 }

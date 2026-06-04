@@ -170,6 +170,13 @@ export interface PendingUser {
     deferred: Deferred<boolean>;
 }
 
+interface ProposalMergeEditor {
+    baseUri: vscode.Uri;
+    localUri: vscode.Uri;
+    agentUri: vscode.Uri;
+    outputUri: vscode.Uri;
+}
+
 export type CollaborationInstanceFactory = (options: CollaborationInstanceOptions) => CollaborationInstance;
 
 @injectable()
@@ -229,6 +236,8 @@ export class CollaborationInstance implements vscode.Disposable {
     private pending = new Map<string, PendingUser>();
     private throttles = new Map<string, () => void>();
     private proposalDebounces = new Map<string, ReturnType<typeof debounce>>();
+    private proposalMergeEditors = new Map<string, ProposalMergeEditor>();
+    private closingProposals = new Set<string>();
     private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
     private _permissions: types.Permissions = { readonly: false };
 
@@ -643,6 +652,8 @@ export class CollaborationInstance implements vscode.Disposable {
         this.yjsDocuments.forEach(e => e.dispose());
         this.yjsDocuments.clear();
         this.throttles.clear();
+        this.proposalMergeEditors.clear();
+        this.closingProposals.clear();
         this.onDidDisposeEmitter.fire();
         this.toDispose.dispose();
     }
@@ -735,6 +746,19 @@ export class CollaborationInstance implements vscode.Disposable {
         });
 
         this.connection.editor.onProposeChanges((_, path, changes) => this.onDidProposeChanges(path, changes));
+        this.connection.editor.onCloseProposal((_, path) => this.onDidCloseProposal(path));
+
+        // Broadcast a closeProposal when the user closes a tracked proposal merge tab,
+        // so that peers close their matching diff/merge view as well.
+        this.toDispose.push(vscode.window.tabGroups.onDidChangeTabs(event => {
+            for (const tab of event.closed) {
+                const path = this.findProposalPathForTab(tab);
+                if (path && !this.closingProposals.has(path)) {
+                    this.cleanupProposalContent(path);
+                    this.connection.editor.closeProposal(path);
+                }
+            }
+        }));
     }
 
     proposeChanges(path: string, changes: types.TextDiffChange[]): void {
@@ -808,6 +832,77 @@ export class CollaborationInstance implements vscode.Disposable {
             input2: { uri: agentUri, title: 'Agent Changes', description: 'Remote' },
             output: originalUri
         });
+
+        // Track the virtual URIs so we can later locate and close the merge tab
+        // for this path (either on a received closeProposal or for cleanup).
+        this.proposalMergeEditors.set(path, {
+            baseUri,
+            localUri,
+            agentUri,
+            outputUri: originalUri
+        });
+    }
+
+    private onDidCloseProposal(path: string): void {
+        const editor = this.proposalMergeEditors.get(path);
+        if (!editor) {
+            return;
+        }
+        const tab = this.findProposalTab(editor);
+        // Guard the tab-close listener so closing the view here does not rebroadcast.
+        this.closingProposals.add(path);
+        try {
+            if (tab) {
+                void vscode.window.tabGroups.close(tab);
+            }
+        } finally {
+            this.closingProposals.delete(path);
+        }
+        this.cleanupProposalContent(path);
+    }
+
+    private cleanupProposalContent(path: string): void {
+        const editor = this.proposalMergeEditors.get(path);
+        if (!editor) {
+            return;
+        }
+        const provider = CollaborationInstance.ensureContentProvider();
+        provider.deleteContent(editor.baseUri);
+        provider.deleteContent(editor.localUri);
+        provider.deleteContent(editor.agentUri);
+        this.proposalMergeEditors.delete(path);
+    }
+
+    private findProposalPathForTab(tab: vscode.Tab): string | undefined {
+        for (const [path, editor] of this.proposalMergeEditors) {
+            if (this.tabMatchesProposal(tab, editor)) {
+                return path;
+            }
+        }
+        return undefined;
+    }
+
+    private findProposalTab(editor: ProposalMergeEditor): vscode.Tab | undefined {
+        for (const group of vscode.window.tabGroups.all) {
+            for (const tab of group.tabs) {
+                if (this.tabMatchesProposal(tab, editor)) {
+                    return tab;
+                }
+            }
+        }
+        return undefined;
+    }
+
+    private tabMatchesProposal(tab: vscode.Tab, editor: ProposalMergeEditor): boolean {
+        // The 3-way merge editor tab input ("TabInputTextMerge") is still a
+        // proposed VSCode API, so `tab.input` surfaces as `unknown`. Narrow it
+        // structurally by its `base`/`result` URIs instead of an instanceof check.
+        const input = tab.input as { base?: vscode.Uri; result?: vscode.Uri } | undefined;
+        if (input && input.base && input.result) {
+            return input.result.toString() === editor.outputUri.toString()
+                && input.base.toString() === editor.baseUri.toString();
+        }
+        return false;
     }
 
     private createFileWatcher(): void {

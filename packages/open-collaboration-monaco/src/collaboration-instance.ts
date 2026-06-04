@@ -18,6 +18,7 @@ import { DisposablePeer } from './collaboration-peer.js';
 export type UsersChangeEvent = () => void;
 export type FileNameChangeEvent = (fileName: string) => void;
 export type ProposedChangesEvent = (path: string, accepted: boolean) => void;
+export type CloseProposalEvent = (path: string) => void;
 
 export interface Disposable {
     dispose(): void;
@@ -45,9 +46,17 @@ export class CollaborationInstance implements Disposable {
     protected readonly usersChangedCallbacks: UsersChangeEvent[] = [];
     protected readonly fileNameChangeCallbacks: FileNameChangeEvent[] = [];
     protected readonly proposedChangesCallbacks: ProposedChangesEvent[] = [];
+    protected readonly closeProposalCallbacks: CloseProposalEvent[] = [];
 
     protected currentPath?: string;
     protected stopPropagation = false;
+
+    /** Path of the currently displayed proposal diff, if any. */
+    private currentDiffPath?: string;
+    /** Cleanup callback for the currently displayed built-in diff editor, if any. */
+    private diffCleanup?: () => void;
+    /** Re-entrancy guard so a received closeProposal does not re-broadcast. */
+    private receivingCloseProposal = false;
     protected _following?: string;
     protected _fileName: string;
     protected previousFileName?: string;
@@ -113,6 +122,10 @@ export class CollaborationInstance implements Disposable {
         this.proposedChangesCallbacks.push(callback);
     }
 
+    onCloseProposal(callback: CloseProposalEvent) {
+        this.closeProposalCallbacks.push(callback);
+    }
+
     constructor(protected options: CollaborationInstanceOptions) {
         this.connection = options.connection;
         this.yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
@@ -176,6 +189,7 @@ export class CollaborationInstance implements Disposable {
         });
 
         this.connection.editor.onProposeChanges(async (_, path, changes) => this.onDidProposeChanges(path, changes));
+        this.connection.editor.onCloseProposal((_, path) => this.onDidCloseProposal(path));
     }
 
     private setupFileSystemHandlers(): void {
@@ -256,14 +270,23 @@ export class CollaborationInstance implements Disposable {
         this.stopPropagation = true;
 
         if (this.options.callbacks.onProposeChanges) {
+            this.currentDiffPath = path;
             const accept = () => {
                 this.stopPropagation = false;
                 model.setValue(modifiedText);
                 this.notifyProposedChanges(path, true);
+                this.currentDiffPath = undefined;
+                if (!this.receivingCloseProposal) {
+                    this.connection.editor.closeProposal(path);
+                }
             };
             const reject = () => {
                 this.stopPropagation = false;
                 this.notifyProposedChanges(path, false);
+                this.currentDiffPath = undefined;
+                if (!this.receivingCloseProposal) {
+                    this.connection.editor.closeProposal(path);
+                }
             };
             this.options.callbacks.onProposeChanges(path, originalText, modifiedText, accept, reject);
             return;
@@ -342,18 +365,29 @@ export class CollaborationInstance implements Disposable {
             this.diffEditorContainer = undefined;
             editorDomNode.style.display = '';
             this.stopPropagation = false;
+            this.currentDiffPath = undefined;
+            this.diffCleanup = undefined;
             editor.layout();
         };
+
+        this.currentDiffPath = path;
+        this.diffCleanup = cleanup;
 
         acceptButton.addEventListener('click', () => {
             cleanup();
             model.setValue(modifiedText);
             this.notifyProposedChanges(path, true);
+            if (!this.receivingCloseProposal) {
+                this.connection.editor.closeProposal(path);
+            }
         });
 
         rejectButton.addEventListener('click', () => {
             cleanup();
             this.notifyProposedChanges(path, false);
+            if (!this.receivingCloseProposal) {
+                this.connection.editor.closeProposal(path);
+            }
         });
     }
 
@@ -367,6 +401,37 @@ export class CollaborationInstance implements Disposable {
 
     private notifyProposedChanges(path: string, accepted: boolean): void {
         this.proposedChangesCallbacks.forEach(callback => callback(path, accepted));
+    }
+
+    private notifyCloseProposal(path: string): void {
+        this.closeProposalCallbacks.forEach(callback => callback(path));
+    }
+
+    /**
+     * Handles a `closeProposal` broadcast received from a peer. Closes the local
+     * diff view that matches the given path and notifies registered listeners.
+     * The re-entrancy guard prevents the local cleanup from re-broadcasting.
+     */
+    private onDidCloseProposal(path: string): void {
+        if (this.currentDiffPath !== path) {
+            return;
+        }
+        this.receivingCloseProposal = true;
+        try {
+            this.diffCleanup?.();
+            this.diffCleanup = undefined;
+            this.currentDiffPath = undefined;
+            this.notifyCloseProposal(path);
+        } finally {
+            this.receivingCloseProposal = false;
+        }
+    }
+
+    /**
+     * Broadcasts a `closeProposal` event so peers close the diff view for the given path.
+     */
+    closeProposal(path: string): void {
+        this.connection.editor.closeProposal(path);
     }
 
     setEditor(editor: monaco.editor.IStandaloneCodeEditor): void {
@@ -400,6 +465,8 @@ export class CollaborationInstance implements Disposable {
         this.activeDiffEditor = undefined;
         this.diffEditorContainer?.remove();
         this.diffEditorContainer = undefined;
+        this.currentDiffPath = undefined;
+        this.diffCleanup = undefined;
         this.peers.clear();
         this.documentDisposables.forEach(e => e.dispose());
         this.documentDisposables.clear();
