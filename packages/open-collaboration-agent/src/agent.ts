@@ -199,6 +199,14 @@ function findMatchingFiles(rootDir: string, userPath: string, maxResults = 5): s
     return fuzzyResults.slice(0, maxResults).map(r => r.relativePath);
 }
 
+function isFileAtPath(filePath: string): boolean {
+    try {
+        return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Sets up trigger detection for @agent mentions in documents
  * Returns a cleanup function to stop monitoring
@@ -305,14 +313,6 @@ export function setupTriggerDetection(options: TriggerDetectionOptions): () => v
         } finally {
             state.executing = false;
             state.documentChanged = false;
-        }
-    };
-
-    const isFileAtPath = (filePath: string): boolean => {
-        try {
-            return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
-        } catch {
-            return false;
         }
     };
 
