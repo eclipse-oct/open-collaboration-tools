@@ -181,18 +181,6 @@
           "when": "viewItem == pendingPeer",
           "group": "inline"
         }
-      ],
-      "editor/title": [
-        {
-          "command": "oct.sendDiff",
-          "when": "oct.connection && editorLangId != 'oct-temp-diff'",
-          "group": "navigation"
-        },
-        {
-          "command": "oct.createTempDiffDocument",
-          "when": "oct.connection && editorLangId != 'oct-temp-diff'",
-          "group": "navigation"
-        }
       ]
     },
     "commands": [
