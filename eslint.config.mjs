@@ -38,6 +38,16 @@ export default [{
         '**/*env.d.ts'
     ],
 }, ...compat.extends('eslint:recommended', 'plugin:@typescript-eslint/recommended'), {
+    // Node-based helper scripts (e.g. .vscode/*.js) need Node globals like `process` and `console`.
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+    languageOptions: {
+        globals: {
+            ...globals.node
+        },
+        ecmaVersion: 2022,
+        sourceType: 'module'
+    }
+}, {
     files: [
         '**/src/**/*.ts',
         '**/src/**/*.tsx',

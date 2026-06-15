@@ -238,6 +238,13 @@
         "title": "%oct.signOut%",
         "category": "Open Collaboration Tools",
         "icon": "$(sign-out)"
+      },
+      {
+        "command": "oct.startAgent",
+        "title": "%oct.startAgent%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(robot)",
+        "enablement": "oct.connection && workbenchState != empty"
       }
     ],
     "colors": [

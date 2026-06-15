@@ -26,6 +26,9 @@ export namespace Messages {
     export namespace Editor {
         export const Open = new NotificationType<[types.Path]>('editor/open');
         export const Close = new BroadcastType<[types.Path]>('editor/close');
+        /** Propose changes bypassing the Awarness tracking. Should open a diff editor */
+        export const ProposeChanges = new BroadcastType<[types.Path, types.TextDiffChange[]]>('editor/createDiff');
+        export const CloseProposal = new BroadcastType<[types.Path]>('editor/closeProposal');
     }
 
     export namespace Sync {

@@ -17,6 +17,8 @@ import { DisposablePeer } from './collaboration-peer.js';
 
 export type UsersChangeEvent = () => void;
 export type FileNameChangeEvent = (fileName: string) => void;
+export type ProposedChangesEvent = (path: string, accepted: boolean) => void;
+export type CloseProposalEvent = (path: string) => void;
 
 export interface Disposable {
     dispose(): void;
@@ -43,15 +45,27 @@ export class CollaborationInstance implements Disposable {
     protected readonly decorations = new Map<DisposablePeer, monaco.editor.IEditorDecorationsCollection>();
     protected readonly usersChangedCallbacks: UsersChangeEvent[] = [];
     protected readonly fileNameChangeCallbacks: FileNameChangeEvent[] = [];
+    protected readonly proposedChangesCallbacks: ProposedChangesEvent[] = [];
+    protected readonly closeProposalCallbacks: CloseProposalEvent[] = [];
 
     protected currentPath?: string;
     protected stopPropagation = false;
+
+    /** Path of the currently displayed proposal diff, if any. */
+    private currentDiffPath?: string;
+    /** Cleanup callback for the currently displayed built-in diff editor, if any. */
+    private diffCleanup?: () => void;
+    /** Re-entrancy guard so a received closeProposal does not re-broadcast. */
+    private receivingCloseProposal = false;
     protected _following?: string;
     protected _fileName: string;
     protected previousFileName?: string;
     protected _workspaceName: string;
 
     protected connection: ProtocolBroadcastConnection;
+
+    private activeDiffEditor?: monaco.editor.IStandaloneDiffEditor;
+    private diffEditorContainer?: HTMLElement;
 
     get following(): string | undefined {
         return this._following;
@@ -102,6 +116,14 @@ export class CollaborationInstance implements Disposable {
 
     onFileNameChange(callback: FileNameChangeEvent) {
         this.fileNameChangeCallbacks.push(callback);
+    }
+
+    onProposedChanges(callback: ProposedChangesEvent) {
+        this.proposedChangesCallbacks.push(callback);
+    }
+
+    onCloseProposal(callback: CloseProposalEvent) {
+        this.closeProposalCallbacks.push(callback);
     }
 
     constructor(protected options: CollaborationInstanceOptions) {
@@ -165,6 +187,9 @@ export class CollaborationInstance implements Disposable {
         this.connection.peer.onInit(async (_, initData) => {
             await this.initialize(initData);
         });
+
+        this.connection.editor.onProposeChanges(async (_, path, changes) => this.onDidProposeChanges(path, changes));
+        this.connection.editor.onCloseProposal((_, path) => this.onDidCloseProposal(path));
     }
 
     private setupFileSystemHandlers(): void {
@@ -215,12 +240,218 @@ export class CollaborationInstance implements Disposable {
         }
     }
 
+    private async onDidProposeChanges(path: string, changes: types.TextDiffChange[]): Promise<void> {
+        const editor = this.options.editor;
+        if (!editor) {
+            return;
+        }
+
+        const model = editor.getModel();
+        if (!model) {
+            return;
+        }
+
+        const originalText = model.getValue();
+
+        // Protocol positions are 0-based; Monaco positions are 1-based
+        let modifiedText = originalText;
+        const sorted = [...changes].sort((a, b) => {
+            const lineDiff = b.range.start.line - a.range.start.line;
+            return lineDiff !== 0 ? lineDiff : b.range.start.character - a.range.start.character;
+        });
+        for (const change of sorted) {
+            const startPos = new monaco.Position(change.range.start.line + 1, change.range.start.character + 1);
+            const endPos = new monaco.Position(change.range.end.line + 1, change.range.end.character + 1);
+            const startOffset = model.getOffsetAt(startPos);
+            const endOffset = model.getOffsetAt(endPos);
+            modifiedText = modifiedText.substring(0, startOffset) + change.text + modifiedText.substring(endOffset);
+        }
+
+        this.stopPropagation = true;
+
+        if (this.options.callbacks.onProposeChanges) {
+            this.currentDiffPath = path;
+            const accept = () => {
+                this.stopPropagation = false;
+                model.setValue(modifiedText);
+                this.notifyProposedChanges(path, true);
+                this.currentDiffPath = undefined;
+                if (!this.receivingCloseProposal) {
+                    this.connection.editor.closeProposal(path);
+                }
+            };
+            const reject = () => {
+                this.stopPropagation = false;
+                this.notifyProposedChanges(path, false);
+                this.currentDiffPath = undefined;
+                if (!this.receivingCloseProposal) {
+                    this.connection.editor.closeProposal(path);
+                }
+            };
+            this.options.callbacks.onProposeChanges(path, originalText, modifiedText, accept, reject);
+            return;
+        }
+
+        const editorDomNode = editor.getDomNode();
+        if (!editorDomNode) {
+            this.stopPropagation = false;
+            return;
+        }
+
+        const container = editorDomNode.parentElement!;
+        editorDomNode.style.display = 'none';
+
+        this.diffEditorContainer = document.createElement('div');
+        this.diffEditorContainer.style.width = '100%';
+        this.diffEditorContainer.style.height = '100%';
+        this.diffEditorContainer.style.display = 'flex';
+        this.diffEditorContainer.style.flexDirection = 'column';
+        container.appendChild(this.diffEditorContainer);
+
+        const buttonBar = document.createElement('div');
+        buttonBar.style.display = 'flex';
+        buttonBar.style.gap = '8px';
+        buttonBar.style.padding = '8px';
+        buttonBar.style.justifyContent = 'flex-end';
+        buttonBar.style.backgroundColor = 'var(--vscode-editor-background, #1e1e1e)';
+        buttonBar.style.borderBottom = '1px solid var(--vscode-panel-border, #444)';
+        this.diffEditorContainer.appendChild(buttonBar);
+
+        const acceptButton = document.createElement('button');
+        acceptButton.textContent = 'Accept';
+        acceptButton.style.padding = '4px 12px';
+        acceptButton.style.cursor = 'pointer';
+        acceptButton.style.backgroundColor = '#28a745';
+        acceptButton.style.color = '#fff';
+        acceptButton.style.border = 'none';
+        acceptButton.style.borderRadius = '4px';
+        buttonBar.appendChild(acceptButton);
+
+        const rejectButton = document.createElement('button');
+        rejectButton.textContent = 'Reject';
+        rejectButton.style.padding = '4px 12px';
+        rejectButton.style.cursor = 'pointer';
+        rejectButton.style.backgroundColor = '#d73a49';
+        rejectButton.style.color = '#fff';
+        rejectButton.style.border = 'none';
+        rejectButton.style.borderRadius = '4px';
+        buttonBar.appendChild(rejectButton);
+
+        const diffEditorWrapper = document.createElement('div');
+        diffEditorWrapper.style.flex = '1';
+        this.diffEditorContainer.appendChild(diffEditorWrapper);
+
+        const language = model.getLanguageId();
+        const originalModel = monaco.editor.createModel(originalText, language);
+        const modifiedModel = monaco.editor.createModel(modifiedText, language);
+
+        this.activeDiffEditor = monaco.editor.createDiffEditor(diffEditorWrapper, {
+            readOnly: true,
+            originalEditable: false,
+            automaticLayout: true,
+            renderSideBySide: true
+        });
+        this.activeDiffEditor.setModel({
+            original: originalModel,
+            modified: modifiedModel
+        });
+
+        const cleanup = () => {
+            this.activeDiffEditor?.dispose();
+            this.activeDiffEditor = undefined;
+            originalModel.dispose();
+            modifiedModel.dispose();
+            this.diffEditorContainer?.remove();
+            this.diffEditorContainer = undefined;
+            editorDomNode.style.display = '';
+            this.stopPropagation = false;
+            this.currentDiffPath = undefined;
+            this.diffCleanup = undefined;
+            editor.layout();
+        };
+
+        this.currentDiffPath = path;
+        this.diffCleanup = cleanup;
+
+        acceptButton.addEventListener('click', () => {
+            cleanup();
+            model.setValue(modifiedText);
+            this.notifyProposedChanges(path, true);
+            if (!this.receivingCloseProposal) {
+                this.connection.editor.closeProposal(path);
+            }
+        });
+
+        rejectButton.addEventListener('click', () => {
+            cleanup();
+            this.notifyProposedChanges(path, false);
+            if (!this.receivingCloseProposal) {
+                this.connection.editor.closeProposal(path);
+            }
+        });
+    }
+
     private notifyUsersChanged(): void {
         this.usersChangedCallbacks.forEach(callback => callback());
     }
 
     private notifyFileNameChanged(fileName: string): void {
         this.fileNameChangeCallbacks.forEach(callback => callback(fileName));
+    }
+
+    private notifyProposedChanges(path: string, accepted: boolean): void {
+        this.proposedChangesCallbacks.forEach(callback => callback(path, accepted));
+    }
+
+    private notifyCloseProposal(path: string): void {
+        this.closeProposalCallbacks.forEach(callback => callback(path));
+    }
+
+    /**
+     * Handles a `closeProposal` broadcast received from a peer. Closes the local
+     * diff view that matches the given path and notifies registered listeners.
+     * The re-entrancy guard prevents the local cleanup from re-broadcasting.
+     */
+    private onDidCloseProposal(path: string): void {
+        if (this.currentDiffPath !== path) {
+            return;
+        }
+        this.receivingCloseProposal = true;
+        try {
+            this.diffCleanup?.();
+            this.diffCleanup = undefined;
+            this.currentDiffPath = undefined;
+            this.notifyCloseProposal(path);
+        } finally {
+            this.receivingCloseProposal = false;
+        }
+    }
+
+    /**
+     * Broadcasts a `closeProposal` event so peers close the diff view for the given path.
+     */
+    closeProposal(path: string): void {
+        this.connection.editor.closeProposal(path);
+    }
+
+    /**
+     * Locally cancels the currently displayed proposal for `path`: resets
+     * `stopPropagation` so local edits sync again, without broadcasting a
+     * `closeProposal` (so a peer's merge editor stays open).
+     */
+    cancelProposal(path: string): void {
+        if (this.currentDiffPath !== path) {
+            return;
+        }
+        if (this.diffCleanup) {
+            // built-in DOM diff path: cleanup already resets stopPropagation + currentDiffPath
+            this.diffCleanup();
+            this.diffCleanup = undefined;
+        } else {
+            // onProposeChanges callback path
+            this.stopPropagation = false;
+            this.currentDiffPath = undefined;
+        }
     }
 
     setEditor(editor: monaco.editor.IStandaloneCodeEditor): void {
@@ -250,6 +481,12 @@ export class CollaborationInstance implements Disposable {
     }
 
     dispose() {
+        this.activeDiffEditor?.dispose();
+        this.activeDiffEditor = undefined;
+        this.diffEditorContainer?.remove();
+        this.diffEditorContainer = undefined;
+        this.currentDiffPath = undefined;
+        this.diffCleanup = undefined;
         this.peers.clear();
         this.documentDisposables.forEach(e => e.dispose());
         this.documentDisposables.clear();
