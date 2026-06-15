@@ -39,7 +39,7 @@
     "@agentclientprotocol/sdk": "^0.13.1",
     "commander": "~13.1.0",
     "dotenv": "^16.5.0",
-    "open-collaboration-protocol": "~0.3.0",
+    "open-collaboration-protocol": "~0.3.3",
     "open-collaboration-yjs": "~0.3.0"
   },
   "devDependencies": {

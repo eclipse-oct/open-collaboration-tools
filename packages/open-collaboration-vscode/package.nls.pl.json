@@ -20,5 +20,8 @@
   "oct.joinAcceptMode.allowlist.description": "Dodaje użytkowników do listy dozwolonych po zaakceptowaniu ich próśb o dołączenie, umożliwiając im automatyczne dołączenie w przyszłości.",
   "oct.joinAcceptMode.auto.description": "Automatycznie akceptuj wszystkie prośby o dołączenie bez wyświetlania monitu.",
   "oct.joinAllowlist": "Lista e-maili użytkowników, którzy mogą dołączyć automatycznie, gdy używany jest tryb akceptacji dołączania \"Allowlist\". Zobacz także `#oct.joinAcceptMode#`.",
-  "oct.files.exclude": "Lista wzorców globalnych dla plików, które nie powinny być udostępniane w sesji współpracy."
+  "oct.files.exclude": "Lista wzorców globalnych dla plików, które nie powinny być udostępniane w sesji współpracy.",
+  "oct.chatView": "Czat sesji",
+  "oct.sendDiff": "Wyślij różnice",
+  "oct.startAgent": "Uruchom program OCT Agent"
 }
