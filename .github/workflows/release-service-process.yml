@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: build dependencies
+        run: npm run build
+
       - name: Build service-process executable
         run: npm run create:executable --workspace=open-collaboration-service-process
 
