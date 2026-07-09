@@ -16,6 +16,7 @@ import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
 import fetch from 'node-fetch';
 import { ChatWebview } from './chat-webview/chat-webview.js';
+import { createOpenCollaborationExtensionApi, OpenCollaborationExtension } from './api/api.js';
 
 initializeProtocol({
     cryptoModule: crypto.webcrypto
@@ -28,6 +29,7 @@ export async function activate(context: vscode.ExtensionContext) {
     commands.initialize();
     container.get(ChatWebview).register();
     const roomService = container.get(CollaborationRoomService);
+    const api = createOpenCollaborationExtensionApi(roomService);
 
     const connection = await roomService.tryConnect();
     if (connection) {
@@ -38,6 +40,8 @@ export async function activate(context: vscode.ExtensionContext) {
         await closeSharedEditors();
         removeWorkspaceFolders();
     }
+
+    return api satisfies OpenCollaborationExtension;
 }
 
 export async function deactivate(): Promise<void> {
