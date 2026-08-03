@@ -50,3 +50,4 @@ currently supported providers are:
 | OCT_OAUTH_{Provider Name}_REALM | Sets the keycloak realm to use | keycloak |
 | OCT_OAUTH_USERINFO_URL | user info url if using oidc. If empty access token will be used for claims | generic |
 | OCT_OAUTH_TOKEN_URL | token url for code flow to retrieve the access token | generic |
+| OCT_OAUTH_PKCE | Enables S256 PKCE for the authorization code flow; defaults to `false` | generic |

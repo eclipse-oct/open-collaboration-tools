@@ -9,6 +9,9 @@ import { Strategy } from 'passport';
 import { OAuthEndpoint } from './oauth-endpoint.js';
 import { injectable, postConstruct } from 'inversify';
 import OAuth2Strategy, { VerifyCallback } from 'passport-oauth2';
+import { createHash, randomBytes } from 'node:crypto';
+
+const PKCE_VERIFIER_TTL = 10 * 60 * 1000;
 
 @injectable()
 export class GenericOAuthEndpoint extends OAuthEndpoint {
@@ -25,6 +28,7 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
     protected clientSecret?: string;
     protected userNameClaim: string;
     protected userEmailClaim: string;
+    protected pkceEnabled: boolean;
 
     @postConstruct()
     init() {
@@ -38,6 +42,7 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
         this.clientSecret = this.configuration.getValue('oct-oauth-clientsecret');
         this.userNameClaim = this.configuration.getValue('oct-oauth-usernameclaim') ?? 'username';
         this.userEmailClaim = this.configuration.getValue('oct-oauth-emailclaim') ?? 'email';
+        this.pkceEnabled = this.configuration.getValue('oct-oauth-pkce', 'boolean') ?? false;
     }
 
     override getProtocolProvider(): AuthProvider {
@@ -64,6 +69,7 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
             clientSecret: this.clientSecret ?? '',
             userInfoURL: this.userInfoUrl!,
             callbackURL: this.createRedirectUrl(host, port, this.redirectPath),
+            pkceEnabled: this.pkceEnabled,
         };
 
         const verify = (accessToken: any, _: any, profile: any, done: VerifyCallback) => {
@@ -74,7 +80,7 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
             };
             done(undefined, userInfo);
         };
-        return this.userInfoUrl ? new OIDCStrategy(options, verify) : new OAuth2Strategy(options, verify);
+        return this.userInfoUrl ? new OIDCStrategy(options, verify) : new PKCEOAuth2Strategy(options, verify);
     }
 
     override getName(): string {
@@ -84,11 +90,70 @@ export class GenericOAuthEndpoint extends OAuthEndpoint {
 
 export type ODICOptions = OAuth2Strategy.StrategyOptions & {
     userInfoURL: string;
+    pkceEnabled?: boolean;
 }
 
-export class OIDCStrategy extends OAuth2Strategy {
+export type PKCEOAuth2Options = OAuth2Strategy.StrategyOptions & {
+    pkceEnabled?: boolean;
+}
 
-    constructor(protected options: ODICOptions, verify: OAuth2Strategy.VerifyFunction) {
+type PKCEVerifier = {
+    value: string;
+    timeout: NodeJS.Timeout;
+}
+
+export class PKCEOAuth2Strategy extends OAuth2Strategy {
+
+    protected readonly pkceVerifiers = new Map<string, PKCEVerifier>();
+
+    constructor(protected options: PKCEOAuth2Options, verify: OAuth2Strategy.VerifyFunction) {
+        super(options, verify);
+    }
+
+    override authorizationParams(options: Record<string, unknown>): object {
+        if (!this.options.pkceEnabled) {
+            return {};
+        }
+        const state = this.getState(options);
+        const value = randomBytes(32).toString('base64url');
+        const previousVerifier = this.pkceVerifiers.get(state);
+        if (previousVerifier) {
+            clearTimeout(previousVerifier.timeout);
+        }
+        const timeout = setTimeout(() => this.pkceVerifiers.delete(state), PKCE_VERIFIER_TTL);
+        timeout.unref();
+        this.pkceVerifiers.set(state, { value, timeout });
+        return {
+            code_challenge: createHash('sha256').update(value).digest('base64url'),
+            code_challenge_method: 'S256'
+        };
+    }
+
+    override tokenParams(options: Record<string, unknown>): object {
+        if (!this.options.pkceEnabled) {
+            return {};
+        }
+        const state = this.getState(options);
+        const verifier = this.pkceVerifiers.get(state);
+        if (!verifier) {
+            throw new Error('Missing or expired PKCE verifier for OAuth state');
+        }
+        this.pkceVerifiers.delete(state);
+        clearTimeout(verifier.timeout);
+        return { code_verifier: verifier.value };
+    }
+
+    protected getState(options: Record<string, unknown>): string {
+        if (typeof options.state !== 'string' || options.state.length === 0) {
+            throw new Error('PKCE requires a non-empty OAuth state');
+        }
+        return options.state;
+    }
+}
+
+export class OIDCStrategy extends PKCEOAuth2Strategy {
+
+    constructor(protected override options: ODICOptions, verify: OAuth2Strategy.VerifyFunction) {
         super(options, verify);
     }
 
