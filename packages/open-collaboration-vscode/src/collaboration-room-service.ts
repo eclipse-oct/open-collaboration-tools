@@ -56,11 +56,11 @@ export class CollaborationRoomService {
         return undefined;
     }
 
-    async createRoom(): Promise<void> {
-        this.withConnectionProvider(undefined, async (connectionProvider, url) => {
+    async createRoom(): Promise<string | undefined> {
+        return this.withConnectionProvider(undefined, async (connectionProvider, url) => {
             this.tokenSource.cancel();
             this.tokenSource = new vscode.CancellationTokenSource();
-            await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating Session'), cancellable: true }, async (progress, cancelToken) => {
+            return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating Session'), cancellable: true }, async (progress, cancelToken) => {
                 const outerToken = this.tokenSource.token;
                 try {
                     const roomClaim = await connectionProvider.createRoom({
@@ -93,8 +93,10 @@ export class CollaborationRoomService {
                         }
                     });
                     this.onDidJoinRoomEmitter.fire(instance);
+                    return roomClaim.roomId;
                 } catch (error) {
                     this.showError(true, error, outerToken, cancelToken);
+                    return undefined;
                 }
             });
         });
@@ -202,7 +204,7 @@ export class CollaborationRoomService {
         return controller.signal;
     }
 
-    private async withConnectionProvider(serverUrl: string | undefined, callback: (connectionProvider: ConnectionProvider, url: string) => (Promise<void> | void)): Promise<void> {
+    private async withConnectionProvider<T>(serverUrl: string | undefined, callback: (connectionProvider: ConnectionProvider, url: string) => Promise<T>): Promise<T | undefined> {
         if (serverUrl) {
             serverUrl = RoomUri.normalizeServerUri(serverUrl);
         } else {
@@ -210,10 +212,11 @@ export class CollaborationRoomService {
         }
         if (serverUrl) {
             const connectionProvider = await this.connectionProvider.createConnection(serverUrl);
-            await callback(connectionProvider, serverUrl);
+            return callback(connectionProvider, serverUrl);
         } else {
             this.showServerUrlMissingError();
         }
+        return undefined;
     }
 
     private showServerUrlMissingError(): void {

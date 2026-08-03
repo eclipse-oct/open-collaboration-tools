@@ -52,6 +52,23 @@ The extension adds a new "Share" item to the Status bar at the bottom of vscode,
 4. That's it! After that VSCode will connect to the hosts session
 5. If you want to leave the session, click the "Connected" item in the status bar and select "Close Current Session" to leave the session.
 
+### Programmatic session entry points
+
+Other VS Code extensions can create or join sessions through the contributed commands:
+
+```ts
+await vscode.commands.executeCommand('oct.joinRoom', invitationCode);
+const roomId = await vscode.commands.executeCommand<string | undefined>('oct.createRoom');
+```
+
+`oct.joinRoom` accepts either a room ID or a full server invitation URL. Calling it without an argument keeps the existing input prompt. `oct.createRoom` resolves to the created room ID, or `undefined` when no room was created.
+
+External launchers can join a session through the extension URI handler:
+
+```text
+vscode://typefox.open-collaboration-tools/join?room=<URL-encoded invitation code>
+```
+
 ### Session UI
 
 <img src="https://github.com/eclipse-oct/open-collaboration-tools/assets/34068281/096c5ddd-026d-455c-9608-5c0febfca6d8" alt="share popup" width="400"/>

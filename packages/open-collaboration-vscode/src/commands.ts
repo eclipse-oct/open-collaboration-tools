@@ -48,12 +48,8 @@ export class Commands {
             vscode.commands.registerCommand(OctCommands.Enter, async () => {
                 await this.openMainQuickpick();
             }),
-            vscode.commands.registerCommand(OctCommands.JoinRoom, async () => {
-                await this.roomService.joinRoom();
-            }),
-            vscode.commands.registerCommand(OctCommands.CreateRoom, async () => {
-                await this.roomService.createRoom();
-            }),
+            vscode.commands.registerCommand(OctCommands.JoinRoom, (roomId?: string) => this.roomService.joinRoom(roomId)),
+            vscode.commands.registerCommand(OctCommands.CreateRoom, () => this.roomService.createRoom()),
             vscode.commands.registerCommand(OctCommands.AcceptJoin, (userData: TreeUserData) => {
                 CollaborationInstance.Current?.acceptJoinRequest(userData.id);
             }),
