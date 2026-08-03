@@ -4,8 +4,10 @@
 // terms of the MIT License, which is available in the project root.
 // ******************************************************************************
 
-import { describe, expect, test } from 'vitest';
-import { getJoinRoomId } from '../../src/utils/join-uri.js';
+import { describe, expect, test, vi } from 'vitest';
+import { getJoinRoomId } from '../../src/join-uri-handler.js';
+
+vi.mock('vscode', () => ({}));
 
 describe('Join room URI', () => {
     test('returns the decoded invitation code for the join path', () => {

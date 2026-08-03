@@ -12,6 +12,7 @@ import { closeSharedEditors, removeWorkspaceFolders } from './utils/workspace.js
 import { createContainer } from './inversify.js';
 import { Commands } from './commands.js';
 import { Fetch } from './collaboration-connection-provider.js';
+import { JoinUriHandler } from './join-uri-handler.js';
 
 initializeProtocol({
     cryptoModule: globalThis.crypto
@@ -22,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext) {
     container.bind(Fetch).toConstantValue(fetch);
     const commands = container.get(Commands);
     commands.initialize();
+    container.get(JoinUriHandler).initialize();
 }
 
 export async function deactivate(): Promise<void> {

@@ -16,7 +16,6 @@ import { CollaborationStatusService } from './collaboration-status-service.js';
 import { SecretStorage } from './secret-storage.js';
 import { RoomUri } from './utils/uri.js';
 import { Settings } from './utils/settings.js';
-import { getJoinRoomId } from './utils/join-uri.js';
 import { CodeCommands, OctCommands } from './commands-list.js';
 import { TreeUserData } from './collaboration-status-view.js';
 
@@ -51,7 +50,6 @@ export class Commands {
             }),
             vscode.commands.registerCommand(OctCommands.JoinRoom, (roomId?: string) => this.roomService.joinRoom(roomId)),
             vscode.commands.registerCommand(OctCommands.CreateRoom, () => this.roomService.createRoom()),
-            vscode.window.registerUriHandler({ handleUri: uri => this.handleUri(uri) }),
             vscode.commands.registerCommand(OctCommands.AcceptJoin, (userData: TreeUserData) => {
                 CollaborationInstance.Current?.acceptJoinRequest(userData.id);
             }),
@@ -102,17 +100,6 @@ export class Commands {
             );
         }
         this.statusService.initialize(OctCommands.Enter);
-    }
-
-    private async handleUri(uri: vscode.Uri): Promise<void> {
-        const roomId = getJoinRoomId(uri);
-        if (!roomId) {
-            vscode.window.showErrorMessage(vscode.l10n.t(
-                'Invalid invitation code! Invitation codes must be either a string of alphanumeric characters or a URL with a fragment.'
-            ));
-            return;
-        }
-        await this.roomService.joinRoom(roomId);
     }
 
     private async openMainQuickpick(): Promise<void> {
