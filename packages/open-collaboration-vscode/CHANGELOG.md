@@ -1,8 +1,20 @@
 # Change Log of `open-collaboration-tools`
 
-## v0.3.9 (Jul. 2026)
+## v0.3.9 (Aug. 2026)
 
 - Ability for other extensions to create or join rooms through oct.joinRoom/oct.createRoom or vscode URIs ([#205](https://github.com/eclipse-oct/open-collaboration-tools/pull/205))
+
+## v0.3.8 (Jun. 2026)
+
+- Add support for the OCT agent prototype ([#196](https://github.com/eclipse-oct/open-collaboration-tools/pull/196))
+
+## v0.3.7 (Apr. 2026)
+
+- Add a chat view ([#186](https://github.com/eclipse-oct/open-collaboration-tools/pull/186))
+
+## v0.3.6 (Dez. 2025)
+
+- Support connections from subpaths ([#182](https://github.com/eclipse-oct/open-collaboration-tools/pull/182))
 
 ## v0.3.5 (Nov. 2025)
 
