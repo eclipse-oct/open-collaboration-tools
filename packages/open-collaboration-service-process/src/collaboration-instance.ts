@@ -28,6 +28,7 @@ export class CollaborationInstance implements types.Disposable {
     protected identity = new Deferred<types.Peer>();
 
     private encoder = new TextEncoder();
+    private decoder = new TextDecoder();
 
     isDisposed = false;
 
@@ -95,7 +96,15 @@ export class CollaborationInstance implements types.Disposable {
 
         octConnection.editor.onOpen(async (peerId, documentPath) => {
             if(!this.YjsDoc.share.has(documentPath)) {
-                this.registerYjsObject('text', documentPath, '');
+                // editor.open is addressed at the host (see registerYjsObject's
+                // guest branch below), so this only ever fires on the host's own
+                // instance. Read the real file content from disk — via this
+                // peer's own native client — instead of seeding with '', which
+                // otherwise leaves every peer's replica blank until *something
+                // else* happens to overwrite it later (e.g. the host's own
+                // editor eventually opening and reseeding the path).
+                const text = this.isHost ? this.decoder.decode((await this.readOwnFile(documentPath)).content) : '';
+                this.registerYjsObject('text', documentPath, text);
             }
             this.clientConnection.sendNotification(EditorOpenedNotification, documentPath, peerId);
         });
@@ -141,6 +150,8 @@ export class CollaborationInstance implements types.Disposable {
                     content: this.encoder.encode(text.toString()),
                 } as types.FileData;
 
+            } else if (this.isHost) {
+                fileContent = await this.readOwnFile(documentPath);
             } else {
                 fileContent = await octConnection.fs.readFile((await this.hostInfo.promise).id, documentPath);
             }
@@ -152,6 +163,38 @@ export class CollaborationInstance implements types.Disposable {
             } as BinaryResponse;
 
         });
+    }
+
+    /**
+     * Reads a file directly from this peer's own native client (e.g. Eclipse
+     * or IntelliJ) over the local stdio `clientConnection`, without going
+     * through the OCT server at all. Only ever call this when `this.isHost`
+     * — a host reading its own file.
+     *
+     * Routing this through `octConnection.fs.readFile(target, path)` with
+     * `target` set to this peer's own id — i.e. addressing a request at
+     * *ourselves* — is not an option: the connection's encryption layer keys
+     * outgoing requests by the target's public key, and a peer's own public
+     * key is never registered in its own key cache (key exchange only ever
+     * happens with *other* peers during their handshake). That throws
+     * "No public key found for origin <ownId>", killing the whole process.
+     * Talking to our own native client directly sidesteps the server (and
+     * that bug) entirely, and is cheaper besides — the file is already
+     * local to this process' own client.
+     *
+     * The native clients' `fileSystem/readFile` handlers all take
+     * `(path, origin)` — the `origin` is unused by them (see the Eclipse and
+     * IntelliJ plugins' `FileSystemMessageHandler`) but is passed along for
+     * consistency with how `octConnection.onRequest` forwards cross-peer
+     * requests to this same handler.
+     */
+    private async readOwnFile(documentPath: string): Promise<types.FileData> {
+        const id = (await this.identity.promise).id;
+        // Mirrors the decoding octConnection.onRequest's generic forwarding
+        // handler above does for cross-peer requests: the native client may
+        // wrap its FileContent response as a BinaryData envelope.
+        const result = await this.clientConnection.sendRequest('fileSystem/readFile', documentPath, id);
+        return (BinaryData.is(result) ? fromBinaryMessage(result.data) : result) as types.FileData;
     }
 
     async registerYjsObject(type: string, documentPath: string, text: string) {
