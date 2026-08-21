@@ -230,6 +230,50 @@ describe('Service Process', () => {
         expect(new TextDecoder().decode(hostContent.content)).toEqual(realDiskContent);
     }, 60000);
 
+    test('a second guest\'s initData.guests includes the first guest', async () => {
+        // Regression test: CollaborationInstance.peers (used to build a
+        // joiner's initData.guests) was only ever read in room.onJoin and
+        // written in onLeave/onInit, never on join itself. So every guest but
+        // the first got an empty guests list, never learning earlier peers'
+        // ids/keys - causing "No key found for peer" once they broadcast
+        // anything (e.g. a selection update).
+        host.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'host');
+        });
+        host.communicationHandler.onRequest(JoinSessionRequest, () => true);
+
+        let guest1Id = '';
+        guest.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'guest1');
+        });
+        guest.communicationHandler.onNotification(PeerInfoNotification, (peer) => {
+            guest1Id = peer.id;
+        });
+        const guest1Init = new Deferred();
+        guest.communicationHandler.onNotification(OnInitNotification, () => guest1Init.resolve());
+
+        const { roomId } = await host.communicationHandler.sendRequest(CreateRoomRequest, { name: 'test', folders: ['testFolder'] });
+        await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
+        await guest1Init.promise;
+        expect(guest1Id).toBeTruthy();
+
+        const guest2 = new Client();
+        try {
+            const guest2Init = new Deferred<{ guests: Array<{ id: string }> }>();
+            guest2.communicationHandler.onNotification(Authentication, (token) => {
+                makeSimpleLoginRequest(token, 'guest2');
+            });
+            guest2.communicationHandler.onNotification(OnInitNotification, (initData) => guest2Init.resolve(initData));
+
+            await guest2.communicationHandler.sendRequest(JoinRoomRequest, roomId);
+            const initData = await guest2Init.promise;
+
+            expect(initData.guests.map(g => g.id)).toContain(guest1Id);
+        } finally {
+            guest2.process?.kill();
+        }
+    }, 60000);
+
     test('guest leaving via CloseSessionRequest notifies the host immediately', async () => {
         // Regression test for a request/params arity mismatch: CloseSessionRequest
         // used to be declared as RequestType<void, void, void>, which vscode-jsonrpc
