@@ -6,7 +6,7 @@
 import * as types from 'open-collaboration-protocol';
 import { Encoding } from 'open-collaboration-protocol';
 import { isTypedArray } from 'util/types';
-import { NotificationType, NotificationType2, NotificationType3, RequestType } from 'vscode-jsonrpc';
+import { NotificationType, NotificationType2, NotificationType3, RequestType, RequestType0 } from 'vscode-jsonrpc';
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
     return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.params);
@@ -57,7 +57,12 @@ export const JoinRoomRequest = new RequestType<string, SessionData, void>(ToServ
 
 export const CreateRoomRequest = new RequestType<types.Workspace, SessionData, void>(ToServiceMessages.CREATE_ROOM);
 
-export const CloseSessionRequest = new RequestType<void, void, void>(ToServiceMessages.CLOSE_SESSION);
+// RequestType<void, ...> still declares numberOfParams = 1 (the generic "void"
+// only affects typing, not arity) — vscode-jsonrpc then rejects a truly
+// zero-arg request (e.g. the Java OCTService.closeSession() binding, a
+// zero-arg @JsonRequest) with "defines 1 params but received none". Use
+// RequestType0, which actually declares numberOfParams = 0. See TODO.md item 6.
+export const CloseSessionRequest = new RequestType0<void, void>(ToServiceMessages.CLOSE_SESSION);
 
 // YJS Awareness
 
