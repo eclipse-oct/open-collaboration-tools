@@ -32,14 +32,14 @@ process.on('unhandledRejection', (reason, promise) => {
 
 program
     .version(pck.version)
-    .option('-p, --port <number>', 'Port to listen on', parseInt, 8100)
+    .option('-p, --port <number>', 'Port to listen on', (val) => parseInt(val, 10), 8100)
     .option('-h, --hostname <string>', 'Hostname to bind to', 'localhost')
     .option('-c, --config <string>', 'Path to the configuration file')
     .action(startServer);
 
 // Deprecated start command for backwards compatibility
 program.command('start')
-    .option('-p, --port <number>', 'Port to listen on', parseInt, 8100)
+    .option('-p, --port <number>', 'Port to listen on', (val) => parseInt(val, 10), 8100)
     .option('-h, --hostname <string>', 'Hostname to bind to', 'localhost')
     .option('-l, --log-level <string>', 'Log level', 'info')
     .option('-c, --config <string>', 'Path to the configuration file')
