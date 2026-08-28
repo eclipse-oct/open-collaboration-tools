@@ -230,6 +230,170 @@ describe('Service Process', () => {
         expect(new TextDecoder().decode(hostContent.content)).toEqual(realDiskContent);
     }, 60000);
 
+    test('guest opening a document the host has not seen yet does not duplicate the content', async () => {
+        // The guest's content is fetched out-of-band from the host's disk (via
+        // getDocumentContent, mirroring what the VS Code file system provider does
+        // on `readFile`), while openDocument registers an *empty* Y.Text for the
+        // path. The host seeding that Y.Text then reaches the guest as an "insert
+        // <whole file> at offset 0" delta, which the guest used to apply on top of
+        // the content it already had.
+        //
+        // VS Code only papers this over with the debounced resync in
+        // `getOrCreateThrottle`, hence a brief flicker there; native clients
+        // driving the service process have no such safety net.
+        const path = 'testFolder/first-opened-by-guest.txt';
+        const realDiskContent = 'line one\nline two\nline three';
+
+        host.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'host');
+        });
+        host.communicationHandler.onRequest(JoinSessionRequest, () => true);
+        host.communicationHandler.onRequest('fileSystem/readFile', ((requestedPath: string) => {
+            expect(requestedPath).toEqual(path);
+            return {
+                type: 'binaryData',
+                data: toBinaryMessage({
+                    content: Uint8Array.from(new TextEncoder().encode(realDiskContent)),
+                } as FileData),
+            } as BinaryData;
+        }));
+
+        const initDeferred = new Deferred();
+        guest.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'guest');
+        });
+        guest.communicationHandler.onNotification(OnInitNotification, () => initDeferred.resolve());
+
+        const { roomId } = await host.communicationHandler.sendRequest(CreateRoomRequest, { name: 'test', folders: ['testFolder'] });
+        await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
+        await initDeferred.promise;
+
+        // Stands in for the native client's in-memory document: every change the
+        // service process pushes is applied, so its final value is what the user sees.
+        let guestEditor: string | undefined;
+        guest.communicationHandler.onNotification(UpdateDocumentContent, (updatedPath, changes) => {
+            if (updatedPath !== path || guestEditor === undefined) {
+                return;
+            }
+            for (const change of changes) {
+                const start = change.startOffset;
+                const end = change.endOffset ?? change.startOffset;
+                guestEditor = guestEditor.substring(0, start) + change.text + guestEditor.substring(end);
+            }
+        });
+
+        // 1. The client opens the file: content is pulled from the host, since
+        //    nothing has been shared for this path yet.
+        const initialContent = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+        guestEditor = new TextDecoder().decode(initialContent.content);
+        expect(guestEditor).toEqual(realDiskContent);
+
+        // 2. The client reports the now-open document to the service process,
+        //    which asks the host to share it.
+        guest.communicationHandler.sendNotification(OpenDocument, 'text', path, guestEditor);
+
+        // 3. Wait for the host's seeding update to reach the guest's shared
+        //    document. We poll instead of awaiting an UpdateDocumentContent
+        //    notification because the correct behaviour is to send the client no
+        //    change at all - it already shows what the host seeded.
+        await waitUntil(async () => {
+            const shared = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+            return new TextDecoder().decode(shared.content) === realDiskContent;
+        }, 'the host to seed the shared document');
+        // Give any change notification a chance to arrive before asserting.
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Before the fix the guest received `{startOffset: 0, endOffset: 0,
+        // text: <whole file>}` and ended up showing the file twice.
+        expect(guestEditor).not.toEqual(realDiskContent + realDiskContent);
+        expect(guestEditor).toEqual(realDiskContent);
+    }, 60000);
+
+    test('host opening a document a guest already edited does not discard the guest\'s edits', async () => {
+        // Seeding is a plain delete-everything + insert-everything, and the host
+        // used to do it unconditionally on every openDocument. Opening a file a
+        // guest already had open therefore discarded the guest's unsaved edits and
+        // invalidated every relative position, making peer selections jump.
+        //
+        // A non-empty shared document is authoritative instead: the host skips
+        // seeding and adopts the shared content into its own editor.
+        const path = 'testFolder/edited-by-guest.txt';
+        const diskContent = 'aaa\nbbb';
+        const editedContent = 'XXXaaa\nbbb';
+
+        host.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'host');
+        });
+        host.communicationHandler.onRequest(JoinSessionRequest, () => true);
+        // The host's file on disk never changes, and still holds the content
+        // from before the guest's edit.
+        host.communicationHandler.onRequest('fileSystem/readFile', (() => ({
+            type: 'binaryData',
+            data: toBinaryMessage({
+                content: Uint8Array.from(new TextEncoder().encode(diskContent)),
+            } as FileData),
+        } as BinaryData)));
+
+        const initDeferred = new Deferred();
+        guest.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'guest');
+        });
+        guest.communicationHandler.onNotification(OnInitNotification, () => initDeferred.resolve());
+
+        const { roomId } = await host.communicationHandler.sendRequest(CreateRoomRequest, { name: 'test', folders: ['testFolder'] });
+        await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
+        await initDeferred.promise;
+
+        // Mirror of the host client's in-memory document.
+        let hostEditor: string | undefined;
+        host.communicationHandler.onNotification(UpdateDocumentContent, (updatedPath, changes) => {
+            if (updatedPath !== path || hostEditor === undefined) {
+                return;
+            }
+            for (const change of changes) {
+                const start = change.startOffset;
+                const end = change.endOffset ?? change.startOffset;
+                hostEditor = hostEditor.substring(0, start) + change.text + hostEditor.substring(end);
+            }
+        });
+
+        // The guest opens the file first, which makes the host share it.
+        const initial = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+        expect(new TextDecoder().decode(initial.content)).toEqual(diskContent);
+        guest.communicationHandler.sendNotification(OpenDocument, 'text', path, diskContent);
+        // Wait for the seed to come back round to the *guest*. Polling the host
+        // would only prove it seeded its own copy.
+        await waitUntil(async () => {
+            const shared = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+            return new TextDecoder().decode(shared.content) === diskContent;
+        }, 'the host\'s seed to reach the guest');
+
+        // The guest types, but nothing is written to the host's disk. The host's
+        // client has nothing open for this path yet (`hostEditor` is undefined),
+        // so only the shared document moves.
+        guest.communicationHandler.sendNotification(UpdateDocumentContent, path, [{ startOffset: 0, text: 'XXX' }]);
+        await waitUntil(async () => {
+            const shared = await host.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+            return new TextDecoder().decode(shared.content) === editedContent;
+        }, "the guest's edit to reach the host");
+
+        // Now the host's client opens the same file for the first time. Its
+        // editor was loaded from disk, so it starts out with the stale content.
+        hostEditor = diskContent;
+        host.communicationHandler.sendNotification(OpenDocument, 'text', path, diskContent);
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // The guest's edit must survive on both sides.
+        const hostShared = await host.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+        expect(new TextDecoder().decode(hostShared.content)).toEqual(editedContent);
+        const guestShared = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+        expect(new TextDecoder().decode(guestShared.content)).toEqual(editedContent);
+
+        // ...and the host's own editor must have been brought up to date with
+        // the shared content rather than overwriting it.
+        expect(hostEditor).toEqual(editedContent);
+    }, 60000);
+
     test('a second guest\'s initData.guests includes the first guest', async () => {
         // Regression test: CollaborationInstance.peers (used to build a
         // joiner's initData.guests) was only ever read in room.onJoin and
@@ -321,6 +485,17 @@ describe('Service Process', () => {
         expect(leftPeerId).toEqual(guestId);
     }, 60000);
 });
+
+async function waitUntil(condition: () => Promise<boolean>, label = 'condition', timeout = 20000): Promise<void> {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+        if (await condition()) {
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error(`Timed out waiting for ${label}`);
+}
 
 async function makeSimpleLoginRequest(token: string, username: string) {
     await fetch(`${SERVER_ADDRESS}/api/login/simple/`, {
