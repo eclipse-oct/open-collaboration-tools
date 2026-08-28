@@ -125,6 +125,10 @@ export class CollaborationInstance implements types.Disposable {
                 };
                 octConnection.peer.init(peer.id, initData);
             }
+            // Track the peer *after* building initData (a peer isn't its own
+            // "guest"), so later joiners' initData.guests - and thus their
+            // encryption key cache - includes everyone already in the room.
+            this.peers.set(peer.id, peer);
             this.clientConnection.sendNotification(PeerJoinedNotification, peer);
         });
 
