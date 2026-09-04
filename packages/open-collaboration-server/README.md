@@ -4,15 +4,21 @@ Open Collaboration Tools is a collection of open source tools, libraries and ext
 
 This package is the server implementation for Open Collaboration Tools. All participants of a collaboration session must connect to the same server.
 
-You can run this package directly or use the public container image [oct-server](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server). If you'd like to customize the server, use this package as a TypeScript library and build your own application.
+You can run this package directly or use the public container image [oct-server-dev](https://github.com/eclipse-oct/open-collaboration-tools/pkgs/container/open-collaboration-tools%2Foct-server-dev). If you'd like to customize the server, use this package as a TypeScript library and build your own application.
 
 ## The Public Instance
 
-A public instance of this server is available at `https://api.open-collab.tools/`, which is operated by [TypeFox](https://www.typefox.io/). TypeFox offers this service with the intent to demonstrate the capabilities of the project and to support open source communities with it. However, we recommend all companies who wish to adopt this technology to deploy their own instance of it, secured with their existing access restrictions.
+A public instance of this server is available at `https://api.open-collab.tools/`, which is operated by the [Eclipse Foundation](https://www.eclipse.org/). The Eclipse Foundation offers this service with the intent to demonstrate the capabilities of the project and to support open source communities with it. However, we recommend all companies who wish to adopt this technology to deploy their own instance of it, secured with their existing access restrictions.
 
 Usage of the public instance is bound to its [Terms of Use](https://www.open-collab.tools/tos/). Please read them carefully and use our [Discussions](https://github.com/eclipse-oct/open-collaboration-tools/discussions) for any questions.
 
 ## Configuration
+
+The server instance can be configured by specifying environment variables or by supplying a `config` file argument to the server start command. The config file can be a JSON (`.json` file extension) or YAML (`.yml` or `.yaml`) file.
+
+When specifying a configuration via environment variables, `SNAKE_CASE` is used. When reading the configuration from a config file, the server uses `dot.separated.names`. Meaning that `OCT_SERVER_OWNER` becomes `oct.server.owner`.
+
+The following environment variables are supported:
 
 ### General environment variables
 
