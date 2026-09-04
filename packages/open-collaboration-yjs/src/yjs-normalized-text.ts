@@ -87,19 +87,74 @@ export class YjsNormalizedTextDocument implements types.Disposable {
     private _normalizedLength: number;
     private _changeSets: ChangeSet[] = [];
     private _offsets: NormalizedLineOffset[] | undefined;
+    /** See {@link attachLocalDocument}. */
+    private _diverged = false;
+    private _callback: YjsTextDocumentChangedCallback;
     private observer: Parameters<Y.Text['observe']>[0];
 
     constructor(yjsText: Y.Text, callback: YjsTextDocumentChangedCallback) {
         this._yjsText = yjsText;
         this._text = yjsText.toString();
+        this._callback = callback;
         this.observer = event => {
-            this.observe(event, callback);
+            this.observe(event);
         };
         yjsText.observe(this.observer);
     }
 
-    private async observe(event: Y.YTextEvent, callback: YjsTextDocumentChangedCallback): Promise<void> {
+    /**
+     * Declares what the local document currently holds, which is not necessarily
+     * the content of the shared Y.Text: a guest reads a file straight from the
+     * host whenever that path has not been shared yet. The Y.Text is then still
+     * empty, and the host seeding it later arrives as an "insert the whole file
+     * at offset 0" delta — applied incrementally that shows the content twice.
+     *
+     * A non-empty Y.Text is authoritative, so it is reconciled against right
+     * away. An empty one means "not shared yet": the local content stands until
+     * the first remote update, which then reconciles instead of applying a delta.
+     */
+    attachLocalDocument(localText: string): void {
+        const shared = this._yjsText.toString();
+        this._text = localText;
+        this._offsets = undefined;
+        // Compare in LF space: the local document may use CRLF, the shared one never does.
+        this._diverged = this.normalize(localText, false) !== this.normalize(shared, false);
+        if (this._diverged && shared.length > 0) {
+            void this.reconcile();
+        }
+    }
+
+    /**
+     * Replaces the local document with the authoritative content of the shared
+     * Y.Text. Used instead of an incremental delta while the two have diverged,
+     * as the delta describes a change to a document the local one shares no base with.
+     */
+    private async reconcile(): Promise<void> {
+        this._diverged = false;
+        const before = this._text;
+        const after = this.normalize(this._yjsText.toString(), before.includes('\r'));
+        if (after === before) {
+            // Both sides agree - the common case, as guest and host read the same file.
+            return;
+        }
+        // Update the internal text string, but don't touch the shared document
+        this.doUpdate({ changes: after }, false);
+        const changeSet: YTextChange[] = [{ start: 0, end: before.length, text: after }];
+        const changeSetItem: ChangeSet = { before, after };
+        this._changeSets.push(changeSetItem);
+        await this._callback(changeSet);
+        const index = this._changeSets.indexOf(changeSetItem);
+        if (index !== -1) {
+            this._changeSets.splice(index, 1);
+        }
+    }
+
+    private async observe(event: Y.YTextEvent): Promise<void> {
         if (event.transaction.local) {
+            return;
+        }
+        if (this._diverged) {
+            await this.reconcile();
             return;
         }
         const hasCR = this._text.includes('\r');
@@ -121,7 +176,7 @@ export class YjsNormalizedTextDocument implements types.Disposable {
             after,
         };
         this._changeSets.push(changeSetItem);
-        await callback(changeSet);
+        await this._callback(changeSet);
         const index = this._changeSets.indexOf(changeSetItem);
         if (index !== -1) {
             this._changeSets.splice(index, 1);
@@ -234,6 +289,8 @@ export class YjsNormalizedTextDocument implements types.Disposable {
         this._offsets = undefined;
         if (typeof changes.changes === 'string') {
             this._text = changes.changes;
+            // Both sides are in agreement again.
+            this._diverged = false;
             if (yjs) {
                 const yjsText = this._yjsText.toString();
                 this._yjsText.delete(0, yjsText.length);

@@ -148,7 +148,7 @@ export class CollaborationInstance implements types.Disposable {
 
         clientConnection.onRequest(GetDocumentContent, async (documentPath) => {
             let fileContent: types.FileData | undefined = undefined;
-            if(this.YjsDoc.share.has(documentPath)) {
+            if(this.YjsDoc.share.has(documentPath) && this.YjsDoc.getText(documentPath).length > 0) {
                 const text = this.YjsDoc.getText(documentPath);
                 fileContent = {
                     content: this.encoder.encode(text.toString()),
@@ -204,8 +204,18 @@ export class CollaborationInstance implements types.Disposable {
     async registerYjsObject(type: string, documentPath: string, text: string) {
         if(type === 'text') {
             const normalizedDocument = this.getNormalizedDocument(documentPath);
+            // As a guest, getDocumentContent reads the file straight from the host
+            // while the path is unshared, so the client's content does not come from
+            // the shared document. Tell the normalized document what the client holds
+            // so the host's seeding update is reconciled, not inserted on top.
+            normalizedDocument.attachLocalDocument(text);
             if (this.isHost) {
-                normalizedDocument.update({changes: text});
+                if (this.YjsDoc.getText(documentPath).length === 0) {
+                    // Only seed an unshared path. A non-empty shared document may hold
+                    // unsaved guest edits, and re-seeding would discard those and
+                    // invalidate every relative position (making peer selections jump).
+                    normalizedDocument.update({changes: text});
+                }
             } else {
                 this.octConnection.editor.open((await this.hostInfo.promise).id, documentPath);
             }
