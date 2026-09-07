@@ -91,10 +91,7 @@ export class CollaborationFileSystemProvider implements vscode.FileSystemProvide
     }
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
         const path = this.getHostPath(uri);
-        // Y.Doc.getText registers a path in `share` while it is still empty, so
-        // `share.has` alone would yield '' for a file that was opened but not yet
-        // seeded. Read from the host instead; for an empty file both agree.
-        if (this.yjs.share.has(path) && this.yjs.getText(path).length > 0) {
+        if (this.yjs.share.has(path)) {
             const stringValue = this.yjs.getText(path);
             return this.encoder.encode(stringValue.toString());
         } else {
