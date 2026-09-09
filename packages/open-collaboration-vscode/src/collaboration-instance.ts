@@ -1025,10 +1025,21 @@ export class CollaborationInstance implements vscode.Disposable {
         if (path) {
             const text = document.getText();
             const normalizedDocument = this.getNormalizedDocument(document, path);
+            // As a guest, CollaborationFileSystemProvider reads the file straight
+            // from the host while the path is unshared, so the document's content
+            // does not come from the shared document. Tell the normalized document
+            // what the editor holds so the host's seeding update is reconciled,
+            // not inserted on top.
+            normalizedDocument.attachLocalDocument(text);
             if (this.host) {
-                normalizedDocument.update({
-                    changes: text
-                });
+                if (this.yjs.getText(path).length === 0) {
+                    // Only seed an unshared path. A non-empty shared document may hold
+                    // unsaved guest edits, and re-seeding would discard those and
+                    // invalidate every relative position (making peer selections jump).
+                    normalizedDocument.update({
+                        changes: text
+                    });
+                }
             } else {
                 this.options.connection.editor.open(this.options.hostId, path);
             }

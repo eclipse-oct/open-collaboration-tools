@@ -204,7 +204,18 @@ export class CollaborationInstance implements types.Disposable {
     async registerYjsObject(type: string, documentPath: string, text: string) {
         if(type === 'text') {
             const normalizedDocument = this.getNormalizedDocument(documentPath);
+            // As a guest, getDocumentContent reads the file straight from the host
+            // while the path is unshared, so the client's content does not come from
+            // the shared document. Tell the normalized document what the client holds
+            // so the host's seeding update is reconciled, not inserted on top.
+            normalizedDocument.attachLocalDocument(text);
             if (this.isHost) {
+                // A non-empty shared document is authoritative: it may hold unsaved guest
+                // edits, and re-seeding would discard those and invalidate every relative
+                // position. attachLocalDocument above already pulled it into our client.
+                if (this.YjsDoc.getText(documentPath).length > 0) {
+                    return;
+                }
                 normalizedDocument.update({changes: text});
             } else {
                 this.octConnection.editor.open((await this.hostInfo.promise).id, documentPath);
