@@ -1,5 +1,6 @@
 bundle/
 lib/
+coverage/
 node_modules/
 dist/
 *.tsbuildinfo
