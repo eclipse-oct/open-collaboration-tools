@@ -16,7 +16,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macos-latest is Apple Silicon, macos-13 is the Intel runner. Both are
+        # needed because the SEA build embeds the runner's own node binary, so
+        # each artifact is native to the machine that produced it.
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
 
     steps:
       - name: Checkout
@@ -63,8 +66,12 @@ jobs:
               ;;
           esac
 
+          # runner.arch is X64 or ARM64; the asset name has to reflect the
+          # architecture actually built, not a hardcoded guess.
+          ARCH="$(echo "${{ runner.arch }}" | tr '[:upper:]' '[:lower:]')"
+
           SOURCE="packages/open-collaboration-service-process/bin/oct-service-process${EXT}"
-          TARGET="oct-service-process-${VERSION}-${OS_NAME}-x64${EXT}"
+          TARGET="oct-service-process-${VERSION}-${OS_NAME}-${ARCH}${EXT}"
 
           if [ ! -f "$SOURCE" ]; then
             echo "Expected binary not found: $SOURCE"
