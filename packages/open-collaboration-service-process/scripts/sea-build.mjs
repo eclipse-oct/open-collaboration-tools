@@ -26,9 +26,11 @@ if (process.platform === 'darwin') {
 }
 
 console.log('injecting ', process.cwd() + '/bin/sea-prep.blob', 'into ', process.cwd() + '/' + EXECUTABLE_NAME)
-// Here the sea-prep blob containing oct-service-process application is injected into the node js executable
-inject(process.cwd() + '/bin/' + EXECUTABLE_NAME, 'NODE_SEA_BLOB', fs.readFileSync(process.cwd() + '/bin/sea-prep.blob'), postjectOptions)
+// Here the sea-prep blob containing oct-service-process application is injected into the node js executable.
+await inject(process.cwd() + '/bin/' + EXECUTABLE_NAME, 'NODE_SEA_BLOB', fs.readFileSync(process.cwd() + '/bin/sea-prep.blob'), postjectOptions)
 
 if (process.platform === 'darwin') {
     execSync(`codesign --sign - ${EXECUTABLE_PATH}`)
+    // Fail the build loudly when executable is broken.
+    execSync(`codesign --verify --strict ${EXECUTABLE_PATH}`)
 }
