@@ -13,6 +13,7 @@
     "watch": "concurrently \"tsc -b tsconfig.build.json -w\" \"npm run watch --workspace=open-collaboration-tools\"",
     "build:clean": "npm run clean && npm run build",
     "lint": "eslint",
+    "check-nls": "node scripts/check-nls.mjs",
     "lint:fix": "eslint --fix",
     "start": "npm run start --workspace=open-collaboration-server",
     "test": "vitest",
