@@ -226,9 +226,55 @@ export interface Workspace {
     folders: string[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Capabilities {
+    /**
+     * Whether the host is able to share terminals with the guests of this room.
+     */
+    terminals?: boolean;
+}
 
+// Terminal sharing
+
+export type TerminalId = string;
+
+export type TerminalAccessMode = 'read' | 'readWrite';
+
+export interface TerminalDimensions {
+    columns: number;
+    rows: number;
+}
+
+export interface TerminalExit {
+    code?: number;
+    signal?: string;
+}
+
+export interface TerminalInfo {
+    id: TerminalId;
+    /** Display name of the terminal, as shown in the owner's terminal panel. */
+    name: string;
+    /** The peer that owns the underlying shell process. */
+    ownerId: Id;
+    mode: TerminalAccessMode;
+    /** Authoritative dimensions of the shell process, owned by `ownerId`. */
+    dimensions?: TerminalDimensions;
+    /** Set once the shell process has terminated. */
+    exit?: TerminalExit;
+}
+
+export interface TerminalChunk {
+    /** Monotonically increasing per terminal. Used for gap detection only. */
+    seq: number;
+    data: string;
+}
+
+export interface TerminalSnapshot {
+    info: TerminalInfo;
+    dimensions: TerminalDimensions;
+    /** Serialized emulator state, including escape sequences. */
+    buffer: string;
+    /** The sequence number of the last chunk contained in `buffer`. */
+    seq: number;
 }
 
 export interface Room {

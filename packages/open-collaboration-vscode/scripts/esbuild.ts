@@ -16,7 +16,11 @@ const main = async () => {
 		sourcemap: !production,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode'],
+		// node-pty is a native module (a prebuilt/compiled .node addon); it cannot be bundled
+		// and is instead resolved via plain `require` at runtime, see docs/terminal-sharing.md
+		// §4.3. @xterm/headless and @xterm/addon-serialize are only ever used alongside it, so
+		// they're kept external too, purely to keep the node bundle lean.
+		external: ['vscode', 'node-pty', '@xterm/headless', '@xterm/addon-serialize'],
 		logLevel: 'silent',
 		plugins: [
 			esbuildProblemMatcherPlugin('node', buildType)

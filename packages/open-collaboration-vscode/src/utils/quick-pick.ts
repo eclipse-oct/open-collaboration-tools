@@ -71,6 +71,10 @@ export function showQuickPick<T>(quickPick: vscode.QuickPick<QuickPickItem<T>> |
     return new Promise((resolve) => {
         pick.show();
         pick.onDidAccept(() => {
+            // Nothing to accept yet, e.g. while the items are still being loaded.
+            if (pick.activeItems.length === 0) {
+                return;
+            }
             resolve(pick.activeItems[0].key);
             pick.hide();
         });

@@ -21,6 +21,10 @@ export namespace Settings {
     export const JOIN_ACCEPT_MODE = 'oct.joinAcceptMode';
     export const JOIN_ALLOWLIST = 'oct.joinAllowlist';
     export const FILES_EXCLUDE = 'oct.files.exclude';
+    export const TERMINAL_DEFAULT_ACCESS_MODE = 'oct.terminal.defaultAccessMode';
+    export const TERMINAL_SCROLLBACK = 'oct.terminal.scrollback';
+    export const TERMINAL_SHELL = 'oct.terminal.shell';
+    export const TERMINAL_SHELL_ARGS = 'oct.terminal.shellArgs';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -75,6 +79,24 @@ export namespace Settings {
             allowlist.push(id);
             await vscode.workspace.getConfiguration().update(JOIN_ALLOWLIST, allowlist, vscode.ConfigurationTarget.Global);
         }
+    }
+
+    export function getTerminalDefaultAccessMode(): 'read' | 'readWrite' {
+        const mode = vscode.workspace.getConfiguration().get<string>(TERMINAL_DEFAULT_ACCESS_MODE);
+        return mode === 'readWrite' ? 'readWrite' : 'read';
+    }
+
+    export function getTerminalScrollback(): number {
+        return vscode.workspace.getConfiguration().get<number>(TERMINAL_SCROLLBACK, 1000);
+    }
+
+    export function getTerminalShell(): string | undefined {
+        const shell = vscode.workspace.getConfiguration().get<string>(TERMINAL_SHELL);
+        return shell ? shell : undefined;
+    }
+
+    export function getTerminalShellArgs(): string[] {
+        return vscode.workspace.getConfiguration().get<string[]>(TERMINAL_SHELL_ARGS, []);
     }
 
 }

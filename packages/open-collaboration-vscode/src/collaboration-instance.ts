@@ -302,6 +302,24 @@ export class CollaborationInstance implements vscode.Disposable {
         return this.options.serverUrl;
     }
 
+    /** The id of the room's host peer. Only set for guests. */
+    get hostId(): string | undefined {
+        return this.options.hostId;
+    }
+
+    private _capabilities: types.Capabilities = {};
+    get capabilities(): types.Capabilities {
+        return this._capabilities;
+    }
+
+    /**
+     * Lets host-only services (e.g. terminal sharing) advertise a capability before any guest
+     * joins, so it ends up in the `InitData` every guest receives on init.
+     */
+    setCapabilities(capabilities: types.Capabilities): void {
+        this._capabilities = { ...this._capabilities, ...capabilities };
+    }
+
     @inject(CollaborationInstanceOptions)
     private readonly options: CollaborationInstanceOptions;
 
@@ -366,7 +384,7 @@ export class CollaborationInstance implements vscode.Disposable {
                     protocol: types.VERSION,
                     host: await this.identity.promise,
                     guests: Array.from(this.peers.values()).map(e => e.peer),
-                    capabilities: {},
+                    capabilities: this._capabilities,
                     permissions: this._permissions,
                     workspace: {
                         name: vscode.workspace.name ?? 'Collaboration',
@@ -1282,6 +1300,7 @@ export class CollaborationInstance implements vscode.Disposable {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
         this._permissions = data.permissions;
+        this._capabilities = data.capabilities;
         this.fileSystemManager.registerFileSystemProvider(data.permissions.readonly);
         this.onDidUsersChangeEmitter.fire();
         this._ready.resolve();

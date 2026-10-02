@@ -50,6 +50,22 @@ export namespace Messages {
         export const Change = new BroadcastType<[types.FileChangeEvent]>('fileSystem/change');
     }
 
+    export namespace Terminal {
+        /**
+         * Requests the list of terminals shared by the target peer. Guests query this on demand
+         * instead of mirroring the host's terminal list locally.
+         */
+        export const List = new RequestType<[], types.TerminalInfo[]>('terminal/list');
+        export const Subscribe = new RequestType<[types.TerminalId], types.TerminalSnapshot>('terminal/subscribe');
+        export const Unsubscribe = new NotificationType<[types.TerminalId]>('terminal/unsubscribe');
+        export const Input = new NotificationType<[types.TerminalId, string]>('terminal/input');
+        export const ViewResize = new NotificationType<[types.TerminalId, types.TerminalDimensions]>('terminal/viewResize');
+        export const Opened = new BroadcastType<[types.TerminalInfo]>('terminal/opened');
+        export const Updated = new BroadcastType<[types.TerminalInfo]>('terminal/updated');
+        export const Closed = new BroadcastType<[types.TerminalId, types.TerminalExit | undefined]>('terminal/closed');
+        export const Output = new NotificationType<[types.TerminalId, types.TerminalChunk]>('terminal/output');
+    }
+
     export namespace Chat {
         export const ChatMessage = new BroadcastType<[message: string]>('chat/message');
         export const DirectChatMessage = new NotificationType<[message: string]>('chat/directMessage');
