@@ -22,6 +22,7 @@ export class ContextKeyService {
     setConnection(instance: CollaborationInstance | undefined): void {
         this.set('oct.connection', !!instance);
         this.set('oct.roomId', instance?.roomId);
+        this.set('oct.isHost', instance?.host ?? false);
     }
 
     setFollowing(following: boolean): void {

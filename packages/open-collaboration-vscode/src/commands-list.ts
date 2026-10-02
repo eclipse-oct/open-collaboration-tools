@@ -15,6 +15,8 @@ export namespace OctCommands {
     export const CloseConnection = 'oct.closeConnection';
     export const SignOut = 'oct.signOut';
     export const StartAgent = 'oct.startAgent';
+    export const ShareTerminal = 'oct.shareTerminal';
+    export const OpenSharedTerminal = 'oct.openSharedTerminal';
     export const DevFuzzing = 'oct.dev.fuzzing';
 }
 

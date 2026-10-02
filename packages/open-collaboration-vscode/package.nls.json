@@ -23,5 +23,13 @@
   "oct.files.exclude": "A list of glob patterns for files that should not be shared in a collaboration session.",
   "oct.chatView": "Session Chat",
   "oct.sendDiff": "Send Diff",
-  "oct.startAgent": "Start OCT Agent"
+  "oct.startAgent": "Start OCT Agent",
+  "oct.shareTerminal": "Share Terminal",
+  "oct.openSharedTerminal": "Open Shared Terminal",
+  "oct.terminal.defaultAccessMode": "The access mode suggested by default when sharing a new terminal.",
+  "oct.terminal.defaultAccessMode.read": "Read Only",
+  "oct.terminal.defaultAccessMode.readWrite": "Read & Write",
+  "oct.terminal.scrollback": "The number of lines of scrollback kept for a shared terminal, used to bring late-joining participants up to date.",
+  "oct.terminal.shell": "Path of the shell executable used for shared terminals. Leave empty to use the system default (`$SHELL` on Linux/macOS).",
+  "oct.terminal.shellArgs": "Command-line arguments passed to the shell used for shared terminals."
 }
