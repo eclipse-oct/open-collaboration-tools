@@ -34,6 +34,8 @@ The following environment variables are supported:
 | OCT_REDIRECT_URL_WHITELIST | A comma seperated list to allow usage of the specified URLs with the `redirect` query parameter when authenticating with a provider which redirects back after success. The query of a URL is ignored when validating against this list   |
 | OCT_BASE_URL              | Base URL of the server is reachable under. Used for oauth redirects |
 | OCT_CORS_ALLOWED_ORIGINS | `,` seperated list to configure the allowed origins for CORS. This will be evaluated based on the origin header of the request. if there is no match, fail the request. if not set all origin will be allowed |
+| OCT_PING_INTERVAL | How often (in ms) the server pings a connected client to check it is still alive. Defaults to `25000` |
+| OCT_PING_TIMEOUT | How long (in ms) the server waits for a ping response before considering a connection dropped. Defaults to `20000` |
 
 ### Authentication provider configuration variables
 
