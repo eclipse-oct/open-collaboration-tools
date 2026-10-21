@@ -30,6 +30,7 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
     private connection: types.ProtocolBroadcastConnection;
     private doc: Y.Doc;
     private awareness: awarenessProtocol.Awareness;
+    private applyingRemoteUpdate = false;
 
     constructor(connection: types.ProtocolBroadcastConnection, doc: Y.Doc, awareness: awarenessProtocol.Awareness, options?: YjsProviderOptions) {
         super();
@@ -61,7 +62,13 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
     private ocpDataUpdateHandler(origin: string, update: types.Binary): void {
         const decoder = this.decode(update);
         const encoder = encoding.createEncoder();
-        const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, origin);
+        let syncMessageType: number;
+        this.applyingRemoteUpdate = true;
+        try {
+            syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, origin);
+        } finally {
+            this.applyingRemoteUpdate = false;
+        }
         if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
             this.connection.sync.dataUpdate(origin, this.encode(encoder));
         }
@@ -82,7 +89,7 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
     }
 
     private yjsUpdateHandler(update: Uint8Array, origin: unknown): void {
-        if (origin !== this) {
+        if (origin !== this && !this.applyingRemoteUpdate) {
             const encoder = encoding.createEncoder();
             syncProtocol.writeUpdate(encoder, update);
             this.connection.sync.dataUpdate(this.encode(encoder));
