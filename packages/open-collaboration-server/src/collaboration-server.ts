@@ -8,7 +8,7 @@ import { inject, injectable, multiInject } from 'inversify';
 import * as http from 'node:http';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Server } from 'socket.io';
+import { Server, ServerOptions } from 'socket.io';
 import express from 'express';
 import { SocketIoChannel, TransportChannel } from './channel.js';
 import { PeerFactory } from './peer.js';
@@ -90,12 +90,7 @@ export class CollaborationServer {
         //         this.logger.error('Web socket connection failed', error);
         //     }
         // });
-        const io = new Server(httpServer, {
-            cors: {
-                origin: '*',
-                methods: ['GET', 'POST']
-            }
-        });
+        const io = new Server(httpServer, this.getSocketIoOptions());
         const connectionFn: Parameters<typeof io.on>[1] = async socket => {
             const headers = socket.request.headers as Record<string, string>;
             try {
@@ -127,6 +122,20 @@ export class CollaborationServer {
         }
 
         this.logger.info(`Open Collaboration Server listening on ${opts.hostname}:${opts.port}`);
+    }
+
+    protected getSocketIoOptions(): Partial<ServerOptions> {
+        return {
+            cors: {
+                origin: '*',
+                methods: ['GET', 'POST']
+            },
+            // A dropped connection (crash, killed process, lost network) is only detected once the
+            // heartbeat times out. Configurable so test suites can shorten it and flaky networks can
+            // lengthen it; defaults match socket.io's own defaults.
+            pingInterval: this.configuration.getValue('oct-ping-interval', 'number') ?? 25000,
+            pingTimeout: this.configuration.getValue('oct-ping-timeout', 'number') ?? 20000
+        };
     }
 
     protected async connectChannel(headers: Record<string, string | undefined>, channel: TransportChannel): Promise<void> {
