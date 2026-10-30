@@ -9,7 +9,7 @@ import { BinaryData, BinaryResponse, CloseSessionRequest, CreateRoomRequest, fro
     LoginRequest, OpenDocument,
     SessionData, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
 import { CollaborationInstance } from './collaboration-instance.js';
-import { MessageConnection } from 'vscode-jsonrpc';
+import { CancellationToken, MessageConnection } from 'vscode-jsonrpc';
 
 export class MessageHandler {
 
@@ -18,7 +18,7 @@ export class MessageHandler {
     protected lastRequestId = 0;
 
     constructor(private octConnectionProvider: types.ConnectionProvider, private clientCommunication: MessageConnection) {
-        clientCommunication.onRequest(LoginRequest, async () => this.login());
+        clientCommunication.onRequest(LoginRequest, this.login.bind(this));
         clientCommunication.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
         clientCommunication.onRequest(CreateRoomRequest, this.createRoom.bind(this));
         clientCommunication.onRequest(CloseSessionRequest, async () => {
@@ -75,18 +75,18 @@ export class MessageHandler {
         });
     }
 
-    async login(): Promise<string> {
+    async login(_params: void, cancellationToken: CancellationToken = CancellationToken.None): Promise<string> {
         try {
-            const authToken = await this.octConnectionProvider.login({ });
+            const authToken = await this.octConnectionProvider.login({ abortSignal: this.toAbortSignal(cancellationToken) });
             return authToken;
         } catch (error) {
             throw new Error(`Failed to login: ${error}`);
         }
     }
 
-    async joinRoom(roomId: string): Promise<SessionData> {
+    async joinRoom(roomId: string, cancellationToken: CancellationToken = CancellationToken.None): Promise<SessionData> {
         try {
-            const resp = await this.octConnectionProvider.joinRoom({ roomId });
+            const resp = await this.octConnectionProvider.joinRoom({ roomId, abortSignal: this.toAbortSignal(cancellationToken) });
             this.onConnection(await this.octConnectionProvider.connect(resp.roomToken), false);
             return {
                 roomId: resp.roomId,
@@ -99,9 +99,9 @@ export class MessageHandler {
         }
     }
 
-    async createRoom(workspace: types.Workspace): Promise<SessionData> {
+    async createRoom(workspace: types.Workspace, cancellationToken: CancellationToken = CancellationToken.None): Promise<SessionData> {
         try {
-            const resp = await this.octConnectionProvider.createRoom({});
+            const resp = await this.octConnectionProvider.createRoom({ abortSignal: this.toAbortSignal(cancellationToken) });
             this.onConnection(await this.octConnectionProvider.connect(resp.roomToken), true, workspace);
             return {
                 roomId: resp.roomId,
@@ -112,6 +112,16 @@ export class MessageHandler {
         } catch (error) {
             throw new Error(`Failed to create room: ${error}`);
         }
+    }
+
+    protected toAbortSignal(token: CancellationToken): AbortSignal {
+        const controller = new AbortController();
+        if (token.isCancellationRequested) {
+            controller.abort();
+        } else {
+            token.onCancellationRequested(() => controller.abort());
+        }
+        return controller.signal;
     }
 
     onConnection(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
