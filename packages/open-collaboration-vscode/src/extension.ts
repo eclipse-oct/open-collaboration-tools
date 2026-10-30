@@ -17,6 +17,7 @@ import { Fetch } from './collaboration-connection-provider.js';
 import fetch from 'node-fetch';
 import { ChatWebview } from './chat-webview/chat-webview.js';
 import { JoinUriHandler } from './join-uri-handler.js';
+import { registerTerminalCommands } from './terminal/terminal-commands.js';
 
 initializeProtocol({
     cryptoModule: crypto.webcrypto
@@ -29,6 +30,9 @@ export async function activate(context: vscode.ExtensionContext) {
     commands.initialize();
     container.get(JoinUriHandler).initialize();
     container.get(ChatWebview).register();
+    // Only ever called from the node extension host: terminal sharing needs node-pty, a
+    // native module that must stay unreachable from the web build (extension-web.ts).
+    registerTerminalCommands(container);
     const roomService = container.get(CollaborationRoomService);
 
     const connection = await roomService.tryConnect();

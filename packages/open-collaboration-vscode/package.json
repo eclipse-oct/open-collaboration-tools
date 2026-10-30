@@ -118,6 +118,37 @@
             "**/.env"
           ],
           "markdownDescription": "%oct.files.exclude%"
+        },
+        "oct.terminal.defaultAccessMode": {
+          "type": "string",
+          "enum": [
+            "read",
+            "readWrite"
+          ],
+          "default": "read",
+          "enumItemLabels": [
+            "%oct.terminal.defaultAccessMode.read%",
+            "%oct.terminal.defaultAccessMode.readWrite%"
+          ],
+          "markdownDescription": "%oct.terminal.defaultAccessMode%"
+        },
+        "oct.terminal.scrollback": {
+          "type": "number",
+          "default": 1000,
+          "description": "%oct.terminal.scrollback%"
+        },
+        "oct.terminal.shell": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%oct.terminal.shell%"
+        },
+        "oct.terminal.shellArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%oct.terminal.shellArgs%"
         }
       }
     },
@@ -158,6 +189,14 @@
         {
           "command": "oct.stopFollowPeer",
           "when": "oct.connection && oct.following"
+        },
+        {
+          "command": "oct.shareTerminal",
+          "when": "oct.connection && oct.isHost"
+        },
+        {
+          "command": "oct.openSharedTerminal",
+          "when": "oct.connection && !oct.isHost"
         }
       ],
       "view/item/context": [
@@ -245,6 +284,20 @@
         "category": "Open Collaboration Tools",
         "icon": "$(robot)",
         "enablement": "oct.connection && workbenchState != empty"
+      },
+      {
+        "command": "oct.shareTerminal",
+        "title": "%oct.shareTerminal%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(broadcast)",
+        "enablement": "oct.connection && oct.isHost"
+      },
+      {
+        "command": "oct.openSharedTerminal",
+        "title": "%oct.openSharedTerminal%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(terminal)",
+        "enablement": "oct.connection && !oct.isHost"
       }
     ],
     "colors": [
@@ -309,6 +362,8 @@
     "l10n-translate": "tsx ./scripts/translate.ts"
   },
   "dependencies": {
+    "@xterm/addon-serialize": "^0.13.0",
+    "@xterm/headless": "^5.5.0",
     "async-mutex": "~0.5.0",
     "baukasten-ui": "^0.2.6",
     "inversify": "~6.2.2",
@@ -316,6 +371,7 @@
     "minimatch": "^10.1.1",
     "nanoid": "~5.1.5",
     "node-fetch": "~3.3.2",
+    "node-pty": "^1.1.0",
     "open-collaboration-protocol": "0.3.3",
     "open-collaboration-yjs": "0.3.1",
     "react": "^19.2.4",
