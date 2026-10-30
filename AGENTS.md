@@ -13,7 +13,7 @@ npm ci                                       # 8s (fresh clone, warm npm cache)
 npm run build                                # 5s clean, 2-4s incremental — tsc -b + per-package builds
 npm run lint                                 # 3s — eslint, flat config, no path args needed
 npm run check-nls                            # <1s — VS Code manifest %placeholders% resolve
-npx vitest run                               # 5s — full suite, 48 tests in 7 files
+npx vitest run                               # 5s — full suite, 51 tests in 7 files
 npx vitest run <file>                        # 1s — single file
 npx vitest run -t "<test name>"              # 2s — single test by name
 npm run start                                # server on :8100; GET /api/meta returns 200 JSON
