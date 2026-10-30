@@ -23,6 +23,11 @@ be re-derived from the code.
   ("guest opening a document the host has not seen yet seeds it from the host's real file content"),
   which covers the on-disk half.
 
+- **Each document edit is sent once, by the peer that made it.** A peer applies an update it
+  receives with the sender's peer id as the Yjs transaction origin and does not send it on, so the
+  origin names the author. An update a peer misses is repaired by the provider's `resyncTimer`, which
+  every client in this repo sets. Enforced by `packages/open-collaboration-yjs/test/yjs-provider.test.ts`.
+
 - **Files matching `oct.files.exclude` are never shared with guests.** The default is `**/.env`;
   users may add patterns. Excluded files are withheld from the guest's file system view and their
   contents are never sent. (unverified — no test covers this today; it is the first test to write
