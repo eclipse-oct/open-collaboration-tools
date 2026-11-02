@@ -142,10 +142,55 @@ export class TerminalService implements vscode.Disposable {
     }
 
     async shareTerminal(): Promise<void> {
+        const terminal = await this.createSharedTerminal();
+        if (!terminal) {
+            return;
+        }
+        const vsTerminal = vscode.window.createTerminal({
+            ...this.terminalOptions(terminal),
+            location: vscode.TerminalLocation.Panel
+        });
+        this.hostViews.set(terminal.id, vsTerminal);
+        vsTerminal.show();
+    }
+
+    /**
+     * Backs the "OCT Shared Terminal" entry of the terminal profile dropdown. Behaves like
+     * `shareTerminal`, except that VS Code creates the `vscode.Terminal` itself, so the view is
+     * picked up through `onDidOpenTerminal` instead.
+     */
+    async provideTerminalProfile(): Promise<vscode.TerminalProfile | undefined> {
+        const terminal = await this.createSharedTerminal();
+        if (!terminal) {
+            return undefined;
+        }
+        const listener = vscode.window.onDidOpenTerminal(vsTerminal => {
+            if ((vsTerminal.creationOptions as vscode.ExtensionTerminalOptions).pty === terminal.pseudoterminal) {
+                this.hostViews.set(terminal.id, vsTerminal);
+                listener.dispose();
+            }
+        });
+        this.sessionDisposables.push(listener);
+        return new vscode.TerminalProfile(this.terminalOptions(terminal));
+    }
+
+    private terminalOptions(terminal: SharedTerminal): vscode.ExtensionTerminalOptions {
+        return {
+            name: terminal.info.name,
+            pty: terminal.pseudoterminal,
+            iconPath: new vscode.ThemeIcon('broadcast')
+        };
+    }
+
+    /**
+     * Validates that a terminal can be shared, asks for the access mode and spawns the pty.
+     * Returns `undefined` if sharing is not possible or the user cancelled.
+     */
+    private async createSharedTerminal(): Promise<SharedTerminal | undefined> {
         const instance = this.instance;
         if (!instance?.host || !this.connection) {
             vscode.window.showErrorMessage(vscode.l10n.t('You must be hosting a collaboration session to share a terminal.'));
-            return;
+            return undefined;
         }
         if (!isNodePtyAvailable()) {
             const openSettings = vscode.l10n.t('Learn More');
@@ -157,15 +202,15 @@ export class TerminalService implements vscode.Disposable {
                     vscode.env.openExternal(vscode.Uri.parse('https://github.com/eclipse-oct/open-collaboration-tools/blob/main/docs/terminal-sharing.md'));
                 }
             });
-            return;
+            return undefined;
         }
 
         const mode = await this.pickAccessMode();
         if (!mode) {
-            return;
+            return undefined;
         }
         if (mode === 'readWrite' && !(await this.confirmReadWriteWarning())) {
-            return;
+            return undefined;
         }
 
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -200,16 +245,8 @@ export class TerminalService implements vscode.Disposable {
             this.connection?.terminal.closed(id, exit);
         });
 
-        const vsTerminal = vscode.window.createTerminal({
-            name,
-            pty: terminal.pseudoterminal,
-            iconPath: new vscode.ThemeIcon('broadcast'),
-            location: vscode.TerminalLocation.Panel
-        });
-        this.hostViews.set(id, vsTerminal);
-        vsTerminal.show();
-
-        this.connection?.terminal.opened(terminal.info);
+        this.connection.terminal.opened(terminal.info);
+        return terminal;
     }
 
     private async pickAccessMode(): Promise<types.TerminalAccessMode | undefined> {

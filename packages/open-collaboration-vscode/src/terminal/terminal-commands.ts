@@ -23,6 +23,6 @@ export function registerTerminalCommands(container: Container): void {
     context.subscriptions.push(
         terminalService,
         vscode.commands.registerCommand(OctCommands.ShareTerminal, () => terminalService.shareTerminal()),
-        vscode.commands.registerCommand(OctCommands.OpenSharedTerminal, () => terminalService.openSharedTerminal())
+        vscode.commands.registerCommand(OctCommands.OpenSharedTerminal, () => terminalService.openSharedTerminal()),
     );
 }

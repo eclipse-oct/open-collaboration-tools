@@ -45,7 +45,8 @@
   },
   "activationEvents": [
     "onStartupFinished",
-    "onUri"
+    "onUri",
+    "onTerminalProfile:oct.sharedTerminal"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -197,6 +198,18 @@
         {
           "command": "oct.openSharedTerminal",
           "when": "oct.connection && !oct.isHost"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "oct.shareTerminal",
+          "when": "view == terminal && oct.connection && oct.isHost",
+          "group": "navigation"
+        },
+        {
+          "command": "oct.openSharedTerminal",
+          "when": "view == terminal && oct.connection && !oct.isHost",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
