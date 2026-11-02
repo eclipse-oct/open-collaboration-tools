@@ -26,6 +26,7 @@
   "oct.startAgent": "Start OCT Agent",
   "oct.shareTerminal": "Share Terminal",
   "oct.openSharedTerminal": "Open Shared Terminal",
+  "oct.sharedTerminalProfile": "OCT Shared Terminal",
   "oct.terminal.defaultAccessMode": "The access mode suggested by default when sharing a new terminal.",
   "oct.terminal.defaultAccessMode.read": "Read Only",
   "oct.terminal.defaultAccessMode.readWrite": "Read & Write",
