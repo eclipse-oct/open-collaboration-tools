@@ -10,12 +10,13 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import * as decoding from 'lib0/decoding';
 import type * as types from 'open-collaboration-protocol';
-import { OpenCollaborationYjsProvider } from '../src/yjs-provider.js';
+import { DEFAULT_RESYNC_TIMER, OpenCollaborationYjsProvider } from '../src/yjs-provider.js';
 
 type Handler = (origin: string, data: Uint8Array) => void;
 
 interface Peer {
     doc: Y.Doc;
+    provider?: OpenCollaborationYjsProvider;
     handlers: { data: Handler[]; awareness: Handler[]; query: Handler[] };
 }
 
@@ -69,7 +70,7 @@ class Room {
             }
         };
         // Only the sync channel is used by the provider.
-        new OpenCollaborationYjsProvider(connection as unknown as types.ProtocolBroadcastConnection, doc, new awarenessProtocol.Awareness(doc), options);
+        peer.provider = new OpenCollaborationYjsProvider(connection as unknown as types.ProtocolBroadcastConnection, doc, new awarenessProtocol.Awareness(doc), options);
         return doc;
     }
 
@@ -142,5 +143,44 @@ describe('OpenCollaborationYjsProvider', () => {
 
         await vi.advanceTimersByTimeAsync(200);
         expect(bob.getText('file').toString()).toBe('a');
+    });
+
+    test('resyncs by default when no resync timer is given', async () => {
+        room.join('host');
+        const alice = room.join('alice');
+        const bob = room.join('bob');
+        room.dropped.add('alice>bob');
+
+        alice.getText('file').insert(0, 'a');
+        await vi.advanceTimersByTimeAsync(10);
+        expect(bob.getText('file').toString()).toBe('');
+
+        await vi.advanceTimersByTimeAsync(DEFAULT_RESYNC_TIMER);
+        expect(bob.getText('file').toString()).toBe('a');
+    });
+
+    test('does not resync when the resync timer is 0', async () => {
+        room.join('host', { resyncTimer: 0 });
+        const alice = room.join('alice', { resyncTimer: 0 });
+        const bob = room.join('bob', { resyncTimer: 0 });
+        room.dropped.add('alice>bob');
+
+        alice.getText('file').insert(0, 'a');
+        await vi.advanceTimersByTimeAsync(DEFAULT_RESYNC_TIMER * 3);
+
+        expect(bob.getText('file').toString()).toBe('');
+    });
+
+    test('stops resyncing once disposed', async () => {
+        room.join('host', { resyncTimer: 50 });
+        const alice = room.join('alice', { resyncTimer: 50 });
+        const bob = room.join('bob', { resyncTimer: 50 });
+        room.dropped.add('alice>bob');
+        room.peers.forEach(peer => peer.provider!.dispose());
+
+        alice.getText('file').insert(0, 'a');
+        await vi.advanceTimersByTimeAsync(200);
+
+        expect(bob.getText('file').toString()).toBe('');
     });
 });

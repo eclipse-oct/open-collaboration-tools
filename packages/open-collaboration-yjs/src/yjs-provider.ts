@@ -21,7 +21,14 @@ export interface AwarenessChange {
 
 export const LOCAL_ORIGIN = 'local';
 
+export const DEFAULT_RESYNC_TIMER = 10_000;
+
 export interface YjsProviderOptions {
+    /**
+     * Interval in milliseconds at which the provider asks its peers for updates it is missing.
+     * This is how a peer recovers an update that never reached it. Defaults to {@link DEFAULT_RESYNC_TIMER};
+     * `0` or a negative value disables it.
+     */
     resyncTimer?: number;
 }
 
@@ -31,6 +38,7 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
     private doc: Y.Doc;
     private awareness: awarenessProtocol.Awareness;
     private applyingRemoteUpdate = false;
+    private resyncInterval?: ReturnType<typeof setInterval>;
 
     constructor(connection: types.ProtocolBroadcastConnection, doc: Y.Doc, awareness: awarenessProtocol.Awareness, options?: YjsProviderOptions) {
         super();
@@ -43,20 +51,24 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
         connection.sync.onDataUpdate(this.ocpDataUpdateHandler.bind(this));
         connection.sync.onAwarenessUpdate(this.ocpAwarenessUpdateHandler.bind(this));
         connection.sync.onAwarenessQuery(this.ocpAwarenessQueryHandler.bind(this));
-        if (options?.resyncTimer && options.resyncTimer > 0) {
-            this.setResyncInterval(options.resyncTimer);
+        const resyncTimer = options?.resyncTimer ?? DEFAULT_RESYNC_TIMER;
+        if (resyncTimer > 0) {
+            this.setResyncInterval(resyncTimer);
         }
     }
 
     private setResyncInterval(timeout: number): void {
-        const interval = setInterval(() => {
+        this.resyncInterval = setInterval(() => {
             const encoder = encoding.createEncoder();
             syncProtocol.writeSyncStep1(encoder, this.doc);
             this.connection.sync.dataUpdate(this.encode(encoder));
         }, timeout);
-        this.doc.on('destroy', () => {
-            clearInterval(interval);
-        });
+        this.doc.on('destroy', () => this.clearResyncInterval());
+    }
+
+    private clearResyncInterval(): void {
+        clearInterval(this.resyncInterval);
+        this.resyncInterval = undefined;
     }
 
     private ocpDataUpdateHandler(origin: string, update: types.Binary): void {
@@ -126,6 +138,7 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
     }
 
     dispose(): void {
+        this.clearResyncInterval();
         awarenessProtocol.removeAwarenessStates(this.awareness, [this.doc.clientID], 'client disconnected');
     }
 
