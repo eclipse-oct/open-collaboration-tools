@@ -79,6 +79,27 @@ export interface ChatHandler {
     isWriting(): Promise<void>;
 }
 
+export interface TerminalHandler {
+    onList(handler: Handler<[], types.TerminalInfo[]>): void;
+    list(target: MessageTarget): Promise<types.TerminalInfo[]>;
+    onSubscribe(handler: Handler<[types.TerminalId], types.TerminalSnapshot>): void;
+    subscribe(target: MessageTarget, id: types.TerminalId): Promise<types.TerminalSnapshot>;
+    onUnsubscribe(handler: Handler<[types.TerminalId]>): void;
+    unsubscribe(target: MessageTarget, id: types.TerminalId): Promise<void>;
+    onInput(handler: Handler<[types.TerminalId, string]>): void;
+    input(target: MessageTarget, id: types.TerminalId, data: string): Promise<void>;
+    onViewResize(handler: Handler<[types.TerminalId, types.TerminalDimensions]>): void;
+    viewResize(target: MessageTarget, id: types.TerminalId, dimensions: types.TerminalDimensions): Promise<void>;
+    onOpened(handler: Handler<[types.TerminalInfo]>): void;
+    opened(info: types.TerminalInfo): Promise<void>;
+    onUpdated(handler: Handler<[types.TerminalInfo]>): void;
+    updated(info: types.TerminalInfo): Promise<void>;
+    onClosed(handler: Handler<[types.TerminalId, types.TerminalExit | undefined]>): void;
+    closed(id: types.TerminalId, exit?: types.TerminalExit): Promise<void>;
+    onOutput(handler: Handler<[types.TerminalId, types.TerminalChunk]>): void;
+    output(target: MessageTarget, id: types.TerminalId, chunk: types.TerminalChunk): Promise<void>;
+}
+
 export interface ProtocolBroadcastConnection extends BroadcastConnection {
     room: RoomHandler;
     peer: PeerHandler;
@@ -86,6 +107,7 @@ export interface ProtocolBroadcastConnection extends BroadcastConnection {
     editor: EditorHandler;
     sync: SyncHandler;
     chat: ChatHandler;
+    terminal: TerminalHandler;
 }
 
 export interface ProtocolBroadcastConnectionOptions {
@@ -196,6 +218,27 @@ export class ProtocolBroadcastConnectionImpl extends AbstractBroadcastConnection
             this.onNotification(Messages.Chat.DirectChatMessage, (orign, msg) => handler(orign, msg, true));
         },
         onIsWriting: (handler) => this.onBroadcast(Messages.Chat.IsWriting, handler)
+    };
+
+    terminal: TerminalHandler = {
+        onList: handler => this.onRequest(Messages.Terminal.List, handler),
+        list: target => this.sendRequest(Messages.Terminal.List, target),
+        onSubscribe: handler => this.onRequest(Messages.Terminal.Subscribe, handler),
+        subscribe: (target, id) => this.sendRequest(Messages.Terminal.Subscribe, target, id),
+        onUnsubscribe: handler => this.onNotification(Messages.Terminal.Unsubscribe, handler),
+        unsubscribe: (target, id) => this.sendNotification(Messages.Terminal.Unsubscribe, target, id),
+        onInput: handler => this.onNotification(Messages.Terminal.Input, handler),
+        input: (target, id, data) => this.sendNotification(Messages.Terminal.Input, target, id, data),
+        onViewResize: handler => this.onNotification(Messages.Terminal.ViewResize, handler),
+        viewResize: (target, id, dimensions) => this.sendNotification(Messages.Terminal.ViewResize, target, id, dimensions),
+        onOpened: handler => this.onBroadcast(Messages.Terminal.Opened, handler),
+        opened: info => this.sendBroadcast(Messages.Terminal.Opened, info),
+        onUpdated: handler => this.onBroadcast(Messages.Terminal.Updated, handler),
+        updated: info => this.sendBroadcast(Messages.Terminal.Updated, info),
+        onClosed: handler => this.onBroadcast(Messages.Terminal.Closed, handler),
+        closed: (id, exit) => this.sendBroadcast(Messages.Terminal.Closed, id, exit),
+        onOutput: handler => this.onNotification(Messages.Terminal.Output, handler),
+        output: (target, id, chunk) => this.sendNotification(Messages.Terminal.Output, target, id, chunk)
     };
 
     // Track peers manually for their public encryption keys
