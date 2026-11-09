@@ -25,6 +25,8 @@ export namespace Settings {
     export const TERMINAL_SCROLLBACK = 'oct.terminal.scrollback';
     export const TERMINAL_SHELL = 'oct.terminal.shell';
     export const TERMINAL_SHELL_ARGS = 'oct.terminal.shellArgs';
+    export const TERMINAL_RECOMMEND_LOCAL_ECHO = 'oct.terminal.recommendLocalEcho';
+    export const VSCODE_TERMINAL_LOCAL_ECHO = 'terminal.integrated.localEchoEnabled';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -97,6 +99,26 @@ export namespace Settings {
 
     export function getTerminalShellArgs(): string[] {
         return vscode.workspace.getConfiguration().get<string[]>(TERMINAL_SHELL_ARGS, []);
+    }
+
+    export function getTerminalRecommendLocalEcho(): boolean {
+        return vscode.workspace.getConfiguration().get<boolean>(TERMINAL_RECOMMEND_LOCAL_ECHO, true);
+    }
+
+    export async function setTerminalRecommendLocalEcho(value: boolean): Promise<void> {
+        await vscode.workspace.getConfiguration().update(TERMINAL_RECOMMEND_LOCAL_ECHO, value, vscode.ConfigurationTarget.Global);
+    }
+
+    /**
+     * Whether VS Code's own local echo (typeahead prediction) is active for every terminal.
+     * Its default `auto` only covers terminals of remote windows, not our extension terminals.
+     */
+    export function isLocalEchoEnabled(): boolean {
+        return vscode.workspace.getConfiguration().get<string>(VSCODE_TERMINAL_LOCAL_ECHO) === 'on';
+    }
+
+    export async function enableLocalEcho(): Promise<void> {
+        await vscode.workspace.getConfiguration().update(VSCODE_TERMINAL_LOCAL_ECHO, 'on', vscode.ConfigurationTarget.Global);
     }
 
 }

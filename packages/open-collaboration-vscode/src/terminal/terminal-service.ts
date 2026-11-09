@@ -50,6 +50,7 @@ export class TerminalService implements vscode.Disposable {
     private readonly guestViews = new Map<types.TerminalId, GuestTerminal>();
     private readonly guestVscodeTerminals = new Map<types.TerminalId, vscode.Terminal>();
     private readonly expectedSeq = new Map<types.TerminalId, number>();
+    private localEchoRecommended = false;
 
     initialize(): void {
         this.toDispose.push(
@@ -126,6 +127,11 @@ export class TerminalService implements vscode.Disposable {
             this.terminals.get(id)?.handleRemoteViewResize(origin, dimensions);
         });
 
+        // VS Code has no event for the user renaming a terminal tab; it only updates
+        // `vscode.Terminal.name` in place. Poll it so renames reach the guests.
+        const renamePoll = setInterval(() => this.syncHostTerminalNames(), 1000);
+        this.sessionDisposables.push(new vscode.Disposable(() => clearInterval(renamePoll)));
+
         // The connection's own room.onJoin/onLeave handlers are already owned by
         // CollaborationInstance (each message type only supports a single handler, see
         // abstract-connection.ts), so peer departures are observed indirectly here.
@@ -139,6 +145,15 @@ export class TerminalService implements vscode.Disposable {
                 }
             }
         }));
+    }
+
+    private syncHostTerminalNames(): void {
+        for (const [id, vsTerminal] of this.hostViews) {
+            const terminal = this.terminals.get(id);
+            if (terminal) {
+                terminal.name = vsTerminal.name;
+            }
+        }
     }
 
     async shareTerminal(): Promise<void> {
@@ -410,6 +425,30 @@ export class TerminalService implements vscode.Disposable {
         });
         this.guestVscodeTerminals.set(id, vsTerminal);
         vsTerminal.show();
+
+        if (snapshot.info.mode === 'readWrite') {
+            this.recommendLocalEcho();
+        }
+    }
+
+    private async recommendLocalEcho(): Promise<void> {
+        if (this.localEchoRecommended || Settings.isLocalEchoEnabled() || !Settings.getTerminalRecommendLocalEcho()) {
+            return;
+        }
+        // Only ask once per window, even if more write-enabled terminals are opened.
+        this.localEchoRecommended = true;
+        const enable = vscode.l10n.t('Enable');
+        const dontShowAgain = vscode.l10n.t('Don\'t Show Again');
+        const choice = await vscode.window.showInformationMessage(
+            vscode.l10n.t('Typing in a shared terminal waits for the host to echo each character. Enable VS Code\'s local echo to show typed characters immediately?'),
+            enable,
+            dontShowAgain
+        );
+        if (choice === enable) {
+            await Settings.enableLocalEcho();
+        } else if (choice === dontShowAgain) {
+            await Settings.setTerminalRecommendLocalEcho(false);
+        }
     }
 
     private async resubscribe(id: types.TerminalId): Promise<void> {

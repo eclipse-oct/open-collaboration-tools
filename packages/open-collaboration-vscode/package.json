@@ -150,6 +150,11 @@
           },
           "default": [],
           "description": "%oct.terminal.shellArgs%"
+        },
+        "oct.terminal.recommendLocalEcho": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%oct.terminal.recommendLocalEcho%"
         }
       }
     },

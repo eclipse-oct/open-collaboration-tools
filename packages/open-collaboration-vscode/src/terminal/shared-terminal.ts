@@ -130,9 +130,20 @@ export class SharedTerminal implements vscode.Disposable {
         return this._mode;
     }
 
-    setMode(mode: types.TerminalAccessMode): void {
+    set mode(mode: types.TerminalAccessMode) {
         if (this._mode !== mode) {
             this._mode = mode;
+            this.onDidUpdateEmitter.fire();
+        }
+    }
+
+    get name(): string {
+        return this._name;
+    }
+
+    set name(name: string) {
+        if (this._name !== name) {
+            this._name = name;
             this.onDidUpdateEmitter.fire();
         }
     }
