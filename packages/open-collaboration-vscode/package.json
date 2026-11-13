@@ -45,8 +45,7 @@
   },
   "activationEvents": [
     "onStartupFinished",
-    "onUri",
-    "onTerminalProfile:oct.sharedTerminal"
+    "onUri"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -132,11 +131,6 @@
             "%oct.terminal.defaultAccessMode.readWrite%"
           ],
           "markdownDescription": "%oct.terminal.defaultAccessMode%"
-        },
-        "oct.terminal.scrollback": {
-          "type": "number",
-          "default": 1000,
-          "description": "%oct.terminal.scrollback%"
         },
         "oct.terminal.shell": {
           "type": "string",

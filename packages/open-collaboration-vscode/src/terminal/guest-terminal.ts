@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import * as types from 'open-collaboration-protocol';
+import { Deferred } from 'open-collaboration-protocol';
 
 export interface GuestTerminalCallbacks {
     /** Sends `terminal/input`. Never called for a read-only terminal. */
@@ -31,6 +32,14 @@ export class GuestTerminal implements vscode.Disposable {
 
     private mode: types.TerminalAccessMode;
 
+    /**
+     * VS Code ignores events fired before `Pseudoterminal.open` is called, but the view already
+     * receives notifications while the terminal is being created. Everything that fires an
+     * event waits for `opened`; promise callbacks run in registration order, so output order
+     * is preserved.
+     */
+    private readonly opened = new Deferred();
+
     constructor(initialInfo: types.TerminalInfo, initialBuffer: string, private readonly callbacks: GuestTerminalCallbacks) {
         this.mode = initialInfo.mode;
 
@@ -51,6 +60,7 @@ export class GuestTerminal implements vscode.Disposable {
                 if (initialInfo.exit) {
                     this.showExit(initialInfo.exit);
                 }
+                this.opened.resolve();
             },
             close: () => {
                 // Cleanup (unsubscribe, map bookkeeping) is centralized in TerminalService's
@@ -71,26 +81,35 @@ export class GuestTerminal implements vscode.Disposable {
 
     /** Applies a chunk of output received via `terminal/output`. */
     write(data: string): void {
-        this.writeEmitter.fire(data);
+        this.whenOpen(() => this.writeEmitter.fire(data));
     }
 
     /** Applies a snapshot received from a fresh `terminal/subscribe`, e.g. after a reconnect. */
     applySnapshot(info: types.TerminalInfo, buffer: string): void {
         this.updateInfo(info);
-        this.writeEmitter.fire('\x1bc' + buffer);
+        this.whenOpen(() => this.writeEmitter.fire('\x1bc' + buffer));
     }
 
     updateInfo(info: types.TerminalInfo): void {
         this.mode = info.mode;
-        this.changeNameEmitter.fire(info.name);
-        if (info.dimensions) {
-            this.overrideDimensionsEmitter.fire(info.dimensions);
-        }
+        this.whenOpen(() => {
+            this.changeNameEmitter.fire(info.name);
+            if (info.dimensions) {
+                this.overrideDimensionsEmitter.fire(info.dimensions);
+            }
+        });
     }
 
     notifyClosed(exit: types.TerminalExit | undefined): void {
-        this.showExit(exit);
-        this.closeEmitter.fire(exit?.code);
+        this.whenOpen(() => {
+            this.showExit(exit);
+            this.closeEmitter.fire(exit?.code);
+        });
+    }
+
+    private async whenOpen(action: () => void): Promise<void> {
+        await this.opened.promise;
+        action();
     }
 
     private showExit(exit: types.TerminalExit | undefined): void {

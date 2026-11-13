@@ -268,6 +268,15 @@ export interface TerminalChunk {
     data: string;
 }
 
+export interface TerminalSubscribeOptions {
+    /**
+     * The maximum number of scrollback lines the subscriber can display. The owner never sends
+     * more than this, but may send less (its own history is limited, and snapshots are capped
+     * in size to fit into a single message).
+     */
+    scrollback?: number;
+}
+
 export interface TerminalSnapshot {
     info: TerminalInfo;
     dimensions: TerminalDimensions;

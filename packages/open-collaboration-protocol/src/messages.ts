@@ -56,7 +56,7 @@ export namespace Messages {
          * instead of mirroring the host's terminal list locally.
          */
         export const List = new RequestType<[], types.TerminalInfo[]>('terminal/list');
-        export const Subscribe = new RequestType<[types.TerminalId], types.TerminalSnapshot>('terminal/subscribe');
+        export const Subscribe = new RequestType<[types.TerminalId, types.TerminalSubscribeOptions?], types.TerminalSnapshot>('terminal/subscribe');
         export const Unsubscribe = new NotificationType<[types.TerminalId]>('terminal/unsubscribe');
         export const Input = new NotificationType<[types.TerminalId, string]>('terminal/input');
         export const ViewResize = new NotificationType<[types.TerminalId, types.TerminalDimensions]>('terminal/viewResize');

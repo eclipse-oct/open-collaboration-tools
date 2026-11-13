@@ -22,11 +22,11 @@ export namespace Settings {
     export const JOIN_ALLOWLIST = 'oct.joinAllowlist';
     export const FILES_EXCLUDE = 'oct.files.exclude';
     export const TERMINAL_DEFAULT_ACCESS_MODE = 'oct.terminal.defaultAccessMode';
-    export const TERMINAL_SCROLLBACK = 'oct.terminal.scrollback';
     export const TERMINAL_SHELL = 'oct.terminal.shell';
     export const TERMINAL_SHELL_ARGS = 'oct.terminal.shellArgs';
     export const TERMINAL_RECOMMEND_LOCAL_ECHO = 'oct.terminal.recommendLocalEcho';
     export const VSCODE_TERMINAL_LOCAL_ECHO = 'terminal.integrated.localEchoEnabled';
+    export const VSCODE_TERMINAL_SCROLLBACK = 'terminal.integrated.scrollback';
 
     export function getServerUrl(): string | undefined {
         const url = vscode.workspace.getConfiguration().get(SERVER_URL);
@@ -88,8 +88,10 @@ export namespace Settings {
         return mode === 'readWrite' ? 'readWrite' : 'read';
     }
 
-    export function getTerminalScrollback(): number {
-        return vscode.workspace.getConfiguration().get<number>(TERMINAL_SCROLLBACK, 1000);
+    /** VS Code's own terminal scrollback, i.e. how many lines a local terminal view keeps. */
+    export function getVscodeTerminalScrollback(): number {
+        const scrollback = vscode.workspace.getConfiguration().get<number>(VSCODE_TERMINAL_SCROLLBACK, 1000);
+        return Number.isFinite(scrollback) && scrollback >= 0 ? scrollback : 1000;
     }
 
     export function getTerminalShell(): string | undefined {
