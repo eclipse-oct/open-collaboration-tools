@@ -30,7 +30,6 @@
   "oct.terminal.defaultAccessMode": "The access mode suggested by default when sharing a new terminal.",
   "oct.terminal.defaultAccessMode.read": "Read Only",
   "oct.terminal.defaultAccessMode.readWrite": "Read & Write",
-  "oct.terminal.scrollback": "The number of lines of scrollback kept for a shared terminal, used to bring late-joining participants up to date.",
   "oct.terminal.shell": "Path of the shell executable used for shared terminals. Leave empty to use the system default (`$SHELL` on Linux/macOS).",
   "oct.terminal.shellArgs": "Command-line arguments passed to the shell used for shared terminals.",
   "oct.terminal.recommendLocalEcho": "Recommend enabling `#terminal.integrated.localEchoEnabled#` when opening a shared terminal with write access, so typed characters show up before the host has echoed them."

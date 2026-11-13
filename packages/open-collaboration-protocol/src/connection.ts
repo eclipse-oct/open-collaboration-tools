@@ -82,8 +82,8 @@ export interface ChatHandler {
 export interface TerminalHandler {
     onList(handler: Handler<[], types.TerminalInfo[]>): void;
     list(target: MessageTarget): Promise<types.TerminalInfo[]>;
-    onSubscribe(handler: Handler<[types.TerminalId], types.TerminalSnapshot>): void;
-    subscribe(target: MessageTarget, id: types.TerminalId): Promise<types.TerminalSnapshot>;
+    onSubscribe(handler: Handler<[types.TerminalId, types.TerminalSubscribeOptions?], types.TerminalSnapshot>): void;
+    subscribe(target: MessageTarget, id: types.TerminalId, options?: types.TerminalSubscribeOptions): Promise<types.TerminalSnapshot>;
     onUnsubscribe(handler: Handler<[types.TerminalId]>): void;
     unsubscribe(target: MessageTarget, id: types.TerminalId): Promise<void>;
     onInput(handler: Handler<[types.TerminalId, string]>): void;
@@ -224,7 +224,7 @@ export class ProtocolBroadcastConnectionImpl extends AbstractBroadcastConnection
         onList: handler => this.onRequest(Messages.Terminal.List, handler),
         list: target => this.sendRequest(Messages.Terminal.List, target),
         onSubscribe: handler => this.onRequest(Messages.Terminal.Subscribe, handler),
-        subscribe: (target, id) => this.sendRequest(Messages.Terminal.Subscribe, target, id),
+        subscribe: (target, id, options) => this.sendRequest(Messages.Terminal.Subscribe, target, id, options),
         onUnsubscribe: handler => this.onNotification(Messages.Terminal.Unsubscribe, handler),
         unsubscribe: (target, id) => this.sendNotification(Messages.Terminal.Unsubscribe, target, id),
         onInput: handler => this.onNotification(Messages.Terminal.Input, handler),

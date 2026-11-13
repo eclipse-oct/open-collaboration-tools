@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import * as types from 'open-collaboration-protocol';
+import { Deferred } from 'open-collaboration-protocol';
 import { NodePtyBackend } from './node-pty-backend.js';
 import { PtyBackend } from './pty-backend.js';
 import { OutputChunker } from './output-chunker.js';
@@ -51,6 +52,12 @@ export class SharedTerminal implements vscode.Disposable {
 
     private readonly writeEmitter = new vscode.EventEmitter<string>();
     private readonly closeEmitter = new vscode.EventEmitter<number | void>();
+    /**
+     * The pty is spawned in the constructor, so its first output (the prompt) or even its exit
+     * can happen before VS Code calls `Pseudoterminal.open`, and VS Code ignores events fired
+     * before that. Events for the local view therefore wait for `opened`.
+     */
+    private readonly opened = new Deferred();
     readonly pseudoterminal: vscode.Pseudoterminal;
 
     private readonly onDidUpdateEmitter = new vscode.EventEmitter<void>();
@@ -85,12 +92,12 @@ export class SharedTerminal implements vscode.Disposable {
         this.backend.onData(data => {
             this.emulator.write(data);
             this.chunker.push(data);
-            this.writeEmitter.fire(data);
+            this.whenOpen(() => this.writeEmitter.fire(data));
         });
         this.backend.onExit(exit => {
             this.chunker.flush();
             this._exit = { code: exit.code, signal: exit.signal !== undefined ? String(exit.signal) : undefined };
-            this.closeEmitter.fire(exit.code);
+            this.whenOpen(() => this.closeEmitter.fire(exit.code));
             this.onDidExitEmitter.fire(this._exit);
         });
 
@@ -101,6 +108,7 @@ export class SharedTerminal implements vscode.Disposable {
                 if (initialDimensions) {
                     this.applyDimensions(initialDimensions);
                 }
+                this.opened.resolve();
             },
             close: () => {
                 this.kill();
@@ -153,7 +161,11 @@ export class SharedTerminal implements vscode.Disposable {
         return this.isRoomReadonly() ? 'read' : this._mode;
     }
 
-    addSubscriber(peerId: types.Id): types.TerminalSnapshot {
+    /**
+     * @param scrollback how many history lines the subscriber can display; the snapshot never
+     * contains more, and less if it would not fit into a single message.
+     */
+    addSubscriber(peerId: types.Id, scrollback: number): types.TerminalSnapshot {
         // Flush first so the snapshot's `buffer` and `seq` describe exactly the same point in
         // the stream: any output still sitting in the coalescing window would otherwise be
         // visible in the emulator's serialized buffer without yet having a seq of its own.
@@ -162,7 +174,7 @@ export class SharedTerminal implements vscode.Disposable {
         return {
             info: this.info,
             dimensions: this._dimensions,
-            buffer: this.emulator.serialize(),
+            buffer: this.emulator.serialize(scrollback),
             seq: this.chunker.currentSeq
         };
     }
@@ -206,6 +218,11 @@ export class SharedTerminal implements vscode.Disposable {
         this.backend.resize(dimensions.columns, dimensions.rows);
         this.emulator.resize(dimensions.columns, dimensions.rows);
         this.onDidUpdateEmitter.fire();
+    }
+
+    private async whenOpen(action: () => void): Promise<void> {
+        await this.opened.promise;
+        action();
     }
 
     kill(): void {

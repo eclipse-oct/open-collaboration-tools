@@ -105,12 +105,15 @@ export class TerminalService implements vscode.Disposable {
 
         const connection = instance.connection;
         connection.terminal.onList(() => Array.from(this.terminals.values()).map(terminal => terminal.info));
-        connection.terminal.onSubscribe((origin, id) => {
+        connection.terminal.onSubscribe((origin, id, options) => {
             const terminal = this.terminals.get(id);
             if (!terminal) {
                 throw new Error(`Unknown terminal: ${id}`);
             }
-            return terminal.addSubscriber(origin);
+            // Older clients don't send a scrollback; fall back to VS Code's default.
+            const requested = options?.scrollback;
+            const scrollback = typeof requested === 'number' && requested >= 0 ? requested : 1000;
+            return terminal.addSubscriber(origin, scrollback);
         });
         connection.terminal.onUnsubscribe((origin, id) => {
             this.terminals.get(id)?.removeSubscriber(origin);
@@ -169,26 +172,6 @@ export class TerminalService implements vscode.Disposable {
         vsTerminal.show();
     }
 
-    /**
-     * Backs the "OCT Shared Terminal" entry of the terminal profile dropdown. Behaves like
-     * `shareTerminal`, except that VS Code creates the `vscode.Terminal` itself, so the view is
-     * picked up through `onDidOpenTerminal` instead.
-     */
-    async provideTerminalProfile(): Promise<vscode.TerminalProfile | undefined> {
-        const terminal = await this.createSharedTerminal();
-        if (!terminal) {
-            return undefined;
-        }
-        const listener = vscode.window.onDidOpenTerminal(vsTerminal => {
-            if ((vsTerminal.creationOptions as vscode.ExtensionTerminalOptions).pty === terminal.pseudoterminal) {
-                this.hostViews.set(terminal.id, vsTerminal);
-                listener.dispose();
-            }
-        });
-        this.sessionDisposables.push(listener);
-        return new vscode.TerminalProfile(this.terminalOptions(terminal));
-    }
-
     private terminalOptions(terminal: SharedTerminal): vscode.ExtensionTerminalOptions {
         return {
             name: terminal.info.name,
@@ -242,7 +225,8 @@ export class TerminalService implements vscode.Disposable {
             shell: Settings.getTerminalShell() ?? defaultShell(),
             shellArgs: Settings.getTerminalShellArgs(),
             cwd,
-            scrollback: Settings.getTerminalScrollback(),
+            // Keep as much history as the host's own terminal shows; guests get at most what they ask for.
+            scrollback: Settings.getVscodeTerminalScrollback(),
             isRoomReadonly: () => instance.permissions.readonly
         });
         this.terminals.set(id, terminal);
@@ -404,7 +388,7 @@ export class TerminalService implements vscode.Disposable {
         }
         let snapshot: types.TerminalSnapshot;
         try {
-            snapshot = await this.connection.terminal.subscribe(instance.hostId, id);
+            snapshot = await this.connection.terminal.subscribe(instance.hostId, id, this.subscribeOptions());
         } catch (error) {
             vscode.window.showErrorMessage(vscode.l10n.t('Could not open the shared terminal: {0}', String(error)));
             return;
@@ -451,6 +435,11 @@ export class TerminalService implements vscode.Disposable {
         }
     }
 
+    private subscribeOptions(): types.TerminalSubscribeOptions {
+        // The guest's own terminal discards anything beyond its scrollback, so don't ask for more.
+        return { scrollback: Settings.getVscodeTerminalScrollback() };
+    }
+
     private async resubscribe(id: types.TerminalId): Promise<void> {
         const instance = this.instance;
         const view = this.guestViews.get(id);
@@ -458,7 +447,7 @@ export class TerminalService implements vscode.Disposable {
             return;
         }
         try {
-            const snapshot = await this.connection.terminal.subscribe(instance.hostId, id);
+            const snapshot = await this.connection.terminal.subscribe(instance.hostId, id, this.subscribeOptions());
             this.expectedSeq.set(id, snapshot.seq + 1);
             view.applySnapshot(snapshot.info, snapshot.buffer);
         } catch {
