@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import * as os from 'node:os';
 import * as types from 'open-collaboration-protocol';
-import { ProtocolBroadcastConnection } from 'open-collaboration-protocol';
+import { Deferred, ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import { inject, injectable } from 'inversify';
 import { nanoid } from 'nanoid';
 import { CollaborationInstance } from '../collaboration-instance.js';
@@ -50,6 +50,8 @@ export class TerminalService implements vscode.Disposable {
     private readonly guestViews = new Map<types.TerminalId, GuestTerminal>();
     private readonly guestVscodeTerminals = new Map<types.TerminalId, vscode.Terminal>();
     private readonly expectedSeq = new Map<types.TerminalId, number>();
+    /** Resyncs currently in flight; output arriving meanwhile waits for them to finish. */
+    private readonly pendingResyncs = new Map<types.TerminalId, Promise<void>>();
     private localEchoRecommended = false;
 
     initialize(): void {
@@ -93,6 +95,7 @@ export class TerminalService implements vscode.Disposable {
         }
         this.guestViews.clear();
         this.expectedSeq.clear();
+        this.pendingResyncs.clear();
 
         this.instance = undefined;
         this.connection = undefined;
@@ -311,18 +314,13 @@ export class TerminalService implements vscode.Disposable {
             if (origin !== instance.hostId) {
                 return;
             }
-            const view = this.guestViews.get(id);
-            if (!view) {
-                return;
+            const pending = this.pendingResyncs.get(id);
+            if (pending) {
+                // Callbacks run in registration order, so queued chunks keep their order.
+                pending.then(() => this.applyOutput(id, chunk));
+            } else {
+                this.applyOutput(id, chunk);
             }
-            const expected = this.expectedSeq.get(id) ?? 0;
-            if (chunk.seq !== expected) {
-                // A gap in the sequence: don't guess, just re-sync from a fresh snapshot.
-                this.resubscribe(id);
-                return;
-            }
-            view.write(chunk.data);
-            this.expectedSeq.set(id, chunk.seq + 1);
         });
 
         this.sessionDisposables.push(connection.onReconnect(() => {
@@ -330,6 +328,31 @@ export class TerminalService implements vscode.Disposable {
                 this.resubscribe(id);
             }
         }));
+    }
+
+    private applyOutput(id: types.TerminalId, chunk: types.TerminalChunk): void {
+        const pending = this.pendingResyncs.get(id);
+        if (pending) {
+            // A previously queued chunk started a new resync; wait for that one as well.
+            pending.then(() => this.applyOutput(id, chunk));
+            return;
+        }
+        const view = this.guestViews.get(id);
+        if (!view) {
+            return;
+        }
+        const expected = this.expectedSeq.get(id) ?? 0;
+        if (chunk.seq < expected) {
+            // Already contained in the snapshot we (re-)subscribed with.
+            return;
+        }
+        if (chunk.seq > expected) {
+            // A gap in the sequence: don't guess, just re-sync from a fresh snapshot.
+            this.resubscribe(id);
+            return;
+        }
+        view.write(chunk.data);
+        this.expectedSeq.set(id, chunk.seq + 1);
     }
 
     private notifyOpened(info: types.TerminalInfo): void {
@@ -407,6 +430,13 @@ export class TerminalService implements vscode.Disposable {
         if (this.instance !== instance || this.connection !== instance.connection) {
             return;
         }
+
+        const opened = this.guestVscodeTerminals.get(id);
+        if (opened) {
+            opened.show();
+            return;
+        }
+
         this.expectedSeq.set(id, snapshot.seq + 1);
 
         const view = new GuestTerminal(snapshot.info, snapshot.buffer, {
@@ -454,7 +484,27 @@ export class TerminalService implements vscode.Disposable {
         return { scrollback: Settings.getVscodeTerminalScrollback() };
     }
 
-    private async resubscribe(id: types.TerminalId): Promise<void> {
+    /**
+     * Re-syncs the guest view from a fresh snapshot. Only one resync per terminal runs at a
+     * time; concurrent calls share the pending one.
+     */
+    private resubscribe(id: types.TerminalId): Promise<void> {
+        const existing = this.pendingResyncs.get(id);
+        if (existing) {
+            return existing;
+        }
+        const deferred = new Deferred();
+        this.pendingResyncs.set(id, deferred.promise);
+        this.doResubscribe(id).finally(() => {
+            if (this.pendingResyncs.get(id) === deferred.promise) {
+                this.pendingResyncs.delete(id);
+            }
+            deferred.resolve();
+        });
+        return deferred.promise;
+    }
+
+    private async doResubscribe(id: types.TerminalId): Promise<void> {
         const instance = this.instance;
         const view = this.guestViews.get(id);
         if (!instance?.hostId || !this.connection || !view) {
@@ -462,6 +512,10 @@ export class TerminalService implements vscode.Disposable {
         }
         try {
             const snapshot = await this.connection.terminal.subscribe(instance.hostId, id, this.subscribeOptions());
+            if (this.instance !== instance || this.guestViews.get(id) !== view) {
+                // Session ended or the view was closed while we were waiting.
+                return;
+            }
             this.expectedSeq.set(id, snapshot.seq + 1);
             view.applySnapshot(snapshot.info, snapshot.buffer);
         } catch {
@@ -495,6 +549,7 @@ export class TerminalService implements vscode.Disposable {
                 this.guestViews.get(id)?.dispose();
                 this.guestViews.delete(id);
                 this.expectedSeq.delete(id);
+                this.pendingResyncs.delete(id);
                 return;
             }
         }
