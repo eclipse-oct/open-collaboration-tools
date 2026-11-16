@@ -29,10 +29,10 @@ export interface SharedTerminalOptions {
 
 /**
  * One shared terminal, owned by the host. Owns the pty backend, the local view (a
- * `vscode.Pseudoterminal` with no local echo, per docs/terminal-sharing.md §3), the headless
+ * `vscode.Pseudoterminal` with no local echo, per docs/terminal-sharing.md#architecture), the headless
  * emulator used for late-join snapshots, and the set of guests currently subscribed to its
  * output. Access-mode enforcement for remote input happens here, on the host, never trusting
- * what a sender claims (§11).
+ * what a sender claims (docs/terminal-sharing.md#security-model).
  */
 export class SharedTerminal implements vscode.Disposable {
 
@@ -203,8 +203,8 @@ export class SharedTerminal implements vscode.Disposable {
     }
 
     /**
-     * A guest's own panel dimensions. Purely informational for now (§9): the pty stays sized
-     * to the host's panel so wrapping is identical for everyone.
+     * A guest's own panel dimensions. Purely informational for now: the pty stays sized to the
+     * host's panel so wrapping is identical for everyone (docs/terminal-sharing.md#dimensions).
      */
     handleRemoteViewResize(_peerId: types.Id, _dimensions: types.TerminalDimensions): void {
         // Reserved for a future `min()` dimension clamp across write-enabled participants.

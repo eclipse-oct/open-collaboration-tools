@@ -18,7 +18,7 @@ export const MAX_SNAPSHOT_BYTES = 512 * 1024;
 /**
  * A headless xterm.js instance fed the same bytes as the real pty, kept purely to answer
  * "what does the screen look like right now" for late-joining guests (see
- * docs/terminal-sharing.md §5). It is a strictly passive observer:
+ * docs/terminal-sharing.md#late-join-reconnect-and-resync). It is a strictly passive observer:
  *  - its `onData` must never be wired back to the pty (device-status replies would double up)
  *  - it is not on the streaming path; guests receive raw pty chunks directly
  */

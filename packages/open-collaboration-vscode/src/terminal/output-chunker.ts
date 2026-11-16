@@ -7,16 +7,16 @@
 import * as types from 'open-collaboration-protocol';
 
 // socket.io is configured with the default 1 MB `maxHttpBufferSize` (see
-// docs/terminal-sharing.md §2), so chunks are capped well below that even after framing
-// and encryption overhead.
+// docs/adr/0001-terminal-sharing-via-extension-owned-pty.md), so chunks are capped well below
+// that even after framing and encryption overhead.
 export const MAX_CHUNK_BYTES = 32 * 1024;
 const COALESCE_WINDOW_MS = 10;
 
 /**
  * Coalesces bursty `onData` events from a pty into fewer, size-capped messages and assigns
  * monotonically increasing sequence numbers used for gap detection on the receiving end
- * (see docs/terminal-sharing.md §10). Pure and independent of VS Code/node-pty so it can be
- * unit tested directly.
+ * (see docs/terminal-sharing.md#late-join-reconnect-and-resync). Pure and independent of
+ * VS Code/node-pty so it can be unit tested directly.
  */
 export class OutputChunker {
 

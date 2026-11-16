@@ -27,7 +27,7 @@ import { isNodePtyAvailable } from './node-pty-backend.js';
  * On the host it owns the actual `SharedTerminal`s (pty + local view + subscriber bookkeeping).
  * On a guest it only keeps the terminals the user actually opened (rendered as `GuestTerminal`
  * views); the list of shared terminals is requested from the host on demand. Never bound or referenced from extension-web.ts: node-pty is a
- * native module and must stay unreachable from the web bundle (docs/terminal-sharing.md §4.3).
+ * native module and must stay unreachable from the web bundle (docs/terminal-sharing.md#web-build-isolation).
  */
 @injectable()
 export class TerminalService implements vscode.Disposable {
@@ -200,7 +200,7 @@ export class TerminalService implements vscode.Disposable {
                 openSettings
             ).then(choice => {
                 if (choice === openSettings) {
-                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/eclipse-oct/open-collaboration-tools/blob/main/docs/terminal-sharing.md'));
+                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/eclipse-oct/open-collaboration-tools/blob/main/packages/open-collaboration-vscode/docs/terminal-sharing.md#packaging-and-platform-support'));
                 }
             });
             return undefined;

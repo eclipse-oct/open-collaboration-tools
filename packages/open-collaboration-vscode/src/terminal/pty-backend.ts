@@ -7,7 +7,7 @@
 /**
  * Abstraction over the process that actually runs the shell. Kept as a seam so an
  * alternative backend (or a "feature disabled" stub) can be swapped in without touching
- * the rest of the terminal sharing code. See docs/terminal-sharing.md §4.4.
+ * the rest of the terminal sharing code. See docs/adr/0001-terminal-sharing-via-extension-owned-pty.md.
  */
 export interface PtyBackend {
     /** Send input as if typed into the terminal. */

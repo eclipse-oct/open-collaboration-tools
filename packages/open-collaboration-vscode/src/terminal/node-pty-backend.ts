@@ -7,7 +7,7 @@
 import { PtyBackend, PtyBackendOptions, PtyBackendUnavailableError } from './pty-backend.js';
 
 // node-pty is a native module and must never be reachable from the web extension bundle
-// (see docs/terminal-sharing.md §4.3). A lazy `require` keeps it out of any static import
+// (see docs/terminal-sharing.md#web-build-isolation). A lazy `require` keeps it out of any static import
 // graph so bundlers cannot follow it into extension-web.ts, and it also lets us turn a
 // missing/broken native module into an actionable error instead of an activation crash.
 type NodePtyModule = typeof import('node-pty');

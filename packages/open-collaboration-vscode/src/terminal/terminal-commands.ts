@@ -13,7 +13,7 @@ import { TerminalService } from './terminal-service.js';
 /**
  * Wires up terminal sharing. Deliberately kept out of commands.ts and only ever called from
  * extension.ts: this module (transitively) does a lazy `require('node-pty')`, a native module
- * that must never be reachable from the web extension bundle (docs/terminal-sharing.md §4.3).
+ * that must never be reachable from the web extension bundle (docs/terminal-sharing.md#web-build-isolation).
  */
 export function registerTerminalCommands(container: Container): void {
     const context = container.get<vscode.ExtensionContext>(ExtensionContext);

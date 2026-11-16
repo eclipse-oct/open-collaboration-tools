@@ -11,7 +11,7 @@ import { Deferred } from 'open-collaboration-protocol';
 export interface GuestTerminalCallbacks {
     /** Sends `terminal/input`. Never called for a read-only terminal. */
     sendInput(data: string): void;
-    /** Sends `terminal/viewResize`. Informational only (§9). */
+    /** Sends `terminal/viewResize`. Informational only (see docs/terminal-sharing.md#dimensions). */
     sendViewResize(dimensions: types.TerminalDimensions): void;
 }
 
@@ -19,7 +19,7 @@ export interface GuestTerminalCallbacks {
  * The guest-side view of a shared terminal: a `vscode.Pseudoterminal` that renders bytes it
  * receives over the wire and, for a read-write terminal, forwards keystrokes back to the
  * owner. Like the host's own view, it never echoes input locally - the host's pty is the only
- * source of echo, see docs/terminal-sharing.md §3.
+ * source of echo, see docs/terminal-sharing.md#architecture.
  */
 export class GuestTerminal implements vscode.Disposable {
 
