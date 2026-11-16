@@ -99,6 +99,11 @@ export function splitByBytes(text: string, maxBytes: number): string[] {
                 high = mid - 1;
             }
         }
+        const previous = text.charCodeAt(low - 1);
+        const next = text.charCodeAt(low);
+        if (previous >= 0xD800 && previous <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF) {
+            low = low === start + 1 ? low + 1 : low - 1;
+        }
         parts.push(text.slice(start, low));
         start = low;
     }

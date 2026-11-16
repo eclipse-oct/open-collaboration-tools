@@ -215,7 +215,15 @@ export class TerminalService implements vscode.Disposable {
         const cwd = workspaceFolder?.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : os.homedir();
         const id = nanoid();
         const ownPeer = await instance.ownUserData;
+        if (this.instance !== instance || !this.connection) {
+            return undefined;
+        }
         const name = vscode.l10n.t('Shared Terminal');
+
+        if (!vscode.workspace.isTrusted) {
+            vscode.window.showErrorMessage(vscode.l10n.t('Trust this workspace before sharing a terminal.'));
+            return undefined;
+        }
 
         const terminal = new SharedTerminal({
             id,
@@ -299,7 +307,10 @@ export class TerminalService implements vscode.Disposable {
                 this.guestViews.get(id)?.notifyClosed(exit);
             }
         });
-        connection.terminal.onOutput((_, id, chunk) => {
+        connection.terminal.onOutput((origin, id, chunk) => {
+            if (origin !== instance.hostId) {
+                return;
+            }
             const view = this.guestViews.get(id);
             if (!view) {
                 return;
@@ -391,6 +402,9 @@ export class TerminalService implements vscode.Disposable {
             snapshot = await this.connection.terminal.subscribe(instance.hostId, id, this.subscribeOptions());
         } catch (error) {
             vscode.window.showErrorMessage(vscode.l10n.t('Could not open the shared terminal: {0}', String(error)));
+            return;
+        }
+        if (this.instance !== instance || this.connection !== instance.connection) {
             return;
         }
         this.expectedSeq.set(id, snapshot.seq + 1);
