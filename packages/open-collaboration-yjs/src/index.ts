@@ -5,4 +5,6 @@
 // ******************************************************************************
 
 export * from './yjs-provider.js';
-export * from './yjs-normalized-text.js';
+export * from './text-change.js';
+export * from './yjs-text-sync.js';
+export * from './text-diff.js';

@@ -8,7 +8,6 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Server",
-      "runtimeExecutable": "${workspaceFolder}/.vscode/node-wrapper.sh",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/packages/open-collaboration-server/lib/app.js",
       "args": ["--hostname=0.0.0.0"],

@@ -29,6 +29,21 @@ be re-derived from the code.
   defaults to 10 seconds; setting it to `0` or less turns the repair off, and `dispose()` stops it.
   Enforced by `packages/open-collaboration-yjs/test/yjs-provider.test.ts`.
 
+- **An edit typed while a remote change is arriving lands where the user typed it.** In the VS Code
+  extension a remote change reaches the editor asynchronously, and the editor rejects it if the user
+  typed in the meantime. The change is then recomputed for the editor's new content, and the user's
+  edit is rebased onto the shared document, so neither is lost or misplaced, and a remote change is
+  never sent back as if it were local. The editor is only ever changed by minimal edits, never by
+  replacing the whole document. Enforced by `packages/open-collaboration-yjs/test/yjs-text-sync.test.ts`
+  against a fake editor; the VS Code wiring in `CollaborationInstance.getDocumentSync` is unverified.
+  Not promised for clients of the service process: its client protocol has no way to reject or
+  confirm an edit, so a change is taken as applied the moment it is sent to the client.
+
+- **What a guest types before the host has shared the document is kept.** Such edits are held back
+  until the host's content arrives and are then rebased onto it, even if that content differs from
+  what the guest started with. If the host does not share the document within 5 seconds, the client
+  logs an error instead of staying silent. Enforced by
+  `packages/open-collaboration-yjs/test/yjs-text-sync.test.ts`.
 - **Files matching `oct.files.exclude` are never shared with guests.** The default is `**/.env`;
   users may add patterns. Excluded files are withheld from the guest's file system view and their
   contents are never sent. (unverified — no test covers this today; it is the first test to write
