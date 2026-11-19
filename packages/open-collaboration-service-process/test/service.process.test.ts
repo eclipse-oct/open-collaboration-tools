@@ -5,6 +5,7 @@
 // ******************************************************************************
 
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { realpathSync } from 'fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { Authentication, BinaryData, CloseSessionRequest, CreateRoomRequest, fromBinaryMessage, GetDocumentContent, JoinRoomRequest, JoinSessionRequest, OnInitNotification, OpenDocument, PeerInfoNotification, PeerLeftNotification, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from 'open-collaboration-service-process';
 import { Deferred, FileData } from 'open-collaboration-protocol';
@@ -20,7 +21,9 @@ class Client {
 
     constructor() {
         this.process = spawn('node',
-            [`${__dirname}/../lib/process.js`, '--server-address', SERVER_ADDRESS],
+            // Use the canonical path: on Windows, a drive letter in the wrong case (`c:\` in VS Code
+            // terminals) makes Node load a second copy of Yjs through the linked workspace packages.
+            [realpathSync.native(`${__dirname}/../lib/process.js`), '--server-address', SERVER_ADDRESS],
             {
                 env: { ...process.env, 'OCT_JWT_PRIVATE_KEY': 'some_test_key'}
             });
@@ -46,6 +49,8 @@ class Client {
                 },
             }});
         this.communicationHandler.listen();
+        // Surface what the process reports, like a second copy of Yjs being loaded
+        this.process.stderr.on('data', data => console.error('Service process: ', data.toString()));
     }
 }
 

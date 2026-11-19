@@ -5,7 +5,7 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsNormalizedTextDocument, YTextChange } from 'open-collaboration-yjs';
+import { LineEnding, LOCAL_ORIGIN, OpenCollaborationYjsProvider, TextDocumentAdapter, YjsTextDocumentSync, YTextChange } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import { BinaryData, BinaryResponse, ClientTextSelection, EditorOpenedNotification, fromBinaryMessage, GetDocumentContent, JoinSessionRequest, OnInitNotification, PeerInfoNotification, PeerJoinedNotification, PeerLeftNotification, SessionClosedNotification, TextDocumentInsert, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
@@ -23,7 +23,7 @@ export class CollaborationInstance implements types.Disposable {
 
     protected connectionDisposables: DisposableCollection = new DisposableCollection();
 
-    private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
+    private yjsDocuments = new Map<string, ClientDocument>();
 
     protected identity = new Deferred<types.Peer>();
 
@@ -203,43 +203,38 @@ export class CollaborationInstance implements types.Disposable {
 
     async registerYjsObject(type: string, documentPath: string, text: string) {
         if(type === 'text') {
-            const normalizedDocument = this.getNormalizedDocument(documentPath);
             // As a guest, getDocumentContent reads the file straight from the host
             // while the path is unshared, so the client's content does not come from
-            // the shared document. Tell the normalized document what the client holds
-            // so the host's seeding update is reconciled, not inserted on top.
-            normalizedDocument.attachLocalDocument(text);
+            // the shared document. The sync is told what the client holds, so that the
+            // host's seeding update is reconciled with it, not inserted on top.
+            this.yjsDocuments.get(documentPath)?.dispose();
+            const document = this.createClientDocument(documentPath, text);
             if (this.isHost) {
                 // A non-empty shared document is authoritative: it may hold unsaved guest
                 // edits, and re-seeding would discard those and invalidate every relative
-                // position. attachLocalDocument above already pulled it into our client.
-                if (this.YjsDoc.getText(documentPath).length > 0) {
-                    return;
+                // position. The sync pulls it into our client instead.
+                if (this.YjsDoc.getText(documentPath).length === 0) {
+                    document.sync.seed();
                 }
-                normalizedDocument.update({changes: text});
             } else {
                 this.octConnection.editor.open((await this.hostInfo.promise).id, documentPath);
             }
         }
     }
 
-    private getNormalizedDocument(path: string): YjsNormalizedTextDocument {
-        let yjsDocument = this.yjsDocuments.get(path);
-        if (!yjsDocument) {
-            yjsDocument = new YjsNormalizedTextDocument(this.YjsDoc.getText(path), async changes => {
-                this.clientConnection.sendNotification(UpdateDocumentContent, path, changes.map(change => {
-                    const start = yjsDocument!.normalizedOffset(change.start);
-                    const end = yjsDocument!.normalizedOffset(change.end);
-                    return {
-                        startOffset: start,
-                        endOffset: end,
-                        text: change.text
-                    } as TextDocumentInsert;
-                }));
-            });
-            this.yjsDocuments.set(path, yjsDocument);
-        }
-        return yjsDocument;
+    private createClientDocument(path: string, text: string): ClientDocument {
+        const document = new ClientDocument(text, this.YjsDoc.getText(path), changes => {
+            this.clientConnection.sendNotification(UpdateDocumentContent, path, changes.map(change => ({
+                startOffset: change.start,
+                endOffset: change.end,
+                text: change.text
+            } as TextDocumentInsert)));
+        }, () => {
+            // The offsets of selections could only be estimated while the client's document was behind
+            this.checkSelectionUpdated();
+        });
+        this.yjsDocuments.set(path, document);
+        return document;
     }
 
     updateYjsObjectContent(documentPath: string, changes: TextDocumentInsert[]) {
@@ -247,19 +242,14 @@ export class CollaborationInstance implements types.Disposable {
             return;
         }
         if (documentPath) {
-
-            const normalizedDocument = this.getNormalizedDocument(documentPath);
-            const textChanges: YTextChange[] = [];
-            for (const change of changes) {
-                const start = change.startOffset;
-                const end = change.endOffset ?? change.startOffset;
-                textChanges.push({
-                    start,
-                    end,
-                    text: change.text
-                });
-            }
-            normalizedDocument.update({ changes: textChanges });
+            // A client that never opened the document can only have got its content from the shared document
+            const document = this.yjsDocuments.get(documentPath)
+                ?? this.createClientDocument(documentPath, this.YjsDoc.getText(documentPath).toString());
+            document.update(changes.map(change => ({
+                start: change.startOffset,
+                end: change.endOffset ?? change.startOffset,
+                text: change.text
+            })));
         }
     }
 
@@ -272,15 +262,16 @@ export class CollaborationInstance implements types.Disposable {
 
         for (const [clientId, state] of states.entries()) {
             if (types.ClientTextSelection.is(state.selection) && clientId !== this.yjsAwareness.clientID) {
-                const normalizedDocument = this.getNormalizedDocument(state.selection.path);
+                // Offsets are the ones of the client's document, if the client has opened it
+                const sync = this.yjsDocuments.get(state.selection.path)?.sync;
 
                 const selections = state.selection.textSelections.map(s => {
                     const start = Y.createAbsolutePositionFromRelativePosition(s.start, this.YjsDoc)?.index ?? 0;
                     const end =  Y.createAbsolutePositionFromRelativePosition(s.end, this.YjsDoc)?.index;
                     return {
                         peer: state.peer,
-                        start: normalizedDocument.normalizedOffset(start),
-                        end: normalizedDocument.normalizedOffset(end ?? start),
+                        start: sync ? sync.editorOffset(start) : start,
+                        end: sync ? sync.editorOffset(end ?? start) : end ?? start,
                         isReversed: s.direction === types.SelectionDirection.RightToLeft
                     };
                 });
@@ -309,14 +300,16 @@ export class CollaborationInstance implements types.Disposable {
     updateYjsObjectSelection(documentPath: string, clientSelections: ClientTextSelection[]) {
         if (documentPath) {
             const ytext = this.YjsDoc.getText(documentPath);
+            const sync = this.yjsDocuments.get(documentPath)?.sync;
+            const toShared = (offset: number) => sync ? sync.normalizedOffset(offset) : offset;
             const selections: types.RelativeTextSelection[] = [];
             for (const clientSelection of clientSelections) {
                 selections.push({
                     direction: clientSelection.isReversed ?
                         types.SelectionDirection.RightToLeft :
                         types.SelectionDirection.LeftToRight,
-                    start: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.start),
-                    end: Y.createRelativePositionFromTypeIndex(ytext, clientSelection.end ?? clientSelection.start)
+                    start: Y.createRelativePositionFromTypeIndex(ytext, toShared(clientSelection.start)),
+                    end: Y.createRelativePositionFromTypeIndex(ytext, toShared(clientSelection.end ?? clientSelection.start))
                 });
             }
             const textSelection: types.ClientTextSelection = {
@@ -352,7 +345,59 @@ export class CollaborationInstance implements types.Disposable {
         this.clientConnection.sendNotification(SessionClosedNotification);
         this.octConnection.dispose();
         this.yjsProvider?.dispose();
+        this.yjsDocuments.forEach(document => document.dispose());
+        this.yjsDocuments.clear();
         this.YjsDoc.destroy();
         this.connectionDisposables.dispose();
+    }
+}
+
+/**
+ * The document of the native client, as far as the service process knows it.
+ *
+ * The client applies the changes it is sent without confirming them, and it does not report them
+ * back. Other than an editor that rejects an outdated edit, every change is therefore taken as
+ * applied the moment it is sent. A change the client makes before it has received one of ours
+ * addresses a document that we already consider changed, which only an acknowledgement in the
+ * client protocol could resolve.
+ */
+class ClientDocument implements types.Disposable {
+
+    /**
+     * Holds the only copy of the client's document: what the sync takes a change for
+     * is what the next change is computed from.
+     */
+    readonly sync: YjsTextDocumentSync;
+
+    constructor(text: string, ytext: Y.Text, send: (changes: YTextChange[]) => void, onDidSync: () => void) {
+        // The sync reads the text it starts with while it is being created
+        let initialText: string | undefined = text;
+        const getText = () => initialText ?? this.sync.text;
+        const adapter: TextDocumentAdapter = {
+            getText,
+            getEol: (): LineEnding => getText().includes('\r\n') ? '\r\n' : '\n',
+            applyChanges: async changes => {
+                send(changes);
+                this.update(changes);
+                return true;
+            }
+        };
+        this.sync = new YjsTextDocumentSync(ytext, adapter, {
+            // stdout is the channel to the client
+            onError: error => console.error('Failed to sync document', error),
+            onDidSync
+        });
+        initialText = undefined;
+    }
+
+    /**
+     * Follows a change of the client's document. All changes address the document as it was before.
+     */
+    update(changes: YTextChange[]): void {
+        this.sync.onDidChangeContent(changes);
+    }
+
+    dispose(): void {
+        this.sync.dispose();
     }
 }

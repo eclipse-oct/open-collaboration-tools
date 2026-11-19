@@ -10,7 +10,7 @@ import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as types from 'open-collaboration-protocol';
 import { FileSystemManager } from './collaboration-file-system.js';
-import { LOCAL_ORIGIN, OpenCollaborationYjsProvider, YTextChange, YjsNormalizedTextDocument } from 'open-collaboration-yjs';
+import { LineEnding, LOCAL_ORIGIN, OpenCollaborationYjsProvider, YjsTextDocumentSync } from 'open-collaboration-yjs';
 import debounce from 'lodash/debounce.js';
 import throttle from 'lodash/throttle.js';
 import { inject, injectable, postConstruct } from 'inversify';
@@ -119,6 +119,10 @@ export class DisposablePeer implements vscode.Disposable {
 }
 
 let colorIndex = 0;
+
+function toLineEnding(eol: vscode.EndOfLine): LineEnding {
+    return eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+}
 
 function nextColor(): string {
     colorIndex %= userColors.length;
@@ -230,16 +234,12 @@ export class CollaborationInstance implements vscode.Disposable {
     private identity = new Deferred<types.Peer>();
     private toDispose = new DisposableCollection();
     protected yjsProvider: OpenCollaborationYjsProvider;
-    private resyncing = new Set<string>();
-    private documentDisposables = new Map<string, DisposableCollection>();
     private peers = new Map<string, DisposablePeer>();
     private pending = new Map<string, PendingUser>();
-    private throttles = new Map<string, () => void>();
     private proposalDebounces = new Map<string, ReturnType<typeof debounce>>();
     private proposalMergeEditors = new Map<string, ProposalMergeEditor>();
     private closingProposals = new Set<string>();
-    private yjsDocuments = new Map<string, YjsNormalizedTextDocument>();
-    private _permissions: types.Permissions = { readonly: false };
+    private yjsDocuments = new Map<string, YjsTextDocumentSync>();    private _permissions: types.Permissions = { readonly: false };
 
     get permissions(): types.Permissions {
         return this._permissions;
@@ -598,18 +598,10 @@ export class CollaborationInstance implements vscode.Disposable {
             if (uri) {
                 const document = this.findDocument(uri);
                 if (document) {
-                    const textContent = new TextDecoder().decode(content.content);
-                    // In case the supplied content differs from the current document content, apply the change first
-                    if (textContent !== document.getText()) {
-                        await this.applyEdit([], () => {
-                            const doc = this.findDocument(uri);
-                            if (!doc) {
-                                return undefined;
-                            }
-                            this.createFullDocumentEdit(doc, textContent);
-                        });
-                    }
-                    // Then save the document
+                    // An open document is shared, so the peer has already sent what it wants to save as
+                    // changes. Wait for them to reach the document instead of replacing its content:
+                    // the supplied content does not contain what other peers changed in the meantime.
+                    await this.yjsDocuments.get(uri.toString())?.flush();
                     await document.save();
                 } else {
                     await vscode.workspace.fs.writeFile(uri, content.content);
@@ -647,24 +639,12 @@ export class CollaborationInstance implements vscode.Disposable {
         CollaborationInstance.Current = undefined;
         this.peers.forEach(e => e.dispose());
         this.peers.clear();
-        this.documentDisposables.forEach(e => e.dispose());
-        this.documentDisposables.clear();
         this.yjsDocuments.forEach(e => e.dispose());
         this.yjsDocuments.clear();
-        this.throttles.clear();
         this.proposalMergeEditors.clear();
         this.closingProposals.clear();
         this.onDidDisposeEmitter.fire();
         this.toDispose.dispose();
-    }
-
-    private pushDocumentDisposable(path: string, disposable: vscode.Disposable) {
-        let disposables = this.documentDisposables.get(path);
-        if (!disposables) {
-            disposables = new DisposableCollection();
-            this.documentDisposables.set(path, disposables);
-        }
-        disposables.push(disposable);
     }
 
     private registerEditorEvents() {
@@ -711,14 +691,8 @@ export class CollaborationInstance implements vscode.Disposable {
 
         this.toDispose.push(vscode.workspace.onDidCloseTextDocument(document => {
             const uri = document.uri.toString();
-            this.documentDisposables.get(uri)?.dispose();
-            this.documentDisposables.delete(uri);
             this.yjsDocuments.get(uri)?.dispose();
             this.yjsDocuments.delete(uri);
-            const path = CollaborationUri.getProtocolPath(document.uri);
-            if (path) {
-                this.throttles.delete(path);
-            }
         }));
 
         this.toDispose.push(vscode.window.onDidChangeTextEditorSelection(event => {
@@ -984,11 +958,11 @@ export class CollaborationInstance implements vscode.Disposable {
         const path = CollaborationUri.getProtocolPath(uri);
         if (path) {
             const ytext = this.yjs.getText(path);
-            const normalizedDocument = this.getNormalizedDocument(editor.document, path);
+            const sync = this.getDocumentSync(editor.document, path);
             const selections: types.RelativeTextSelection[] = [];
             for (const selection of editor.selections) {
-                const start = normalizedDocument.normalizedOffsetAt(selection.start);
-                const end = normalizedDocument.normalizedOffsetAt(selection.end);
+                const start = sync.normalizedOffset(editor.document.offsetAt(selection.start));
+                const end = sync.normalizedOffset(editor.document.offsetAt(selection.end));
                 const direction = selection.isReversed
                     ? types.SelectionDirection.RightToLeft
                     : types.SelectionDirection.LeftToRight;
@@ -1020,129 +994,46 @@ export class CollaborationInstance implements vscode.Disposable {
     }
 
     private registerTextDocument(document: vscode.TextDocument): void {
-        const uri = document.uri;
-        const path = CollaborationUri.getProtocolPath(uri);
+        const path = CollaborationUri.getProtocolPath(document.uri);
         if (path) {
-            const text = document.getText();
-            const normalizedDocument = this.getNormalizedDocument(document, path);
             // As a guest, CollaborationFileSystemProvider reads the file straight
             // from the host while the path is unshared, so the document's content
-            // does not come from the shared document. Tell the normalized document
-            // what the editor holds so the host's seeding update is reconciled,
-            // not inserted on top.
-            normalizedDocument.attachLocalDocument(text);
+            // does not come from the shared document. The sync leaves such a document
+            // alone until the host seeds the path, and reconciles the two then.
+            const sync = this.getDocumentSync(document, path);
             if (this.host) {
                 if (this.yjs.getText(path).length === 0) {
                     // Only seed an unshared path. A non-empty shared document may hold
                     // unsaved guest edits, and re-seeding would discard those and
                     // invalidate every relative position (making peer selections jump).
-                    normalizedDocument.update({
-                        changes: text
-                    });
+                    sync.seed();
                 }
             } else {
                 this.options.connection.editor.open(this.options.hostId, path);
             }
-            this.pushDocumentDisposable(path, normalizedDocument);
         }
     }
 
     private updateTextDocument(event: vscode.TextDocumentChangeEvent): void {
+        // The sync tells the user's changes apart from the ones it applied itself.
+        const sync = this.yjsDocuments.get(event.document.uri.toString());
         if (event.contentChanges.length === 0) {
-            // VS Code sometimes fires the event, even though nothing has changed
-            // Simply return immediately
+            // Nothing has changed, or something other than the content: the line ending
+            // of the document for example, which moves every offset behind a line break.
+            sync?.refresh();
             return;
         }
-        const uri = event.document.uri;
-        const path = CollaborationUri.getProtocolPath(uri);
-        if (path) {
-            if (this.resyncing.has(path)) {
-                // Don't update the Yjs document if we are resyncing
-                return;
-            }
-            const normalizedDocument = this.getNormalizedDocument(event.document, path);
-            const changes: YTextChange[] = [];
-            for (const change of event.contentChanges) {
-                const start = change.rangeOffset;
-                const end = change.rangeOffset + change.rangeLength;
-                changes.push({
-                    start,
-                    end,
-                    text: change.text
-                });
-            }
-            normalizedDocument.update({ changes });
-            this.getOrCreateThrottle(path)();
-        }
-    }
-
-    private getOrCreateThrottle(path: string): () => void {
-        let value = this.throttles.get(path);
-        if (value) {
-            return value;
-        }
-        const uri = CollaborationUri.getResourceUri(path);
-        if (uri) {
-            value = debounce(async () => {
-                const document = this.findDocument(uri);
-                if (document) {
-                    const yjsText = this.yjs.getText(path);
-                    const newContent = this.adjustEol(yjsText.toString(), document.eol);
-                    if (newContent !== document.getText()) {
-                        this.resyncing.add(path);
-                        await this.applyEdit([], () => {
-                            // Refetch the document in case any modifications have been made
-                            const doc = this.findDocument(uri);
-                            return doc ? this.createFullDocumentEdit(doc, newContent) : undefined;
-                        });
-                        this.resyncing.delete(path);
-                    }
-                }
-            }, 100, { // Try to update after 100ms
-                leading: false,
-                trailing: true,
-                maxWait: 500 // Update at least every 500ms
-            });
-            this.throttles.set(path, value);
-        } else {
-            console.warn('Could not determine URI for path', path);
-            value = () => { };
-        }
-        return value;
-    }
-
-    /**
-     * Applies the given changes to the document. If the changes are not applied successfully, it will retry up to 20 times.
-     * Note that the actual `WorkspaceEdit` needs to be recalculated on every retry attempt, as the document may have changed in the meantime.
-     */
-    private async applyEdit(changes: YTextChange[], edit: (changes: YTextChange[]) => vscode.WorkspaceEdit | undefined): Promise<boolean> {
-        let success = false;
-        let attempts = 0;
-        const maxAttempts = 20;
-        while (!success && attempts++ < maxAttempts) {
-            try {
-                const workspaceEdit = edit(changes);
-                if (!workspaceEdit) {
-                    return true;
-                }
-                success = await vscode.workspace.applyEdit(workspaceEdit);
-            } catch {
-                return false;
-            }
-        }
-        return success;
+        // A document only ever uses its own line ending, whatever the inserted text looked like
+        const eol = toLineEnding(event.document.eol);
+        sync?.onDidChangeContent(event.contentChanges.map(change => ({
+            start: change.rangeOffset,
+            end: change.rangeOffset + change.rangeLength,
+            text: change.text.replace(/\r\n|\r|\n/g, eol)
+        })));
     }
 
     private findDocument(uri: vscode.Uri): vscode.TextDocument | undefined {
         return vscode.workspace.textDocuments.find(e => e.uri.toString() === uri.toString());
-    }
-
-    private createFullDocumentEdit(document: vscode.TextDocument, content: string): vscode.WorkspaceEdit {
-        const edit = new vscode.WorkspaceEdit();
-        const startPosition = new vscode.Position(0, 0);
-        const endPosition = document.lineAt(document.lineCount - 1).range.end;
-        edit.replace(document.uri, new vscode.Range(startPosition, endPosition), content);
-        return edit;
     }
 
     private rerenderPresence() {
@@ -1172,7 +1063,7 @@ export class CollaborationInstance implements vscode.Disposable {
             const editors = vscode.window.visibleTextEditors.filter(e => e.document.uri.toString() === uri.toString());
             if (editors.length > 0) {
                 const model = editors[0].document;
-                const normalizedDocument = this.getNormalizedDocument(model, path);
+                const sync = this.getDocumentSync(model, path);
                 const afterRanges: vscode.Range[] = [];
                 const beforeRanges: vscode.Range[] = [];
                 const beforeNameTags: vscode.Range[] = [];
@@ -1182,10 +1073,8 @@ export class CollaborationInstance implements vscode.Disposable {
                     const startIndex = Y.createAbsolutePositionFromRelativePosition(selection.start, this.yjs);
                     const endIndex = Y.createAbsolutePositionFromRelativePosition(selection.end, this.yjs);
                     if (startIndex && endIndex) {
-                        const startPos = normalizedDocument.positionAtNormalized(startIndex.index);
-                        const start = new vscode.Position(startPos.line, startPos.character);
-                        const endPos = normalizedDocument.positionAtNormalized(endIndex.index);
-                        const end = new vscode.Position(endPos.line, endPos.character);
+                        const start = model.positionAt(sync.editorOffset(startIndex.index));
+                        const end = model.positionAt(sync.editorOffset(endIndex.index));
                         const inverted = (forward && end.line === 0) || (!forward && start.line === 0);
                         const range = new vscode.Range(start, end);
                         if (forward) {
@@ -1220,30 +1109,45 @@ export class CollaborationInstance implements vscode.Disposable {
         }
     }
 
-    private getNormalizedDocument(document: vscode.TextDocument, path: string): YjsNormalizedTextDocument {
-        const uri = document.uri;
-        const uriString = uri.toString();
-        let yjsDocument = this.yjsDocuments.get(uriString);
-        if (!yjsDocument) {
-            yjsDocument = new YjsNormalizedTextDocument(this.yjs.getText(path), async changes => {
-                const doc = this.findDocument(uri);
-                if (!doc) {
-                    return;
-                }
-                await this.applyEdit(changes, localChanges => {
-                    const edit = new vscode.WorkspaceEdit();
-                    for (const change of localChanges) {
-                        const start = doc.positionAt(change.start);
-                        const end = doc.positionAt(change.end);
-                        edit.replace(uri, new vscode.Range(start, end), change.text);
+    /**
+     * Returns the sync between the document and its shared counterpart.
+     * All remote changes reach the document through it, and all local changes leave through it.
+     */
+    private getDocumentSync(document: vscode.TextDocument, path: string): YjsTextDocumentSync {
+        const uri = document.uri.toString();
+        let sync = this.yjsDocuments.get(uri);
+        if (!sync) {
+            sync = new YjsTextDocumentSync(this.yjs.getText(path), {
+                getText: () => document.getText(),
+                getEol: () => toLineEnding(document.eol),
+                applyChanges: async changes => {
+                    if (document.isClosed) {
+                        return false;
                     }
-                    return edit;
-                });
-                this.getOrCreateThrottle(path)();
+                    const edit = new vscode.WorkspaceEdit();
+                    for (const change of changes) {
+                        const range = new vscode.Range(document.positionAt(change.start), document.positionAt(change.end));
+                        edit.replace(document.uri, range, change.text);
+                    }
+                    // VS Code rejects the edit if the document has changed since the edit was created.
+                    // The sync then creates a new edit for the changed document.
+                    return vscode.workspace.applyEdit(edit);
+                }
+            }, {
+                onError: error => console.warn(`Failed to sync '${path}'`, error),
+                onDidSync: () => {
+                    // While the document was behind, the positions of the shared document could only
+                    // be estimated. They are exact now, both the ones we publish and the ones we render.
+                    const editor = vscode.window.activeTextEditor;
+                    if (editor?.document === document) {
+                        this.updateTextSelection(editor);
+                    }
+                    this.rerenderPresence();
+                }
             });
-            this.yjsDocuments.set(uriString, yjsDocument);
+            this.yjsDocuments.set(uri, sync);
         }
-        return yjsDocument;
+        return sync;
     }
 
     private setSharedSelection(selection?: types.ClientSelection): void {
@@ -1285,10 +1189,5 @@ export class CollaborationInstance implements vscode.Disposable {
         this.fileSystemManager.registerFileSystemProvider(data.permissions.readonly);
         this.onDidUsersChangeEmitter.fire();
         this._ready.resolve();
-    }
-
-    private adjustEol(text: string, eol: vscode.EndOfLine): string {
-        const newEol = eol === vscode.EndOfLine.LF ? '\n' : '\r\n';
-        return text.replace(/\r?\n/g, newEol);
     }
 }
