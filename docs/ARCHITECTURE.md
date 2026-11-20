@@ -38,7 +38,7 @@ Rules that follow, and that `test/architecture.test.ts` enforces:
 | `open-collaboration-server` | Express 5 + Inversify relay: rooms, peers, credentials, and pluggable auth endpoints. | `CollaborationServer`, `RoomManager`, `PeerManager`, `MessageRelay`, `CredentialsManager`, `AuthEndpoint` |
 | `open-collaboration-vscode` | The VS Code extension, published as `typefox.open-collaboration-tools`. Owns the virtual file system, follow mode, chat, and the room view. | `activate`, `CollaborationInstance`, `CollaborationFileSystemProvider`, `CollaborationRoomService` |
 | `open-collaboration-monaco` | Connects a single Monaco editor to a session; its `example` entry backs the playground served by `npm run dev`. | `MonacoCollabApi`, `monacoCollab` |
-| `open-collaboration-service-process` | A stdio JSON-RPC process so non-TypeScript IDEs can join a session without reimplementing the protocol. | `MessageHandler`, `CollaborationInstance` |
+| `open-collaboration-service-process` | A stdio JSON-RPC process so non-TypeScript IDEs can join a session without reimplementing the protocol. | `MessageHandler`, `CollaborationInstance`, `VersionedClientDocument` |
 | `open-collaboration-agent` | CLI that joins a room as an AI participant, bridging the Agent Client Protocol to a session. | `startCLIAgent`, `ACPBridge` |
 
 ## Invariants

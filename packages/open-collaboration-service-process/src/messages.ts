@@ -102,6 +102,131 @@ export const UpdateTextSelection = new NotificationType2<string, ClientTextSelec
  */
 export const UpdateDocumentContent = new NotificationType2<string, TextDocumentInsert[]>(ToServiceMessages.UPDATE_DOCUMENT_CONTENT);
 
+// ***************************** Versioned documents *****************************
+//
+// A document opened with `document/open` is synchronized through versioned edits, which lets the
+// service process tell whether an edit still fits the client's buffer. A document opened with the
+// legacy `awareness/openDocument` keeps using `awareness/updateDocument` in both directions.
+// See "Document synchronization" in the Readme for the full contract.
+//
+// All messages take a single object parameter, sent by name. vscode-jsonrpc and lsp4j both send a
+// single-parameter message that way, and vscode-jsonrpc also accepts it wrapped in an array.
+
+export namespace DocumentMessages {
+    export const OPEN = 'document/open';
+    export const CLOSE = 'document/close';
+    export const DID_CHANGE = 'document/didChange';
+    export const DID_CHANGE_SELECTION = 'document/didChangeSelection';
+    export const APPLY_EDIT = 'document/applyEdit';
+    export const GET_BUFFER = 'document/getBuffer';
+}
+
+export type DocumentEol = '\n' | '\r\n';
+
+export interface OpenTextDocumentParams {
+    path: string
+    /** The content of the client's buffer */
+    text: string
+    /**
+     * The version of the buffer. The client increments it by exactly one with every change it
+     * reports through `document/didChange`, starting from this value.
+     */
+    version: number
+    /**
+     * The line ending the service process uses for text it inserts. Guessed from `text` if omitted.
+     */
+    eol?: DocumentEol
+}
+
+/**
+ * Starts the versioned synchronization of a document. Opening a path that is already open replaces
+ * the document, as if it was closed first.
+ */
+export const OpenTextDocument = new NotificationType<OpenTextDocumentParams>(DocumentMessages.OPEN);
+
+export interface CloseTextDocumentParams {
+    path: string
+}
+
+/**
+ * Stops the synchronization of a document. Its pending edit, if any, is abandoned.
+ */
+export const CloseTextDocument = new NotificationType<CloseTextDocumentParams>(DocumentMessages.CLOSE);
+
+export interface DidChangeTextDocumentParams {
+    path: string
+    /** The version of the buffer *after* the change */
+    version: number
+    /**
+     * All changes address the buffer as it was before any of them, are sorted, and do not overlap.
+     * Offsets are UTF-16 code units, the inserted text is the text as it was actually inserted.
+     */
+    changes: TextDocumentInsert[]
+}
+
+/**
+ * Reports a change of the client's buffer, made by the user or by an applied `document/applyEdit`.
+ * Must be sent as soon as the buffer changed, before any later message about the document.
+ */
+export const DidChangeTextDocument = new NotificationType<DidChangeTextDocumentParams>(DocumentMessages.DID_CHANGE);
+
+export interface DidChangeTextSelectionParams {
+    path: string
+    /** The version of the buffer the offsets address */
+    version: number
+    selections: ClientTextSelection[]
+}
+
+/**
+ * Reports the client's selections of a document. The offsets and the version need to be read
+ * together, at a moment when every change of the buffer has been reported.
+ */
+export const DidChangeTextSelection = new NotificationType<DidChangeTextSelectionParams>(DocumentMessages.DID_CHANGE_SELECTION);
+
+export interface ApplyEditParams {
+    path: string
+    /** The version of the buffer the changes address */
+    baseVersion: number
+    /** All changes address the buffer at `baseVersion` as it was before any of them, sorted and not overlapping */
+    changes: TextDocumentInsert[]
+}
+
+export type ApplyEditResultKind = 'applied' | 'outdated' | 'notOpen';
+
+export interface ApplyEditResult {
+    result: ApplyEditResultKind
+}
+
+/**
+ * Asks the client to apply an edit to its buffer. The client:
+ *
+ * 1. applies it only if the version of its buffer equals `baseVersion`, and then all changes at
+ *    once, back to front. Otherwise it applies nothing and answers `outdated`.
+ * 2. reports an applied edit as exactly one `document/didChange` with version `baseVersion + 1`,
+ *    and sends it *before* it answers `applied`.
+ * 3. answers `notOpen` for a path it does not have open.
+ *
+ * The client handles `document/applyEdit` and `document/getBuffer` of a document in the order it
+ * received them, on the thread that changes the buffer.
+ */
+export const ApplyEditRequest = new RequestType<ApplyEditParams, ApplyEditResult, void>(DocumentMessages.APPLY_EDIT);
+
+export interface GetBufferParams {
+    path: string
+}
+
+export interface DocumentBuffer {
+    text: string
+    version: number
+}
+
+/**
+ * Asks the client for the content and version of its buffer, or `null` if it does not have the
+ * document open. Only used to recover from a client that broke the protocol or stopped answering.
+ * The answer must reflect every `document/applyEdit` the client received before it.
+ */
+export const GetBufferRequest = new RequestType<GetBufferParams, DocumentBuffer | null, void>(DocumentMessages.GET_BUFFER);
+
 // ***************************** From service process ********************************
 
 /**
