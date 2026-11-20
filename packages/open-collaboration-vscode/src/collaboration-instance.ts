@@ -261,6 +261,10 @@ export class CollaborationInstance implements vscode.Disposable {
     private readonly onDidDisposeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidDispose: vscode.Event<void> = this.onDidDisposeEmitter.event;
 
+    /** Fired after `permissions` changed, whether set locally by the host or received from it. */
+    private readonly onDidChangePermissionsEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+    readonly onDidChangePermissions: vscode.Event<void> = this.onDidChangePermissionsEmitter.event;
+
     private readonly onDidPendingChangeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidPendingChange: vscode.Event<void> = this.onDidPendingChangeEmitter.event;
 
@@ -300,6 +304,24 @@ export class CollaborationInstance implements vscode.Disposable {
 
     get serverUrl(): string {
         return this.options.serverUrl;
+    }
+
+    /** The id of the room's host peer. Only set for guests. */
+    get hostId(): string | undefined {
+        return this.options.hostId;
+    }
+
+    private _capabilities: types.Capabilities = {};
+    get capabilities(): types.Capabilities {
+        return this._capabilities;
+    }
+
+    /**
+     * Lets host-only services (e.g. terminal sharing) advertise a capability before any guest
+     * joins, so it ends up in the `InitData` every guest receives on init.
+     */
+    setCapabilities(capabilities: types.Capabilities): void {
+        this._capabilities = { ...this._capabilities, ...capabilities };
     }
 
     @inject(CollaborationInstanceOptions)
@@ -344,6 +366,7 @@ export class CollaborationInstance implements vscode.Disposable {
         });
         this.toDispose.push(this.onDidUsersChangeEmitter);
         this.toDispose.push(this.onDidDisposeEmitter);
+        this.toDispose.push(this.onDidChangePermissionsEmitter);
 
         connection.peer.onJoinRequest(async (_, user) => {
             const result = await this.allowUserToJoin(user);
@@ -366,7 +389,7 @@ export class CollaborationInstance implements vscode.Disposable {
                     protocol: types.VERSION,
                     host: await this.identity.promise,
                     guests: Array.from(this.peers.values()).map(e => e.peer),
-                    capabilities: {},
+                    capabilities: this._capabilities,
                     permissions: this._permissions,
                     workspace: {
                         name: vscode.workspace.name ?? 'Collaboration',
@@ -402,6 +425,7 @@ export class CollaborationInstance implements vscode.Disposable {
         connection.room.onPermissions((_, permissions) => {
             this._permissions = permissions;
             this.fileSystemManager?.registerFileSystemProvider(permissions.readonly);
+            this.onDidChangePermissionsEmitter.fire();
         });
         connection.peer.onInfo((_, peer) => {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
@@ -632,6 +656,7 @@ export class CollaborationInstance implements vscode.Disposable {
     setPermissions(permissions: types.Permissions): void {
         this._permissions = permissions;
         this.connection.room.updatePermissions(this._permissions);
+        this.onDidChangePermissionsEmitter.fire();
     }
 
     async leave(): Promise<void> {
@@ -1282,6 +1307,7 @@ export class CollaborationInstance implements vscode.Disposable {
             this.peers.set(peer.id, new DisposablePeer(this.yjsAwareness, peer));
         }
         this._permissions = data.permissions;
+        this._capabilities = data.capabilities;
         this.fileSystemManager.registerFileSystemProvider(data.permissions.readonly);
         this.onDidUsersChangeEmitter.fire();
         this._ready.resolve();

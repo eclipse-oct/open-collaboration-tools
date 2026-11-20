@@ -11,3 +11,4 @@ esbuild.js
 **/*.ts
 **/.vscode-test.*
 **/*.tsbuildinfo
+docs/**

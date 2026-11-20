@@ -93,6 +93,8 @@ One protocol, several clients. Everything below `packages/`:
   `test/architecture.test.ts` enforces the layering it documents.
 - `docs/adr/` — do not contradict accepted ADRs: ADR-0001 (end-to-end encrypted relay), ADR-0002
   (in-memory session state), ADR-0003 (Yjs for document convergence).
+- `packages/open-collaboration-vscode/docs/` — vscode-extension-specific docs and ADRs (terminal sharing:
+  `terminal-sharing.md`, ADR-0001 under its `adr/`).
 - `docs/exec-plans/` — multi-session work gets a plan in `active/`; move it to `completed/` when done.
 - `docs/product-specs/index.md` — behaviour contracts; a change to intended behaviour updates its
   spec in the same change.
