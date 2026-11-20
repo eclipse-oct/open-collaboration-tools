@@ -17,7 +17,8 @@ initializeProtocol({
 
 program
     .option('--server-address <server-address>', 'The address of the server to connect to')
-    .option('--auth-token <auth-token>', 'The authentication token to use if available');
+    .option('--auth-token <auth-token>', 'The authentication token to use if available')
+    .option('--edit-timeout <milliseconds>', 'How long to wait for the client to answer a document/applyEdit before reading its buffer anew', parseInt);
 
 program.parse();
 
@@ -39,4 +40,4 @@ const connectionProvider = new ConnectionProvider({
     userToken: args.authToken
 });
 
-new MessageHandler(connectionProvider, communicationHandler);
+new MessageHandler(connectionProvider, communicationHandler, { editTimeout: args.editTimeout });

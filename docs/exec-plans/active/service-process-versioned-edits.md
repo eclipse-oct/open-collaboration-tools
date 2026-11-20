@@ -1,6 +1,6 @@
 # Versioned document edits in the service-process client protocol
 
-Status: proposed · Owner: _unassigned_ · Started: 2026-11-20
+Status: in progress (service process done, IntelliJ client and rollout open) · Owner: _unassigned_ · Started: 2026-11-20
 
 ## Problem
 
@@ -81,7 +81,7 @@ optional positional parameter to an existing message risks rejecting legacy clie
 | service → client | `document/applyEdit` | request | `{ path, baseVersion, changes: TextDocumentInsert[] }` → `{ result: 'applied' \| 'outdated' \| 'notOpen' }` |
 | service → client | `document/getBuffer` | request | `{ path }` → `{ text, version }` or `null` if not open (recovery only, see below) |
 
-Names are placeholders; settle them in step 1. `document/getBuffer` deliberately avoids the name of
+The names are settled as listed. `document/getBuffer` deliberately avoids the name of
 the existing `awareness/getDocumentContent`, which runs the other way (client → service) and returns
 the shared text or the host's file, not the client's buffer.
 
@@ -264,7 +264,7 @@ text. Resolving `false` instead would duplicate the text if the echo was our edi
 
 ## Open questions
 
-- Who implements the client side in `oct-intellij` (and Eclipse), and in which release?
+- In which `oct-intellij` (and Eclipse) release does the client side ship?
 - Should outgoing `UpdateTextSelection` carry a version so that clients can drop stale selections,
   or is the re-send on `onDidSync` enough?
 - Does the protocol change warrant an ADR (client protocol versioning and compatibility policy)?
@@ -278,3 +278,23 @@ text. Resolving `false` instead would duplicate the text if the echo was our edi
   back-to-front application, one version per document, `document/close` and `notOpen`, versioned
   client selections, and recovery through in-order `getBuffer` that settles a pending edit by
   throwing. Added the IntelliJ client step and the alternatives considered.
+- 2026-11-20 — Steps 1–5 and 7 done. Protocol settled as written (the IntelliJ and Eclipse owners are
+  notified on the PR rather than beforehand). Deviations from the design above:
+  - `VersionedClientDocument` lives in its own file, `src/versioned-client-document.ts`, and talks to
+    the client through a two-method interface, so it is unit-tested over a JSON-RPC pipe without a
+    server (`test/versioned-client-document.test.ts`, fake client in `test/fake-versioned-client.ts`).
+    `service.process.test.ts` covers the race end to end with a versioned host and a legacy guest.
+  - The timeout is the `--edit-timeout` CLI option (default 5000 ms). It also bounds the wait for
+    `getBuffer`, after which an error is logged and the document stays stalled.
+  - Besides gaps, recovery also starts for a `didChange` whose changes do not fit the mirror, an
+    `applied` that arrives without its `didChange`, and an `outdated` for the latest reported version.
+  - An edit the sync computes while a recovery is running is never sent; it resolves `false` once the
+    mirror is replaced. `document/close` resolves a pending edit with `false` instead of throwing, since
+    the sync is disposed and throwing would only log a spurious error.
+  - Once a client has sent any `document/open`, the host's service process no longer creates a legacy
+    document when a guest opens a file the client has not opened. It only seeds the shared text; the
+    client syncs it with `document/open` (e.g. on `editorOpened`). Without this, the service process
+    would push `awareness/updateDocument` to a versioned client.
+  - Legacy `awareness/updateDocument` for a versioned document is ignored with an error; legacy
+    `awareness/updateTextSelection` keeps working for it.
+  Remaining: step 6 (IntelliJ client) and step 8 (rollout).
