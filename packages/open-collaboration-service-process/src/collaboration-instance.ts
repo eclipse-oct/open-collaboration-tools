@@ -244,6 +244,10 @@ export class CollaborationInstance implements types.Disposable {
      */
     async openTextDocument(params: OpenTextDocumentParams): Promise<void> {
         const path = params.path;
+        if (typeof path !== 'string' || typeof params.text !== 'string' || !Number.isInteger(params.version) || !Number.isInteger(params.openId)) {
+            console.error(`Invalid document/open, the document is not synced: ${JSON.stringify({ ...params, text: undefined })}`);
+            return;
+        }
         this.versionedClient = true;
         this.yjsDocuments.get(path)?.dispose();
         const document: VersionedClientDocument = new VersionedClientDocument(path, params, this.YjsDoc.getText(path), {

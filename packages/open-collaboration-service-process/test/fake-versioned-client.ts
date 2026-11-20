@@ -8,7 +8,7 @@ import { Deferred } from 'open-collaboration-protocol';
 import { applyTextChanges } from 'open-collaboration-yjs';
 import type { MessageConnection } from 'vscode-jsonrpc';
 import {
-    ApplyEditParams, ApplyEditRequest, ApplyEditResult, DidChangeTextDocument, DidChangeTextSelection, DocumentBuffer,
+    ApplyEditParams, ApplyEditRequest, ApplyEditResult, CloseTextDocument, DidChangeTextDocument, DidChangeTextSelection, DocumentBuffer,
     GetBufferRequest, OpenTextDocument, TextDocumentInsert
 } from '../src/messages.js';
 
@@ -20,6 +20,7 @@ import {
 export class FakeVersionedClient {
 
     version = 0;
+    openId = 1;
     readonly edits: ApplyEditParams[] = [];
     /** Runs once, after the next edit has arrived and before the client looks at it */
     beforeApply?: () => void;
@@ -34,12 +35,29 @@ export class FakeVersionedClient {
     constructor(readonly connection: MessageConnection, readonly path: string, public text: string) {
         connection.onRequest(ApplyEditRequest, params => this.enqueue(() => this.applyEdit(params)));
         connection.onRequest(GetBufferRequest, params => this.enqueue<DocumentBuffer | null>(() =>
-            this.open && params.path === path ? { text: this.text, version: this.version } : null));
+            this.isOpen(params) ? { text: this.text, version: this.version } : null));
     }
 
     /** Opens the document with the service process */
     sendOpen(): void {
-        this.connection.sendNotification(OpenTextDocument, { path: this.path, text: this.text, version: this.version });
+        this.connection.sendNotification(OpenTextDocument, { path: this.path, text: this.text, version: this.version, openId: this.openId });
+    }
+
+    /** Opens the document anew, with a new counter that starts at `version` */
+    reopen(version = 0): void {
+        this.open = true;
+        this.openId++;
+        this.version = version;
+        this.sendOpen();
+    }
+
+    close(): void {
+        this.open = false;
+        this.connection.sendNotification(CloseTextDocument, { path: this.path });
+    }
+
+    private isOpen(params: { path: string, openId: number }): boolean {
+        return this.open && params.path === this.path && params.openId === this.openId;
     }
 
     /** The user changes the buffer */
@@ -60,7 +78,7 @@ export class FakeVersionedClient {
         const beforeApply = this.beforeApply;
         this.beforeApply = undefined;
         beforeApply?.();
-        if (!this.open || params.path !== this.path) {
+        if (!this.isOpen(params)) {
             return { result: 'notOpen' };
         }
         if (params.baseVersion !== this.version) {

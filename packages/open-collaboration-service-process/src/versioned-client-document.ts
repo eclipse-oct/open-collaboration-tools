@@ -69,6 +69,7 @@ export class VersionedClientDocument implements types.Disposable {
     private text: string;
     private version: number;
     private readonly eol?: LineEnding;
+    private readonly openId: number;
     private pending?: PendingEdit;
     /** Set while the mirror is read anew. Changes the client reports in the meantime are dropped. */
     private recovery?: Deferred<void>;
@@ -86,6 +87,7 @@ export class VersionedClientDocument implements types.Disposable {
     ) {
         this.text = params.text;
         this.version = params.version;
+        this.openId = params.openId;
         this.eol = params.eol === '\n' || params.eol === '\r\n' ? params.eol : undefined;
         this.logger = options.logger ?? console;
         this.sync = new YjsTextDocumentSync(ytext, {
@@ -167,6 +169,7 @@ export class VersionedClientDocument implements types.Disposable {
             }
             this.connection.applyEdit({
                 path: this.path,
+                openId: this.openId,
                 baseVersion,
                 changes: changes.map(change => ({ startOffset: change.start, endOffset: change.end, text: change.text }))
             }).then(
@@ -282,7 +285,7 @@ export class VersionedClientDocument implements types.Disposable {
             this.logger.error(`The client does not answer for ${this.path}. The document is stalled until it does.`);
         }, timeout) : undefined;
         try {
-            const buffer = await this.connection.getBuffer({ path: this.path });
+            const buffer = await this.connection.getBuffer({ path: this.path, openId: this.openId });
             if (buffer !== null && (typeof buffer?.text !== 'string' || !Number.isInteger(buffer.version))) {
                 throw new Error(`Invalid answer: ${JSON.stringify(buffer)}`);
             }

@@ -125,6 +125,13 @@ export type DocumentEol = '\n' | '\r\n';
 
 export interface OpenTextDocumentParams {
     path: string
+    /**
+     * Identifies this opening of the document. The client chooses a new value for every
+     * `document/open`, for example from a counter it increments with every open of any document.
+     * Requests about the document carry it, so that the client can tell those meant for an
+     * earlier opening of the same path apart, which may still be on their way after a reopen.
+     */
+    openId: number
     /** The content of the client's buffer */
     text: string
     /**
@@ -185,6 +192,8 @@ export const DidChangeTextSelection = new NotificationType<DidChangeTextSelectio
 
 export interface ApplyEditParams {
     path: string
+    /** The `openId` of the `document/open` the edit is meant for */
+    openId: number
     /** The version of the buffer the changes address */
     baseVersion: number
     /** All changes address the buffer at `baseVersion` as it was before any of them, sorted and not overlapping */
@@ -204,7 +213,8 @@ export interface ApplyEditResult {
  *    once, back to front. Otherwise it applies nothing and answers `outdated`.
  * 2. reports an applied edit as exactly one `document/didChange` with version `baseVersion + 1`,
  *    and sends it *before* it answers `applied`.
- * 3. answers `notOpen` for a path it does not have open.
+ * 3. answers `notOpen` for a path it does not have open, or whose current `openId` differs.
+ *    Applying an edit meant for an earlier opening would corrupt the document.
  *
  * The client handles `document/applyEdit` and `document/getBuffer` of a document in the order it
  * received them, on the thread that changes the buffer.
@@ -213,6 +223,8 @@ export const ApplyEditRequest = new RequestType<ApplyEditParams, ApplyEditResult
 
 export interface GetBufferParams {
     path: string
+    /** The `openId` of the `document/open` the request is meant for */
+    openId: number
 }
 
 export interface DocumentBuffer {
@@ -222,7 +234,7 @@ export interface DocumentBuffer {
 
 /**
  * Asks the client for the content and version of its buffer, or `null` if it does not have the
- * document open. Only used to recover from a client that broke the protocol or stopped answering.
+ * document open or its current `openId` differs. Only used to recover from a client that broke the protocol or stopped answering.
  * The answer must reflect every `document/applyEdit` the client received before it.
  */
 export const GetBufferRequest = new RequestType<GetBufferParams, DocumentBuffer | null, void>(DocumentMessages.GET_BUFFER);

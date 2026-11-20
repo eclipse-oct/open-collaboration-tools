@@ -74,12 +74,12 @@ optional positional parameter to an existing message risks rejecting legacy clie
 
 | Direction | Message | Kind | Payload |
 |---|---|---|---|
-| client → service | `document/open` | notification | `{ path, text, version, eol? }` |
+| client → service | `document/open` | notification | `{ path, openId, text, version, eol? }` |
 | client → service | `document/close` | notification | `{ path }` |
 | client → service | `document/didChange` | notification | `{ path, version, changes: TextDocumentInsert[] }`, where `version` is the version *after* the change |
 | client → service | `document/didChangeSelection` | notification | `{ path, version, selections: ClientTextSelection[] }` |
-| service → client | `document/applyEdit` | request | `{ path, baseVersion, changes: TextDocumentInsert[] }` → `{ result: 'applied' \| 'outdated' \| 'notOpen' }` |
-| service → client | `document/getBuffer` | request | `{ path }` → `{ text, version }` or `null` if not open (recovery only, see below) |
+| service → client | `document/applyEdit` | request | `{ path, openId, baseVersion, changes: TextDocumentInsert[] }` → `{ result: 'applied' \| 'outdated' \| 'notOpen' }` |
+| service → client | `document/getBuffer` | request | `{ path, openId }` → `{ text, version }` or `null` if not open (recovery only, see below) |
 
 The names are settled as listed. `document/getBuffer` deliberately avoids the name of
 the existing `awareness/getDocumentContent`, which runs the other way (client → service) and returns
@@ -298,3 +298,8 @@ text. Resolving `false` instead would duplicate the text if the echo was our edi
   - Legacy `awareness/updateDocument` for a versioned document is ignored with an error; legacy
     `awareness/updateTextSelection` keeps working for it.
   Remaining: step 6 (IntelliJ client) and step 8 (rollout).
+- 2026-11-20 — Added `openId` to `document/open`, `document/applyEdit` and `document/getBuffer`
+  after review. An `applyEdit` queued at the client while it reopened the same path at the same
+  version passed the version check, and the new opening took its echo for a user change once its own
+  edit was rejected, duplicating text. The client answers `notOpen` / `null` for a stale `openId`.
+  Notifications from the client need no id: they are ordered with `document/open` on the same stream.

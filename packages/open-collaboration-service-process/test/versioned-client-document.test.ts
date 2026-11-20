@@ -9,7 +9,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import * as Y from 'yjs';
 import { Deferred } from 'open-collaboration-protocol';
 import { createMessageConnection, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node.js';
-import { ApplyEditRequest, ClientTextSelection, DidChangeTextDocument, DidChangeTextSelection, GetBufferRequest } from '../src/messages.js';
+import { ApplyEditRequest, ClientTextSelection, CloseTextDocument, DidChangeTextDocument, DidChangeTextSelection, GetBufferRequest, OpenTextDocumentParams, OpenTextDocument } from '../src/messages.js';
 import { VersionedClientDocument } from '../src/versioned-client-document.js';
 import { FakeVersionedClient } from './fake-versioned-client.js';
 
@@ -47,9 +47,10 @@ function setup(text: string, options: { editTimeout?: number, shared?: string } 
     const warnings: string[] = [];
     const errors: string[] = [];
     let closed = false;
-    const document = new VersionedClientDocument(PATH, { path: PATH, text, version: 0 }, ytext, {
-        applyEdit: params => service.sendRequest(ApplyEditRequest, params),
-        getBuffer: params => service.sendRequest(GetBufferRequest, params)
+    // Routes messages to the current document, as CollaborationInstance does
+    const open = (params: OpenTextDocumentParams) => new VersionedClientDocument(PATH, params, ytext, {
+        applyEdit: request => service.sendRequest(ApplyEditRequest, request),
+        getBuffer: request => service.sendRequest(GetBufferRequest, request)
     }, {
         editTimeout: options.editTimeout ?? 200,
         onDidChangeSelection: selection => selections.push(selection),
@@ -59,11 +60,28 @@ function setup(text: string, options: { editTimeout?: number, shared?: string } 
             error: message => errors.push(message)
         }
     });
-    service.onNotification(DidChangeTextDocument, params => document.didChange(params.version, params.changes));
-    service.onNotification(DidChangeTextSelection, params => document.didChangeSelection(params.version, params.selections));
+    let document: VersionedClientDocument | undefined = open({ path: PATH, text, version: 0, openId: client.openId });
+    service.onNotification(OpenTextDocument, params => {
+        document?.dispose();
+        document = open(params);
+    });
+    service.onNotification(CloseTextDocument, () => {
+        document?.dispose();
+        document = undefined;
+    });
+    service.onNotification(DidChangeTextDocument, params => document?.didChange(params.version, params.changes));
+    service.onNotification(DidChangeTextSelection, params => document?.didChangeSelection(params.version, params.selections));
     clientConnection.listen();
     service.listen();
-    return { client, document, ytext, selections, warnings, errors, closed: () => closed };
+    return {
+        client, ytext, selections, warnings, errors, closed: () => closed,
+        get document() {
+            if (!document) {
+                throw new Error('The document is closed');
+            }
+            return document;
+        }
+    };
 }
 
 async function converged({ client, document, ytext }: Setup, expected: string): Promise<void> {
@@ -207,6 +225,39 @@ describe('VersionedClientDocument', () => {
         setup_.client.open = false;
         setup_.ytext.insert(0, 'X');
         await waitUntil(setup_.closed);
+    });
+
+    test('an edit meant for an earlier opening is not applied after the document is reopened', async () => {
+        const setup_ = setup('abc', { shared: 'Xabc' });
+        // The edit of the first opening waits at the client while the client reopens the document
+        // with a new counter. Both openings compute the same edit for version 0, so without the
+        // openId the client would apply the stale one, and the new opening would take its echo
+        // for a change of the user once its own edit is rejected, which duplicates the text.
+        const gate = setup_.client.gate = new Deferred<void>();
+        const first = setup_.document;
+        setup_.client.reopen();
+        await waitUntil(() => setup_.document !== first);
+        setup_.client.gate = undefined;
+        gate.resolve();
+        await converged(setup_, 'Xabc');
+        expect(setup_.client.edits.map(edit => edit.openId)).toEqual([1, 2]);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(setup_.ytext.toString()).toEqual('Xabc');
+        expect(setup_.errors).toEqual([]);
+    });
+
+    test('an edit meant for an earlier opening is not applied after a close and reopen', async () => {
+        const setup_ = setup('abc', { shared: 'Xabc' });
+        const gate = setup_.client.gate = new Deferred<void>();
+        const first = setup_.document;
+        setup_.client.close();
+        setup_.client.reopen();
+        await waitUntil(() => { try { return setup_.document !== first; } catch { return false; } });
+        setup_.client.gate = undefined;
+        gate.resolve();
+        await converged(setup_, 'Xabc');
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(setup_.ytext.toString()).toEqual('Xabc');
     });
 
     test('a selection that overtakes its change is applied once the change has arrived', async () => {
