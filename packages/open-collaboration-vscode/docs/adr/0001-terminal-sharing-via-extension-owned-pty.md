@@ -113,7 +113,9 @@ Several constraints limited the options:
 - The web build must never reach node-pty: it is loaded only through a lazy `require` in a module
   that only `extension.ts` uses.
 - Only plain shells are shared, never the user's existing terminals. Profiles, shell integration
-  and other VS Code terminal features don't apply to shared terminals.
+  and other VS Code terminal features don't apply to shared terminals. The one exception: if
+  `oct.terminal.shell` is empty, the default profile's shell path is used (`vscode.env.shell`),
+  without that profile's args or env.
 - Write access means guests can run any command on the host's machine as the host, and it bypasses
   `oct.files.exclude`. The feature states this rather than trying to sandbox it.
 - Late-join history is limited by the scrollback and the 512 KB snapshot cap. Nothing is

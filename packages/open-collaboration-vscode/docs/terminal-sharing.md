@@ -26,7 +26,7 @@ shared. The extension never attaches to terminals that already exist.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `oct.terminal.defaultAccessMode` | `read` | The access mode preselected when sharing a terminal (`read` or `readWrite`) |
-| `oct.terminal.shell` | empty | Shell executable. If empty: `$SHELL` (or `/bin/bash`) on Linux/macOS, `%COMSPEC%` (or `powershell.exe`) on Windows |
+| `oct.terminal.shell` | empty | Shell executable. If empty: the shell of VS Code's default terminal profile (`vscode.env.shell`, which follows `terminal.integrated.defaultProfile.*`). Only the path is used, not the profile's args or env. Falls back to `$SHELL` (or `/bin/bash`) on Linux/macOS and `%COMSPEC%` (or `powershell.exe`) on Windows |
 | `oct.terminal.shellArgs` | `[]` | Arguments passed to the shell |
 | `oct.terminal.recommendLocalEcho` | `true` | Whether guests opening a write-enabled terminal are asked to turn on `terminal.integrated.localEchoEnabled` |
 

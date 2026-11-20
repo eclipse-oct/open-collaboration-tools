@@ -580,6 +580,12 @@ export class TerminalService implements vscode.Disposable {
 }
 
 function defaultShell(): string {
+    // VS Code's detected default shell, which follows the `terminal.integrated.defaultProfile.*`
+    // setting. Only the profile's path is exposed, not its args or env. Empty where no shell is
+    // supported, so fall back to the platform default.
+    if (vscode.env.shell) {
+        return vscode.env.shell;
+    }
     if (process.platform === 'win32') {
         return process.env.COMSPEC ?? 'powershell.exe';
     }
