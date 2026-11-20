@@ -93,12 +93,12 @@ All versioned messages take a single object parameter, sent by name. The types a
 
 | Direction | Message | Kind | Payload |
 |---|---|---|---|
-| client → service | `document/open` | notification | `{ path, text, version, eol? }` |
+| client → service | `document/open` | notification | `{ path, openId, text, version, eol? }` |
 | client → service | `document/close` | notification | `{ path }` |
 | client → service | `document/didChange` | notification | `{ path, version, changes: TextDocumentInsert[] }` |
 | client → service | `document/didChangeSelection` | notification | `{ path, version, selections: ClientTextSelection[] }` |
-| service → client | `document/applyEdit` | request | `{ path, baseVersion, changes: TextDocumentInsert[] }` → `{ result: 'applied' \| 'outdated' \| 'notOpen' }` |
-| service → client | `document/getBuffer` | request | `{ path }` → `{ text, version }`, or `null` if the document is not open |
+| service → client | `document/applyEdit` | request | `{ path, openId, baseVersion, changes: TextDocumentInsert[] }` → `{ result: 'applied' \| 'outdated' \| 'notOpen' }` |
+| service → client | `document/getBuffer` | request | `{ path, openId }` → `{ text, version }`, or `null` if the document is not open |
 
 ### Versions
 
@@ -107,6 +107,12 @@ with `document/open` and goes up by exactly one with every change of the buffer 
 whether the user made it or it came from `document/applyEdit`. The version belongs to the document,
 not to an editor: keep one counter and one change listener per document, however many editors show
 it. IntelliJ's `Document.modificationStamp` does not qualify, as it does not go up by one per change.
+
+`openId` identifies one opening of a document. Choose a new value for every `document/open`, for
+example from a counter incremented with every open of any document. `document/applyEdit` and
+`document/getBuffer` carry the `openId` they are meant for. A request for an earlier opening of the
+same path can still be on its way after the client reopened it, possibly at the same version, and
+applying it would corrupt the document: answer it as if the document was not open.
 
 `eol` (`'\n'` or `'\r\n'`) is the line ending the service process uses for text it inserts. Without
 it, the service process guesses from the buffer.
@@ -136,7 +142,7 @@ is closed while the document is still open elsewhere.
    `baseVersion + 1`, carrying the changes as applied. Splitting it into several notifications
    makes the service process take it for a change of the user and duplicates it.
 4. The client **first** sends that `document/didChange` and **then** answers `applied`.
-5. For a path the client does not have open, it answers `notOpen`.
+5. For a path the client does not have open, or whose current `openId` differs, it answers `notOpen`.
 
 ### Ordering and threading
 
