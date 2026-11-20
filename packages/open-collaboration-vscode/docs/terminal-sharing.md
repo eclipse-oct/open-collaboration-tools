@@ -82,6 +82,7 @@ All code is in [src/terminal/](../src/terminal/).
 | [node-pty-backend.ts](../src/terminal/node-pty-backend.ts) | node-pty implementation, loaded by a lazy `require`. `isNodePtyAvailable()` checks whether the native module loads |
 | [output-chunker.ts](../src/terminal/output-chunker.ts) | Collects pty output for ~10 ms, caps each message at 32 KB without splitting a UTF-8 character, and numbers the chunks with `seq` |
 | [terminal-emulator.ts](../src/terminal/terminal-emulator.ts) | Headless xterm.js (`@xterm/headless` + `@xterm/addon-serialize`) that produces late-join snapshots |
+| [terminal-env.ts](../src/terminal/terminal-env.ts) | Removes the extension host's own variables (`ELECTRON_*`, most `VSCODE_*`, Snap) from the shell's environment, as VS Code does for its integrated terminals |
 | [shared-terminal.ts](../src/terminal/shared-terminal.ts) | Host side of one terminal: the pty, the host's `Pseudoterminal`, the emulator, the subscriber set, and the access-mode check |
 | [guest-terminal.ts](../src/terminal/guest-terminal.ts) | Guest side of one terminal: a `Pseudoterminal` that writes received output, forwards input when allowed, and uses the host's dimensions |
 | [terminal-service.ts](../src/terminal/terminal-service.ts) | Per-session orchestration: protocol handlers, commands, output routing, resync, cleanup |
@@ -151,12 +152,17 @@ answer "what does the screen look like right now?":
 
 Subscribing works like this:
 
-1. The host flushes the chunker. The snapshot's `buffer` and `seq` then describe the same point in
-   the stream.
-2. The host serializes the emulator with at most the scrollback the guest asked for. If the
+1. The host flushes the chunker, records `seq`, and adds the guest as a subscriber, so every chunk
+   after `seq` reaches it.
+2. xterm.js parses writes asynchronously, so the emulator may still have unparsed output queued.
+   The host queues an empty write and serializes inside its callback. At that point the emulator
+   has parsed exactly the bytes up to `seq` and nothing later, so `buffer` and `seq` describe the
+   same point in the stream. Serializing synchronously would drop the queued tail, and awaiting a
+   promise resolved from the callback would let xterm parse later writes first.
+3. The host serializes the emulator with at most the scrollback the guest asked for. If the
    snapshot is larger than 512 KB, history is halved until it fits. The visible screen is always
    included.
-3. The guest sets the host's dimensions, resets its view (`\x1bc`) and writes the buffer.
+4. The guest sets the host's dimensions, resets its view (`\x1bc`) and writes the buffer.
 
 After that, every chunk must have exactly the expected `seq`:
 
@@ -180,8 +186,15 @@ A terminal with write access lets guests run any command on the host's machine a
   current subscriber of that terminal and the terminal's mode is `readWrite`. What a sender claims
   about itself is never trusted.
 - **Room-wide `readonly` overrides the terminal's mode.** While the room's permissions are
-  read-only, guest input is dropped, whatever mode the terminal was shared with.
+  read-only, guest input is dropped, whatever mode the terminal was shared with. `TerminalInfo.mode`
+  reports this effective mode, and toggling the room's permissions broadcasts `terminal/updated`
+  for every terminal shared with write access, so guests stop sending input they know is dropped.
 - **The host's own keystrokes** are never checked against the access mode.
+- **The shell doesn't inherit the extension host's environment as is.** `ELECTRON_RUN_AS_NODE`
+  would make `code .` and other Electron apps start as plain Node. `VSCODE_IPC_HOOK` and similar
+  variables expose handles to the host's VS Code window to anyone who sees `env` output. Both are
+  removed before the shell is spawned. This is hygiene, not a boundary: a guest with write access
+  can run any command as the host anyway.
 - **Processes don't outlive the session.** Closing the host's terminal view kills the process and
   broadcasts `terminal/closed`. Leaving or closing the session, and deactivating the extension,
   dispose every `SharedTerminal`, which kills its process. Guests that leave are removed from the
@@ -226,8 +239,6 @@ normally.
   dropped. A process that writes faster than the network can carry will make guests fall behind.
 - **Write access is per terminal, not per guest.** It can't be revoked for one guest. The only
   room-wide switch is the `readonly` permission.
-- **`TerminalInfo.mode` isn't updated** when the room becomes read-only. The host enforces it, but
-  guests still see the terminal's original mode.
 - **Renames are polled.** VS Code has no event for renaming a terminal tab, so the host checks the
   names once a second and broadcasts changes.
 - **Only the host can share.** Guests can't ask the host for a terminal.

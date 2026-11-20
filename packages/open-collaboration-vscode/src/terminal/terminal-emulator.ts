@@ -63,6 +63,25 @@ export class TerminalEmulator implements vscode.Disposable {
         return result;
     }
 
+    /**
+     * Like `serialize`, but only once every write issued so far has been parsed, and before any
+     * later write is. `Terminal.write` parses asynchronously, so a synchronous `serialize()` can
+     * lag behind the bytes already handed to `write()`. The work has to happen inside the write
+     * callback itself: awaiting a promise resolved from it would let xterm parse later queued
+     * writes first, putting the snapshot ahead of the caller's sequence number instead.
+     */
+    serializeWhenParsed(maxScrollback: number): Promise<string> {
+        return new Promise((resolve, reject) => {
+            this.terminal.write('', () => {
+                try {
+                    resolve(this.serialize(maxScrollback));
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+    }
+
     dispose(): void {
         this.serializeAddon.dispose();
         this.terminal.dispose();

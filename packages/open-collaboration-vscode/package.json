@@ -135,6 +135,7 @@
         "oct.terminal.shell": {
           "type": "string",
           "default": "",
+          "scope": "machine",
           "markdownDescription": "%oct.terminal.shell%"
         },
         "oct.terminal.shellArgs": {
@@ -143,6 +144,7 @@
             "type": "string"
           },
           "default": [],
+          "scope": "machine",
           "description": "%oct.terminal.shellArgs%"
         },
         "oct.terminal.recommendLocalEcho": {
@@ -192,11 +194,11 @@
         },
         {
           "command": "oct.shareTerminal",
-          "when": "oct.connection && oct.isHost"
+          "when": "oct.connection && oct.isHost && !isWeb"
         },
         {
           "command": "oct.openSharedTerminal",
-          "when": "oct.connection && !oct.isHost"
+          "when": "oct.connection && !oct.isHost && !isWeb"
         }
       ],
       "view/title": [

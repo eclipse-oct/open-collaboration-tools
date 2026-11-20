@@ -70,7 +70,12 @@ export class TerminalService implements vscode.Disposable {
         } else {
             this.registerGuestHandlers(instance);
         }
-        instance.onDidDispose(() => this.reset());
+        this.sessionDisposables.push(instance.onDidDispose(() => {
+            // A previous instance disposing late must not tear down the current session.
+            if (this.instance === instance) {
+                this.reset();
+            }
+        }));
     }
 
     private reset(): void {
@@ -133,6 +138,13 @@ export class TerminalService implements vscode.Disposable {
             this.terminals.get(id)?.handleRemoteViewResize(origin, dimensions);
         });
 
+        // `info.mode` reports the effective mode, which the room-wide readonly flag can override.
+        this.sessionDisposables.push(instance.onDidChangePermissions(() => {
+            for (const terminal of this.terminals.values()) {
+                terminal.roomPermissionsChanged();
+            }
+        }));
+
         // VS Code has no event for the user renaming a terminal tab; it only updates
         // `vscode.Terminal.name` in place. Poll it so renames reach the guests.
         const renamePoll = setInterval(() => this.syncHostTerminalNames(), 1000);
@@ -188,6 +200,11 @@ export class TerminalService implements vscode.Disposable {
      * Returns `undefined` if sharing is not possible or the user cancelled.
      */
     private async createSharedTerminal(): Promise<SharedTerminal | undefined> {
+        if (!vscode.workspace.isTrusted) {
+            vscode.window.showErrorMessage(vscode.l10n.t('Trust this workspace before sharing a terminal.'));
+            return undefined;
+        }
+
         const instance = this.instance;
         if (!instance?.host || !this.connection) {
             vscode.window.showErrorMessage(vscode.l10n.t('You must be hosting a collaboration session to share a terminal.'));
@@ -223,11 +240,6 @@ export class TerminalService implements vscode.Disposable {
         }
         const name = vscode.l10n.t('Shared Terminal');
 
-        if (!vscode.workspace.isTrusted) {
-            vscode.window.showErrorMessage(vscode.l10n.t('Trust this workspace before sharing a terminal.'));
-            return undefined;
-        }
-
         const terminal = new SharedTerminal({
             id,
             name,
@@ -245,7 +257,12 @@ export class TerminalService implements vscode.Disposable {
         terminal.onDidOutput(chunk => {
             // Output is targeted: only peers that subscribed to this terminal receive it.
             for (const peerId of terminal.subscriberIds) {
-                this.connection?.terminal.output(peerId, id, chunk);
+                this.connection?.terminal.output(peerId, id, chunk).catch(() => {
+                    // Typically a subscriber that just left: its public key is gone before
+                    // `onDidUsersChange` prunes it. The subscriber is deliberately kept on any
+                    // other failure: a live guest detects the missing seq on the next chunk and
+                    // resyncs, but would silently stall if it no longer received chunks at all.
+                });
             }
         });
         terminal.onDidUpdate(() => {

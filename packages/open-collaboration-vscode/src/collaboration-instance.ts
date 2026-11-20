@@ -261,6 +261,10 @@ export class CollaborationInstance implements vscode.Disposable {
     private readonly onDidDisposeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidDispose: vscode.Event<void> = this.onDidDisposeEmitter.event;
 
+    /** Fired after `permissions` changed, whether set locally by the host or received from it. */
+    private readonly onDidChangePermissionsEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+    readonly onDidChangePermissions: vscode.Event<void> = this.onDidChangePermissionsEmitter.event;
+
     private readonly onDidPendingChangeEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     readonly onDidPendingChange: vscode.Event<void> = this.onDidPendingChangeEmitter.event;
 
@@ -362,6 +366,7 @@ export class CollaborationInstance implements vscode.Disposable {
         });
         this.toDispose.push(this.onDidUsersChangeEmitter);
         this.toDispose.push(this.onDidDisposeEmitter);
+        this.toDispose.push(this.onDidChangePermissionsEmitter);
 
         connection.peer.onJoinRequest(async (_, user) => {
             const result = await this.allowUserToJoin(user);
@@ -420,6 +425,7 @@ export class CollaborationInstance implements vscode.Disposable {
         connection.room.onPermissions((_, permissions) => {
             this._permissions = permissions;
             this.fileSystemManager?.registerFileSystemProvider(permissions.readonly);
+            this.onDidChangePermissionsEmitter.fire();
         });
         connection.peer.onInfo((_, peer) => {
             this.yjsAwareness.setLocalStateField('peer', peer.id);
@@ -650,6 +656,7 @@ export class CollaborationInstance implements vscode.Disposable {
     setPermissions(permissions: types.Permissions): void {
         this._permissions = permissions;
         this.connection.room.updatePermissions(this._permissions);
+        this.onDidChangePermissionsEmitter.fire();
     }
 
     async leave(): Promise<void> {

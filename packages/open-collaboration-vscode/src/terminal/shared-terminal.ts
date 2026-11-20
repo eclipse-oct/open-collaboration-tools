@@ -11,6 +11,7 @@ import { NodePtyBackend } from './node-pty-backend.js';
 import { PtyBackend } from './pty-backend.js';
 import { OutputChunker } from './output-chunker.js';
 import { TerminalEmulator } from './terminal-emulator.js';
+import { sanitizeTerminalEnv } from './terminal-env.js';
 
 const DEFAULT_DIMENSIONS: types.TerminalDimensions = { columns: 80, rows: 24 };
 
@@ -44,6 +45,8 @@ export class SharedTerminal implements vscode.Disposable {
     private readonly chunker: OutputChunker;
     private readonly subscribers = new Set<types.Id>();
     private readonly isRoomReadonly: () => boolean;
+    /** The room-wide readonly flag as of the last `roomPermissionsChanged` call. */
+    private wasRoomReadonly: boolean;
 
     private _name: string;
     private _mode: types.TerminalAccessMode;
@@ -77,12 +80,13 @@ export class SharedTerminal implements vscode.Disposable {
         this._name = options.name;
         this._mode = options.mode;
         this.isRoomReadonly = options.isRoomReadonly;
+        this.wasRoomReadonly = options.isRoomReadonly();
 
         this.backend = new NodePtyBackend({
             shell: options.shell,
             shellArgs: options.shellArgs,
             cwd: options.cwd,
-            env: process.env,
+            env: sanitizeTerminalEnv(process.env),
             columns: this._dimensions.columns,
             rows: this._dimensions.rows
         });
@@ -128,7 +132,7 @@ export class SharedTerminal implements vscode.Disposable {
             id: this.id,
             name: this._name,
             ownerId: this.ownerId,
-            mode: this._mode,
+            mode: this.effectiveMode(),
             dimensions: this._dimensions,
             exit: this._exit
         };
@@ -162,20 +166,40 @@ export class SharedTerminal implements vscode.Disposable {
     }
 
     /**
+     * Call whenever the room-wide permissions change. `info.mode` reports the effective mode, so
+     * guests must be told when the readonly override starts or stops applying to this terminal.
+     */
+    roomPermissionsChanged(): void {
+        const roomReadonly = this.isRoomReadonly();
+        if (roomReadonly !== this.wasRoomReadonly) {
+            this.wasRoomReadonly = roomReadonly;
+            // The override only changes anything for terminals shared with write access.
+            if (this._mode === 'readWrite') {
+                this.onDidUpdateEmitter.fire();
+            }
+        }
+    }
+
+    /**
      * @param scrollback how many history lines the subscriber can display; the snapshot never
      * contains more, and less if it would not fit into a single message.
      */
-    addSubscriber(peerId: types.Id, scrollback: number): types.TerminalSnapshot {
-        // Flush first so the snapshot's `buffer` and `seq` describe exactly the same point in
-        // the stream: any output still sitting in the coalescing window would otherwise be
-        // visible in the emulator's serialized buffer without yet having a seq of its own.
+    async addSubscriber(peerId: types.Id, scrollback: number): Promise<types.TerminalSnapshot> {
+        // Every pty byte is handed to the emulator and the chunker together (see `onData`), so
+        // flushing the chunker pins `seq` to exactly the bytes already written to the emulator.
+        // The emulator parses asynchronously, so the snapshot is taken once it has parsed those
+        // bytes and nothing after them.
         this.chunker.flush();
+        const seq = this.chunker.currentSeq;
+        // Subscribe right away so every chunk after `seq` reaches the guest, which skips
+        // anything at or below the snapshot's `seq`.
         this.subscribers.add(peerId);
+        const buffer = await this.emulator.serializeWhenParsed(scrollback);
         return {
             info: this.info,
             dimensions: this._dimensions,
-            buffer: this.emulator.serialize(scrollback),
-            seq: this.chunker.currentSeq
+            buffer,
+            seq
         };
     }
 
