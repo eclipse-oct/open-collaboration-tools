@@ -21,6 +21,7 @@ node ./lib/process.js --server-address http://localhost:8100 --auth-token <your-
 
 - `--server-address` (**required**): The address of the collaboration server to connect to (e.g., `https://api.open-collab.tools`).
 - `--auth-token` (**optional**): The authentication token to use for the session, if saved by the application from a previous login
+- `--edit-timeout` (**optional**): How long, in milliseconds, to wait for the answer to a `document/applyEdit` before the client's buffer is read anew with `document/getBuffer`. Defaults to 5000.
 
 ### Communication Protocol
 
@@ -74,6 +75,112 @@ Or sending Binary Data as a Parameter:
   ]
 }
 ```
+
+## Document synchronization
+
+A client opens every text document it wants to edit collaboratively. There are two modes, chosen per
+document by the message that opens it:
+
+- **Versioned** (`document/open`): the service process only applies an edit that still fits the
+  client's buffer, and recognises the edit when the client reports it back. Edits the user types
+  while a remote change is on its way land where they were typed. Use this mode for new clients.
+- **Legacy** (`awareness/openDocument`, `awareness/updateDocument`): changes are sent to the client
+  without confirmation and taken as applied the moment they are sent. If the user types before the
+  client has applied one, the client and the session diverge.
+
+All versioned messages take a single object parameter, sent by name. The types are in
+[messages.ts](src/messages.ts).
+
+| Direction | Message | Kind | Payload |
+|---|---|---|---|
+| client → service | `document/open` | notification | `{ path, openId, text, version, eol? }` |
+| client → service | `document/close` | notification | `{ path }` |
+| client → service | `document/didChange` | notification | `{ path, version, changes: TextDocumentInsert[] }` |
+| client → service | `document/didChangeSelection` | notification | `{ path, version, selections: ClientTextSelection[] }` |
+| service → client | `document/applyEdit` | request | `{ path, openId, baseVersion, changes: TextDocumentInsert[] }` → `{ result: 'applied' \| 'outdated' \| 'notOpen' }` |
+| service → client | `document/getBuffer` | request | `{ path, openId }` → `{ text, version }`, or `null` if the document is not open |
+
+### Versions
+
+Every open document has an integer version, owned by the client. It starts at the `version` sent
+with `document/open` and goes up by exactly one with every change of the buffer the client reports,
+whether the user made it or it came from `document/applyEdit`. The version belongs to the document,
+not to an editor: keep one counter and one change listener per document, however many editors show
+it. IntelliJ's `Document.modificationStamp` does not qualify, as it does not go up by one per change.
+
+`openId` identifies one opening of a document. Choose a new value for every `document/open`, for
+example from a counter incremented with every open of any document. `document/applyEdit` and
+`document/getBuffer` carry the `openId` they are meant for. A request for an earlier opening of the
+same path can still be on its way after the client reopened it, possibly at the same version, and
+applying it would corrupt the document: answer it as if the document was not open.
+
+`eol` (`'\n'` or `'\r\n'`) is the line ending the service process uses for text it inserts. Without
+it, the service process guesses from the buffer.
+
+Opening a path that is already open replaces the document. `document/close` stops the
+synchronization; send it when the last reason to track the document goes away, not when an editor
+is closed while the document is still open elsewhere.
+
+### `document/didChange`
+
+1. `version` is the version *after* the change.
+2. All changes of one notification address the buffer as it was before any of them, are sorted, and
+   do not overlap.
+3. A change is reported as soon as it happens, before any later message about the document
+   (selection, answer to a request).
+4. Offsets are UTF-16 code units of the buffer as the client holds it. Inserted text is reported as
+   it was actually inserted, after any line-ending conversion of the client.
+
+### `document/applyEdit`
+
+1. The changes address the buffer at `baseVersion`, all of them the buffer as it was before any of
+   them, sorted and not overlapping.
+2. The client applies them only if its current version equals `baseVersion`, and then all of them
+   at once (in IntelliJ: in one write action), back to front, so that each change still addresses
+   the original buffer. Otherwise it applies nothing and answers `outdated`.
+3. An applied edit is reported as **exactly one** `document/didChange` with version
+   `baseVersion + 1`, carrying the changes as applied. Splitting it into several notifications
+   makes the service process take it for a change of the user and duplicates it.
+4. The client **first** sends that `document/didChange` and **then** answers `applied`.
+5. For a path the client does not have open, or whose current `openId` differs, it answers `notOpen`.
+
+### Ordering and threading
+
+The client handles `document/applyEdit` and `document/getBuffer` of a document **in the order it
+received them**, on the thread that changes the buffer (in IntelliJ: the EDT, inside the write
+action), and sends every resulting `document/didChange` before the answer. The answer to
+`document/getBuffer` therefore reflects every edit sent before it, applied or rejected.
+
+### `document/didChangeSelection`
+
+`version` is the version of the buffer the offsets address. Read the offsets and the version
+together, at a moment when every change has been reported. In IntelliJ the caret moves while a
+document change is being processed, possibly before the change listener has reported it, so read
+selections after the write action (e.g. deferred with `invokeLater`), not in the caret listener.
+Selections of other peers are still sent with `awareness/updateTextSelection`.
+
+### Recovery
+
+The service process mirrors the client's buffer from the reported changes. If the mirror cannot be
+trusted, it reads the buffer with `document/getBuffer`, replaces the mirror, and repairs the buffer
+with minimal edits from the shared text. Each occurrence is logged to stderr as an error, since it
+only happens through a client bug or a hung client:
+
+- a `document/didChange` skips a version or does not fit the buffer: changes that were never reported
+  are reverted in the editor,
+- an answer contradicts the reported changes (`applied` without its `document/didChange`, or
+  `outdated` for the latest reported version),
+- a `document/applyEdit` is not answered within `--edit-timeout`. A client that answers both requests
+  late, in order, is handled without loss.
+
+### Mixing both modes
+
+A document opened with `awareness/openDocument` keeps the legacy behaviour, so a client can migrate
+one editor type at a time. Once a client has opened any document with `document/open`, the service
+process no longer opens legacy documents on its behalf: when a guest opens a file the host's client
+has not opened, the host's file content is shared, and the client syncs it once it sends
+`document/open` for it (for example in reaction to `editorOpened`). A versioned client ignores
+`awareness/updateDocument`.
 
 ## Release
 

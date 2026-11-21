@@ -5,10 +5,10 @@
 // ******************************************************************************
 
 import * as types from 'open-collaboration-protocol';
-import { BinaryData, BinaryResponse, CloseSessionRequest, CreateRoomRequest, fromBinaryMessage, InternalError, JoinRoomRequest,
-    LoginRequest, OpenDocument,
+import { BinaryData, BinaryResponse, CloseSessionRequest, CloseTextDocument, CreateRoomRequest, DidChangeTextDocument, DidChangeTextSelection,
+    fromBinaryMessage, InternalError, JoinRoomRequest, LoginRequest, OpenDocument, OpenTextDocument,
     SessionData, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
-import { CollaborationInstance } from './collaboration-instance.js';
+import { CollaborationInstance, CollaborationInstanceOptions } from './collaboration-instance.js';
 import { CancellationToken, MessageConnection } from 'vscode-jsonrpc';
 
 export class MessageHandler {
@@ -17,7 +17,8 @@ export class MessageHandler {
 
     protected lastRequestId = 0;
 
-    constructor(private octConnectionProvider: types.ConnectionProvider, private clientCommunication: MessageConnection) {
+    constructor(private octConnectionProvider: types.ConnectionProvider, private clientCommunication: MessageConnection,
+        private options: CollaborationInstanceOptions = {}) {
         clientCommunication.onRequest(LoginRequest, this.login.bind(this));
         clientCommunication.onRequest(JoinRoomRequest, this.joinRoom.bind(this));
         clientCommunication.onRequest(CreateRoomRequest, this.createRoom.bind(this));
@@ -30,6 +31,13 @@ export class MessageHandler {
         clientCommunication.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
         clientCommunication.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
         clientCommunication.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
+        // Registered explicitly: the catch-all handlers below would forward them to the session
+        clientCommunication.onNotification(OpenTextDocument, params => this.currentCollaborationInstance?.openTextDocument(params));
+        clientCommunication.onNotification(CloseTextDocument, params => this.currentCollaborationInstance?.closeTextDocument(params.path));
+        clientCommunication.onNotification(DidChangeTextDocument, params =>
+            this.currentCollaborationInstance?.didChangeTextDocument(params.path, params.version, params.changes));
+        clientCommunication.onNotification(DidChangeTextSelection, params =>
+            this.currentCollaborationInstance?.didChangeTextSelection(params.path, params.version, params.selections));
         clientCommunication.onError(([error]) => clientCommunication.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
         clientCommunication.onRequest(async (method, params) => {
@@ -126,7 +134,7 @@ export class MessageHandler {
 
     onConnection(connection: types.ProtocolBroadcastConnection, host: boolean, workspace?: types.Workspace) {
         this.currentCollaborationInstance?.dispose();
-        this.currentCollaborationInstance = new CollaborationInstance(connection, this.clientCommunication, host, workspace);
+        this.currentCollaborationInstance = new CollaborationInstance(connection, this.clientCommunication, host, workspace, this.options);
     }
 
     dispose() {

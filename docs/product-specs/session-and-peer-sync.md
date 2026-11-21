@@ -37,8 +37,12 @@ be re-derived from the code.
   never sent back as if it were local. The editor is only ever changed by minimal edits, never by
   replacing the whole document. Enforced by `packages/open-collaboration-yjs/test/yjs-text-sync.test.ts`
   against a fake editor; the VS Code wiring in `CollaborationInstance.getDocumentSync` is unverified.
-  Not promised for clients of the service process: its client protocol has no way to reject or
-  confirm an edit, so a change is taken as applied the moment it is sent to the client.
+  The same holds for clients of the service process that open documents with `document/open`: they
+  reject an edit that no longer fits their buffer and report applied edits back. Enforced by
+  `packages/open-collaboration-service-process/test/versioned-client-document.test.ts` and
+  `service.process.test.ts` ("a versioned client and a legacy client converge, ...").
+  Not promised for documents opened with the legacy `awareness/openDocument`: a change is taken as
+  applied the moment it is sent to the client.
 
 - **What a guest types before the host has shared the document is kept.** Such edits are held back
   until the host's content arrives and are then rebased onto it, even if that content differs from
