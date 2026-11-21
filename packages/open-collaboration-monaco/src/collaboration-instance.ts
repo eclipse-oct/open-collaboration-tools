@@ -130,7 +130,8 @@ export class CollaborationInstance implements Disposable {
         this.connection = options.connection;
         this.yjsAwareness = new awarenessProtocol.Awareness(this.yjs);
         this.yjsProvider = new OpenCollaborationYjsProvider(this.options.connection, this.yjs, this.yjsAwareness, {
-            resyncTimer: 10_000
+            resyncTimer: 10_000,
+            getHostId: () => this.isHost ? undefined : this.host?.id
         });
         this.yjsProvider.connect();
 

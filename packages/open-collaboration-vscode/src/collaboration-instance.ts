@@ -338,7 +338,8 @@ export class CollaborationInstance implements vscode.Disposable {
         CollaborationInstance.Current = this;
         const connection = this.options.connection;
         this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness, {
-            resyncTimer: 10_000 // resync every 10 seconds
+            resyncTimer: 10_000, // resync every 10 seconds
+            getHostId: () => this.options.host ? undefined : this.options.hostId
         });
         if (this.options.hostId) {
             this.fileSystemManager = new FileSystemManager(connection, this.yjs, this.options.hostId);

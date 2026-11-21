@@ -30,6 +30,15 @@ export interface YjsProviderOptions {
      * `0` or a negative value disables it.
      */
     resyncTimer?: number;
+    /**
+     * Returns the peer id of the session's host, or `undefined` if this peer is the host or does not
+     * know the host yet. It is read on every resync, so it may start returning an id later on.
+     *
+     * A peer that knows the host resyncs with the host alone, and the host resyncs with everyone, which
+     * keeps the number of resync messages linear in the number of peers. A peer that does not know the
+     * host asks everyone, which is quadratic once every peer does it.
+     */
+    getHostId?: () => string | undefined;
 }
 
 export class OpenCollaborationYjsProvider extends ObservableV2<string> {
@@ -39,12 +48,14 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
     private awareness: awarenessProtocol.Awareness;
     private applyingRemoteUpdate = false;
     private resyncInterval?: ReturnType<typeof setInterval>;
+    private getHostId?: () => string | undefined;
 
     constructor(connection: types.ProtocolBroadcastConnection, doc: Y.Doc, awareness: awarenessProtocol.Awareness, options?: YjsProviderOptions) {
         super();
         this.connection = connection;
         this.doc = doc;
         this.awareness = awareness;
+        this.getHostId = options?.getHostId;
         this.doc.on('update', this.yjsUpdateHandler.bind(this));
         this.awareness.on('update', this.yjsAwarenessUpdateHandler.bind(this));
 
@@ -61,7 +72,14 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
         this.resyncInterval = setInterval(() => {
             const encoder = encoding.createEncoder();
             syncProtocol.writeSyncStep1(encoder, this.doc);
-            this.connection.sync.dataUpdate(this.encode(encoder));
+            // The host receives every edit directly from its author and asks everyone for what it
+            // is missing, so it is enough for a guest to ask the host.
+            const hostId = this.getHostId?.();
+            if (hostId) {
+                this.connection.sync.dataUpdate(hostId, this.encode(encoder));
+            } else {
+                this.connection.sync.dataUpdate(this.encode(encoder));
+            }
         }, timeout);
         this.doc.on('destroy', () => this.clearResyncInterval());
     }

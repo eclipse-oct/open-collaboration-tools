@@ -10,7 +10,7 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import * as decoding from 'lib0/decoding';
 import type * as types from 'open-collaboration-protocol';
-import { DEFAULT_RESYNC_TIMER, OpenCollaborationYjsProvider } from '../src/yjs-provider.js';
+import { DEFAULT_RESYNC_TIMER, OpenCollaborationYjsProvider, type YjsProviderOptions } from '../src/yjs-provider.js';
 import { applyTextChanges } from '../src/text-diff.js';
 import { YjsTextDocumentSync } from '../src/yjs-text-sync.js';
 
@@ -29,12 +29,13 @@ interface Peer {
 class Room {
     readonly peers = new Map<string, Peer>();
     readonly updateFrames: string[] = [];
+    readonly syncStep1Frames: string[] = [];
     readonly delays = new Map<string, number>();
     readonly dropped = new Set<string>();
     readonly errors: unknown[] = [];
     readonly sendAs = new Map<string, (data: Uint8Array) => void>();
 
-    join(id: string, options?: { resyncTimer?: number }): Y.Doc {
+    join(id: string, options?: YjsProviderOptions): Y.Doc {
         const doc = new Y.Doc();
         const peer: Peer = { doc, handlers: { data: [], awareness: [], query: [] } };
         this.peers.set(id, peer);
@@ -45,8 +46,11 @@ class Room {
                     continue;
                 }
                 setTimeout(() => {
-                    if (kind === 'data' && decoding.readVarUint(decoding.createDecoder(data)) === syncProtocol.messageYjsUpdate) {
+                    const messageType = kind === 'data' ? decoding.readVarUint(decoding.createDecoder(data)) : undefined;
+                    if (messageType === syncProtocol.messageYjsUpdate) {
                         this.updateFrames.push(link);
+                    } else if (messageType === syncProtocol.messageYjsSyncStep1) {
+                        this.syncStep1Frames.push(link);
                     }
                     for (const handler of receiver.handlers[kind]) {
                         try {
@@ -190,6 +194,54 @@ describe('OpenCollaborationYjsProvider', () => {
 
         await vi.advanceTimersByTimeAsync(200);
         expect(bob.getText('file').toString()).toBe('a');
+    });
+
+    test('resyncs a guest with the host only, and the host with every guest', async () => {
+        const getHostId = () => 'host';
+        room.join('host', { resyncTimer: 50 });
+        room.join('alice', { resyncTimer: 50, getHostId });
+        room.join('bob', { resyncTimer: 50, getHostId });
+        room.join('carol', { resyncTimer: 50, getHostId });
+
+        await vi.advanceTimersByTimeAsync(60);
+
+        expect(room.syncStep1Frames.sort()).toEqual([
+            'alice>host', 'bob>host', 'carol>host', 'host>alice', 'host>bob', 'host>carol'
+        ]);
+    });
+
+    test('brings every peer up to date through the host when an edit reached nobody', async () => {
+        const getHostId = () => 'host';
+        const host = room.join('host', { resyncTimer: 50 });
+        const alice = room.join('alice', { resyncTimer: 50, getHostId });
+        const bob = room.join('bob', { resyncTimer: 50, getHostId });
+        room.dropped.add('alice>host');
+        room.dropped.add('alice>bob');
+
+        alice.getText('file').insert(0, 'a');
+        room.dropped.delete('alice>host');
+        await vi.advanceTimersByTimeAsync(10);
+        expect(host.getText('file').toString()).toBe('');
+
+        await vi.advanceTimersByTimeAsync(200);
+        expect(host.getText('file').toString()).toBe('a');
+        expect(bob.getText('file').toString()).toBe('a');
+        expect(room.syncStep1Frames).not.toContain('bob>alice');
+    });
+
+    test('resyncs with every peer until the host is known', async () => {
+        const session: { hostId?: string } = {};
+        room.join('host', { resyncTimer: 50 });
+        room.join('alice', { resyncTimer: 50, getHostId: () => session.hostId });
+        room.join('bob', { resyncTimer: 50, getHostId: () => session.hostId });
+
+        await vi.advanceTimersByTimeAsync(60);
+        expect(room.syncStep1Frames).toContain('alice>bob');
+
+        session.hostId = 'host';
+        room.syncStep1Frames.length = 0;
+        await vi.advanceTimersByTimeAsync(50);
+        expect(room.syncStep1Frames.sort()).toEqual(['alice>host', 'bob>host', 'host>alice', 'host>bob']);
     });
 
     test('resyncs by default when no resync timer is given', async () => {

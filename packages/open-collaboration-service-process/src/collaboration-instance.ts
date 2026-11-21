@@ -15,6 +15,7 @@ export class CollaborationInstance implements types.Disposable {
 
     protected peers = new Map<string, types.Peer>();
     protected hostInfo = new Deferred<types.Peer>();
+    protected hostId?: string;
     protected peerInfo: types.Peer;
 
     protected yjsProvider?: OpenCollaborationYjsProvider;
@@ -55,7 +56,8 @@ export class CollaborationInstance implements types.Disposable {
             }});
 
         this.yjsProvider = new OpenCollaborationYjsProvider(octConnection, this.YjsDoc, this.yjsAwareness, {
-            resyncTimer: 10_000
+            resyncTimer: 10_000,
+            getHostId: () => this.isHost ? undefined : this.hostId
         });
         this.yjsProvider.connect();
         this.connectionDisposables.push(octConnection.onReconnect(() => {
@@ -140,6 +142,7 @@ export class CollaborationInstance implements types.Disposable {
         octConnection.peer.onInit((_, initData) => {
             this.peers.set(initData.host.id, initData.host);
             this.hostInfo.resolve(initData.host);
+            this.hostId = initData.host.id;
             for (const guest of initData.guests) {
                 this.peers.set(guest.id, guest);
             }
