@@ -34,7 +34,7 @@ Rules that follow, and that `test/architecture.test.ts` enforces:
 | Package | Purpose | Key public symbols |
 |---|---|---|
 | `open-collaboration-protocol` | The wire protocol: message shapes, encoding, compression, encryption, transports, and the connection abstraction every client builds on. | `ConnectionProvider`, `AbstractBroadcastConnection`, `Encryption`, `Encoding`, `Compression`, `SocketIoTransportProvider`, `initializeProtocol` |
-| `open-collaboration-yjs` | Binds the protocol's sync channel to Yjs documents and awareness, so peers converge on document state without a server arbitrating order. | `OpenCollaborationYjsProvider`, `YjsNormalizedTextDocument`, `LOCAL_ORIGIN` |
+| `open-collaboration-yjs` | Binds the protocol's sync channel to Yjs documents and awareness, so peers converge on document state without a server arbitrating order. | `OpenCollaborationYjsProvider`, `YjsTextDocumentSync`, `LOCAL_ORIGIN` |
 | `open-collaboration-server` | Express 5 + Inversify relay: rooms, peers, credentials, and pluggable auth endpoints. | `CollaborationServer`, `RoomManager`, `PeerManager`, `MessageRelay`, `CredentialsManager`, `AuthEndpoint` |
 | `open-collaboration-vscode` | The VS Code extension, published as `typefox.open-collaboration-tools`. Owns the virtual file system, follow mode, chat, and the room view. | `activate`, `CollaborationInstance`, `CollaborationFileSystemProvider`, `CollaborationRoomService` |
 | `open-collaboration-monaco` | Connects a single Monaco editor to a session; its `example` entry backs the playground served by `npm run dev`. | `MonacoCollabApi`, `monacoCollab` |

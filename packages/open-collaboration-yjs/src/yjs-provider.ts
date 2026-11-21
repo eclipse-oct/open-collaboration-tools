@@ -100,8 +100,11 @@ export class OpenCollaborationYjsProvider extends ObservableV2<string> {
         this.connection.sync.awarenessUpdate(origin, this.encode(encoder));
     }
 
-    private yjsUpdateHandler(update: Uint8Array, origin: unknown): void {
-        if (origin !== this && !this.applyingRemoteUpdate) {
+    private yjsUpdateHandler(update: Uint8Array, origin: unknown, _doc: Y.Doc, transaction: Y.Transaction): void {
+        // A received update is not sent again. A change that an observer makes in response to it is
+        // a change of our own though: it is a local transaction that runs while the update is applied.
+        const received = this.applyingRemoteUpdate && !transaction.local;
+        if (origin !== this && !received) {
             const encoder = encoding.createEncoder();
             syncProtocol.writeUpdate(encoder, update);
             this.connection.sync.dataUpdate(this.encode(encoder));

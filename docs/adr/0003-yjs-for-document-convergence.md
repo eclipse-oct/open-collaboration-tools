@@ -40,5 +40,5 @@ Monaco, that this project would otherwise have written by hand.
   effectively part of what peers must agree on. Replacing it would be a protocol-level change.
 - Yjs is a peer dependency, so a client's Yjs version must stay compatible with the one peers use.
 - Editor-specific text handling (line endings in particular) needs normalization on the way in and
-  out — the reason `yjs-normalized-text.ts` exists.
+  out — part of what `yjs-text-sync.ts` does.
 - The relay stays simple: it moves encrypted updates and never interprets them.
