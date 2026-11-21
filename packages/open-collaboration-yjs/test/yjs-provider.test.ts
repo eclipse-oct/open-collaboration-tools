@@ -11,6 +11,8 @@ import * as syncProtocol from 'y-protocols/sync';
 import * as decoding from 'lib0/decoding';
 import type * as types from 'open-collaboration-protocol';
 import { DEFAULT_RESYNC_TIMER, OpenCollaborationYjsProvider } from '../src/yjs-provider.js';
+import { applyTextChanges } from '../src/text-diff.js';
+import { YjsTextDocumentSync } from '../src/yjs-text-sync.js';
 
 type Handler = (origin: string, data: Uint8Array) => void;
 
@@ -102,6 +104,51 @@ describe('OpenCollaborationYjsProvider', () => {
 
         expect(room.updateFrames.sort()).toEqual(['alice>bob', 'alice>host']);
         expect(bob.getText('file').toString()).toBe('a');
+    });
+
+    test('sends an edit that a peer makes in response to a received edit', async () => {
+        const host = room.join('host', { resyncTimer: 0 });
+        const alice = room.join('alice', { resyncTimer: 0 });
+        const bob = room.join('bob', { resyncTimer: 0 });
+        const text = alice.getText('file');
+        text.observe(event => {
+            if (event.transaction.origin === 'host') {
+                text.insert(text.length, 'b');
+            }
+        });
+
+        host.getText('file').insert(0, 'a');
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(room.updateFrames.sort()).toEqual(['alice>bob', 'alice>host', 'host>alice', 'host>bob']);
+        expect(host.getText('file').toString()).toBe('ab');
+        expect(bob.getText('file').toString()).toBe('ab');
+    });
+
+    test('sends what a guest typed before the document was shared as soon as it is shared', async () => {
+        const host = room.join('host', { resyncTimer: 0 });
+        const guest = room.join('guest', { resyncTimer: 0 });
+        const bob = room.join('bob', { resyncTimer: 0 });
+        let buffer = 'hello';
+        const sync: YjsTextDocumentSync = new YjsTextDocumentSync(guest.getText('file'), {
+            getText: () => buffer,
+            getEol: () => '\n',
+            applyChanges: async changes => {
+                buffer = applyTextChanges(buffer, changes);
+                sync.onDidChangeContent(changes);
+                return true;
+            }
+        }, { unsharedTimeout: 0 });
+        buffer = 'hello world';
+        sync.onDidChangeContent([{ start: 5, end: 5, text: ' world' }]);
+
+        host.getText('file').insert(0, 'hello');
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(host.getText('file').toString()).toBe('hello world');
+        expect(bob.getText('file').toString()).toBe('hello world');
+        expect(buffer).toBe('hello world');
+        sync.dispose();
     });
 
     test('applies an edit with its author as the origin when the author\'s link is slowest', async () => {
