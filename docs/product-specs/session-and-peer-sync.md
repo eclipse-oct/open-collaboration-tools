@@ -28,6 +28,10 @@ be re-derived from the code.
   origin names the author. An edit a peer makes in response to a received update is its own and is
   sent right away. An update a peer misses is repaired by the provider's `resyncTimer`, which
   defaults to 10 seconds; setting it to `0` or less turns the repair off, and `dispose()` stops it.
+  A guest repairs against the host alone and the host against every guest, so the repair traffic
+  grows linearly with the number of peers; an edit that reached nobody but its author therefore
+  takes up to two intervals to reach the other guests. A guest that does not know the host yet
+  repairs against every peer.
   Enforced by `packages/open-collaboration-yjs/test/yjs-provider.test.ts`.
 
 - **An edit typed while a remote change is arriving lands where the user typed it.** In the VS Code

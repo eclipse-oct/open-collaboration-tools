@@ -75,7 +75,8 @@ export class DocumentSync implements IDocumentSync {
 
         // Set up the Yjs provider
         this.yjsProvider = new OpenCollaborationYjsProvider(connection, this.yjs, this.yjsAwareness, {
-            resyncTimer: 10_000
+            resyncTimer: 10_000,
+            getHostId: () => this.hostId
         });
         this.yjsProvider.connect();
 
