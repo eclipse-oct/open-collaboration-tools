@@ -6,7 +6,7 @@
 import * as types from 'open-collaboration-protocol';
 import { Encoding } from 'open-collaboration-protocol';
 import { isTypedArray } from 'util/types';
-import { NotificationType, NotificationType2, NotificationType3, RequestType, RequestType0 } from 'vscode-jsonrpc';
+import { NotificationType, NotificationType2, RequestType, RequestType0 } from 'vscode-jsonrpc';
 
 export function isOCPMessage(message: unknown): message is OCPMessage {
     return types.isObject<OCPMessage>(message) && types.isString(message.method) && types.isArray(message.params);
@@ -26,10 +26,7 @@ export namespace ToServiceMessages {
     export const JOIN_SESSION_REQUEST = 'room/joinSessionRequest';
     export const CREATE_ROOM = 'room/createRoom';
     export const CLOSE_SESSION = 'room/closeSession';
-    export const OPEN_DOCUMENT = 'awareness/openDocument';
     export const GET_DOCUMENT_CONTENT = 'awareness/getDocumentContent';
-    export const UPDATE_TEXT_SELECTION = 'awareness/updateTextSelection';
-    export const UPDATE_DOCUMENT_CONTENT = 'awareness/updateDocument';
 }
 
 /**
@@ -80,33 +77,15 @@ export interface ClientTextSelection {
 }
 
 /**
- * params: [type, documentUri, text]
- * Todo: add more types for other awarness object types
- */
-export const OpenDocument = new NotificationType3<string, string, string>(ToServiceMessages.OPEN_DOCUMENT);
-
-/**
  * params: [documentPath]
  * resp params: [documentContent as message pack encoded base64 string of types.FileContent]
  */
 export const GetDocumentContent = new RequestType<string, BinaryData, void>(ToServiceMessages.GET_DOCUMENT_CONTENT);
 
-/**
- * params: [documentPath, selections]
- */
-export const UpdateTextSelection = new NotificationType2<string, ClientTextSelection[]>(ToServiceMessages.UPDATE_TEXT_SELECTION);
-
-/**
- * params: [documentPath, changes]
- * Todo: add more types for other awarness object types
- */
-export const UpdateDocumentContent = new NotificationType2<string, TextDocumentInsert[]>(ToServiceMessages.UPDATE_DOCUMENT_CONTENT);
-
 // ***************************** Versioned documents *****************************
 //
 // A document opened with `document/open` is synchronized through versioned edits, which lets the
-// service process tell whether an edit still fits the client's buffer. A document opened with the
-// legacy `awareness/openDocument` keeps using `awareness/updateDocument` in both directions.
+// service process tell whether an edit still fits the client's buffer.
 // See "Document synchronization" in the Readme for the full contract.
 //
 // All messages take a single object parameter, sent by name. vscode-jsonrpc and lsp4j both send a
@@ -266,6 +245,12 @@ export const PeerInfoNotification = new NotificationType<types.Peer>('peerInfo')
  * params : [documentPath, peerId]
  */
 export const EditorOpenedNotification = new NotificationType2<string, string>('editorOpened');
+
+/**
+ * The selections of other peers in a document, with offsets of the client's buffer.
+ * params: [documentPath, selections]
+ */
+export const UpdateTextSelection = new NotificationType2<string, ClientTextSelection[]>('awareness/updateTextSelection');
 
 /**
  * A request to the application to allow a user to join the current session

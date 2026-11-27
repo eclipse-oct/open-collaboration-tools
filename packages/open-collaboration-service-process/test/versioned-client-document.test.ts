@@ -53,6 +53,7 @@ function setup(text: string, options: { editTimeout?: number, shared?: string } 
         getBuffer: request => service.sendRequest(GetBufferRequest, request)
     }, {
         editTimeout: options.editTimeout ?? 200,
+        readBufferRetryDelays: [5, 5],
         onDidChangeSelection: selection => selections.push(selection),
         onDidClose: () => closed = true,
         logger: {
@@ -181,6 +182,46 @@ describe('VersionedClientDocument', () => {
         await converged(setup_, 'abc123');
         expect(setup_.client.edits).toHaveLength(2);
         expect(setup_.errors.some(error => error.includes('did not answer'))).toBe(true);
+    });
+
+    test('a failed getBuffer is retried', async () => {
+        const setup_ = setup('abc');
+        setup_.client.failGetBuffer = 1;
+        setup_.client.type(3, 3, 'd', 2);
+        await converged(setup_, 'abc');
+        expect(setup_.errors.some(error => error.includes('Retrying'))).toBe(true);
+        expect(setup_.closed()).toBe(false);
+        setup_.client.type(0, 0, 'Z');
+        await converged(setup_, 'Zabc');
+    });
+
+    test('a buffer that cannot be read closes the document and settles its pending edit', async () => {
+        const setup_ = setup('abc', { editTimeout: 50 });
+        const document = setup_.document;
+        setup_.client.failGetBuffer = Infinity;
+        setup_.client.dropNextEdit = true;
+        setup_.ytext.insert(3, '123');
+        await waitUntil(setup_.closed);
+        // The edit that was never answered no longer holds up the sync
+        await document.sync.flush();
+        expect(setup_.errors.some(error => error.includes('has to open it anew'))).toBe(true);
+    });
+
+    test('a failed recovery closes the document', async () => {
+        const setup_ = setup('abc');
+        setup_.client.failGetBuffer = Infinity;
+        setup_.client.type(3, 3, 'd', 2);
+        await waitUntil(setup_.closed);
+    });
+
+    test('a getBuffer answer older than the reported changes does not roll back the mirror', async () => {
+        const setup_ = setup('abc', { editTimeout: 50 });
+        setup_.client.dropNextEdit = true;
+        // The client reports the user's change, and only then answers with the buffer it read before
+        setup_.client.afterReadBuffer = () => setup_.client.type(0, 0, 'Z');
+        setup_.ytext.insert(3, '123');
+        await converged(setup_, 'Zabc123');
+        expect(setup_.errors.some(error => error.includes('after reporting version'))).toBe(true);
     });
 
     test('a skipped version replaces the mirror with the client\'s buffer', async () => {

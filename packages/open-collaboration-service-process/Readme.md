@@ -21,7 +21,7 @@ node ./lib/process.js --server-address http://localhost:8100 --auth-token <your-
 
 - `--server-address` (**required**): The address of the collaboration server to connect to (e.g., `https://api.open-collab.tools`).
 - `--auth-token` (**optional**): The authentication token to use for the session, if saved by the application from a previous login
-- `--edit-timeout` (**optional**): How long, in milliseconds, to wait for the answer to a `document/applyEdit` before the client's buffer is read anew with `document/getBuffer`. Defaults to 5000.
+- `--edit-timeout` (**optional**): How long, in milliseconds, to wait for the answer to a `document/applyEdit` before the client's buffer is read anew with `document/getBuffer`. Defaults to 5000; `0` waits forever. Anything but a non-negative integer is rejected at startup.
 
 ### Communication Protocol
 
@@ -78,17 +78,20 @@ Or sending Binary Data as a Parameter:
 
 ## Document synchronization
 
-A client opens every text document it wants to edit collaboratively. There are two modes, chosen per
-document by the message that opens it:
+A client opens every text document it wants to edit collaboratively with `document/open`. The
+service process only applies an edit that still fits the client's buffer, and recognises the edit
+when the client reports it back. Edits the user types while a remote change is on its way land where
+they were typed.
 
-- **Versioned** (`document/open`): the service process only applies an edit that still fits the
-  client's buffer, and recognises the edit when the client reports it back. Edits the user types
-  while a remote change is on its way land where they were typed. Use this mode for new clients.
-- **Legacy** (`awareness/openDocument`, `awareness/updateDocument`): changes are sent to the client
-  without confirmation and taken as applied the moment they are sent. If the user types before the
-  client has applied one, the client and the session diverge.
+The earlier unversioned messages `awareness/openDocument` and `awareness/updateDocument` (and
+`awareness/updateTextSelection` from the client) have been removed. Native clients bundle the
+service process at a pinned version, so a client built against the old messages keeps its old binary.
 
-All versioned messages take a single object parameter, sent by name. The types are in
+When a guest opens a file the host's client has not opened, the host's service process reads the file
+with `fileSystem/readFile` and shares its content, with line endings normalized to `\n`. The host's
+client syncs it once it sends `document/open` for it (for example in reaction to `editorOpened`).
+
+All messages take a single object parameter, sent by name. The types are in
 [messages.ts](src/messages.ts).
 
 | Direction | Message | Kind | Payload |
@@ -171,16 +174,13 @@ only happens through a client bug or a hung client:
 - an answer contradicts the reported changes (`applied` without its `document/didChange`, or
   `outdated` for the latest reported version),
 - a `document/applyEdit` is not answered within `--edit-timeout`. A client that answers both requests
-  late, in order, is handled without loss.
+  late, in order, is handled without loss,
+- a `document/getBuffer` answer is older than a `document/didChange` the client sent before it.
 
-### Mixing both modes
-
-A document opened with `awareness/openDocument` keeps the legacy behaviour, so a client can migrate
-one editor type at a time. Once a client has opened any document with `document/open`, the service
-process no longer opens legacy documents on its behalf: when a guest opens a file the host's client
-has not opened, the host's file content is shared, and the client syncs it once it sends
-`document/open` for it (for example in reaction to `editorOpened`). A versioned client ignores
-`awareness/updateDocument`.
+A client that does not answer `document/getBuffer` is waited for. A `document/getBuffer` that fails
+(an error response or an invalid answer) is retried after 250 ms, 1 s and 4 s. If every attempt
+fails, the service process stops syncing the document, as if it had received `document/close`, and
+logs an error. The client has to send `document/open` again to resume.
 
 ## Release
 
@@ -190,7 +190,7 @@ Service process binaries are released through GitHub Actions.
 
 The workflow `.github/workflows/release-service-process.yml` creates binaries for Linux, macOS, and Windows and publishes them to a GitHub Release.
 
-Trigger a release by pushing a tag in this format: `service-process-v0.3.1`
+Trigger a release by pushing a tag in this format: `service-process-v0.4.0`
 
 The workflow publishes:
 

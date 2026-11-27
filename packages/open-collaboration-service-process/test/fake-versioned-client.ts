@@ -26,6 +26,13 @@ export class FakeVersionedClient {
     beforeApply?: () => void;
     /** The next edit is never answered */
     dropNextEdit = false;
+    /** How many of the next `document/getBuffer` requests fail */
+    failGetBuffer = 0;
+    /**
+     * Runs once, after the client read its buffer for the next `document/getBuffer` and before it
+     * answers. Changes made here break the protocol: the answer is older than their `document/didChange`.
+     */
+    afterReadBuffer?: () => void;
     /** While set, the client handles no request, like an IntelliJ EDT blocked by a modal dialog */
     gate?: Deferred<void>;
     open = true;
@@ -34,8 +41,7 @@ export class FakeVersionedClient {
 
     constructor(readonly connection: MessageConnection, readonly path: string, public text: string) {
         connection.onRequest(ApplyEditRequest, params => this.enqueue(() => this.applyEdit(params)));
-        connection.onRequest(GetBufferRequest, params => this.enqueue<DocumentBuffer | null>(() =>
-            this.isOpen(params) ? { text: this.text, version: this.version } : null));
+        connection.onRequest(GetBufferRequest, params => this.enqueue(() => this.getBuffer(params)));
     }
 
     /** Opens the document with the service process */
@@ -67,6 +73,18 @@ export class FakeVersionedClient {
 
     selectAt(offset: number, version = this.version): void {
         this.connection.sendNotification(DidChangeTextSelection, { path: this.path, version, selections: [{ start: offset, end: offset, isReversed: false }] });
+    }
+
+    private getBuffer(params: { path: string, openId: number }): DocumentBuffer | null {
+        if (this.failGetBuffer > 0) {
+            this.failGetBuffer--;
+            throw new Error('The client failed to read its buffer');
+        }
+        const buffer = this.isOpen(params) ? { text: this.text, version: this.version } : null;
+        const afterReadBuffer = this.afterReadBuffer;
+        this.afterReadBuffer = undefined;
+        afterReadBuffer?.();
+        return buffer;
     }
 
     private applyEdit(params: ApplyEditParams): ApplyEditResult | Promise<never> {

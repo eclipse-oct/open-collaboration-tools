@@ -7,7 +7,7 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { realpathSync } from 'fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import { Authentication, BinaryData, CloseSessionRequest, CreateRoomRequest, fromBinaryMessage, GetDocumentContent, JoinRoomRequest, JoinSessionRequest, OnInitNotification, OpenDocument, PeerInfoNotification, PeerLeftNotification, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from 'open-collaboration-service-process';
+import { Authentication, BinaryData, CloseSessionRequest, CreateRoomRequest, fromBinaryMessage, GetDocumentContent, JoinRoomRequest, JoinSessionRequest, OnInitNotification, PeerInfoNotification, PeerLeftNotification, toBinaryMessage, UpdateTextSelection } from 'open-collaboration-service-process';
 import { Deferred, FileData } from 'open-collaboration-protocol';
 import { createMessageConnection, Message, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node.js';
 import { FakeVersionedClient } from './fake-versioned-client.js';
@@ -91,7 +91,6 @@ describe('Service Process', () => {
     });
     test('test service processes without login', async () => {
         // Setup host message handlers
-        const updateArived = new Deferred();
         const selectionArived = new Deferred();
         let hostId: string = '';
 
@@ -100,9 +99,6 @@ describe('Service Process', () => {
         });
         host.communicationHandler.onRequest(JoinSessionRequest, () => {
             return true;
-        });
-        host.communicationHandler.onNotification(UpdateDocumentContent, () => {
-            updateArived.resolve();
         });
         host.communicationHandler.onNotification(UpdateTextSelection, () => {
             selectionArived.resolve();
@@ -156,16 +152,18 @@ describe('Service Process', () => {
         const fileContent = await guest.communicationHandler.sendRequest('fileSystem/readFile', {type: 'binaryData', data: toBinaryMessage('testFolder/test.txt')} as BinaryData, hostId) as FileData;
         expect(new TextDecoder().decode(fileContent.content)).toEqual('HELLO WORLD!');
 
-        host.communicationHandler.sendNotification(OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
-        guest.communicationHandler.sendNotification(OpenDocument, 'text', 'testFolder/test.txt', 'HELLO WORLD!');
+        const hostEditor = new FakeVersionedClient(host.communicationHandler, 'testFolder/test.txt', 'HELLO WORLD!');
+        const guestEditor = new FakeVersionedClient(guest.communicationHandler, 'testFolder/test.txt', 'HELLO WORLD!');
+        hostEditor.sendOpen();
+        guestEditor.sendOpen();
 
-        guest.communicationHandler.sendNotification(UpdateTextSelection, 'testFolder/test.txt', [{ start: 0, end: 0, isReversed: false }]);
+        guestEditor.selectAt(0);
 
         await selectionArived.promise;
 
-        guest.communicationHandler.sendNotification(UpdateDocumentContent, 'testFolder/test.txt', [{ startOffset: 5, text: ' NEW' }]);
+        guestEditor.type(5, 5, ' NEW');
 
-        await updateArived.promise;
+        await waitUntil(async () => hostEditor.text === 'HELLO NEW WORLD!', 'the guest\'s change to reach the host\'s editor');
 
     }, 60000);
 
@@ -212,21 +210,15 @@ describe('Service Process', () => {
         await initDeferred.promise;
         expect(hostId).toBeTruthy();
 
-        // The guest is the *first* one to touch this path — the host never
-        // called openDocument for it — which is exactly what makes
+        // The guest is the *first* one to touch this path — the host's client
+        // never sent document/open for it — which is exactly what makes
         // CollaborationInstance's editor.onOpen handler take the "path not
         // seen yet" branch. The guest's own text is nonsense on purpose: it
         // must never end up as the seeded content.
-        const contentSeeded = new Deferred<string>();
-        guest.communicationHandler.onNotification(UpdateDocumentContent, (updatedPath, changes) => {
-            if (updatedPath === path && changes.length > 0) {
-                contentSeeded.resolve(changes[0].text);
-            }
-        });
-        guest.communicationHandler.sendNotification(OpenDocument, 'text', path, 'this guest-local text must be ignored');
+        const guestEditor = new FakeVersionedClient(guest.communicationHandler, path, 'this guest-local text must be ignored');
+        guestEditor.sendOpen();
 
-        const seededText = await contentSeeded.promise;
-        expect(seededText).toEqual(realDiskContent);
+        await waitUntil(async () => guestEditor.text === realDiskContent, 'the host\'s file content to reach the guest\'s editor');
         expect(readFileCalls).toEqual(1);
 
         // Cross-check via the pull-based getDocumentContent path too, from both sides.
@@ -274,34 +266,22 @@ describe('Service Process', () => {
         await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
         await initDeferred.promise;
 
-        // Stands in for the native client's in-memory document: every change the
-        // service process pushes is applied, so its final value is what the user sees.
-        let guestEditor: string | undefined;
-        guest.communicationHandler.onNotification(UpdateDocumentContent, (updatedPath, changes) => {
-            if (updatedPath !== path || guestEditor === undefined) {
-                return;
-            }
-            for (const change of changes) {
-                const start = change.startOffset;
-                const end = change.endOffset ?? change.startOffset;
-                guestEditor = guestEditor.substring(0, start) + change.text + guestEditor.substring(end);
-            }
-        });
-
         // 1. The client opens the file: content is pulled from the host, since
         //    nothing has been shared for this path yet.
         const initialContent = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
-        guestEditor = new TextDecoder().decode(initialContent.content);
-        expect(guestEditor).toEqual(realDiskContent);
+        // Stands in for the native client's in-memory document: every edit the
+        // service process sends is applied, so its final value is what the user sees.
+        const guestEditor = new FakeVersionedClient(guest.communicationHandler, path, new TextDecoder().decode(initialContent.content));
+        expect(guestEditor.text).toEqual(realDiskContent);
 
         // 2. The client reports the now-open document to the service process,
         //    which asks the host to share it.
-        guest.communicationHandler.sendNotification(OpenDocument, 'text', path, guestEditor);
+        guestEditor.sendOpen();
 
         // 3. Wait for the host's seeding update to reach the guest's shared
-        //    document. We poll instead of awaiting an UpdateDocumentContent
-        //    notification because the correct behaviour is to send the client no
-        //    change at all - it already shows what the host seeded.
+        //    document. We poll instead of awaiting a document/applyEdit
+        //    because the correct behaviour is to send the client no edit at
+        //    all - it already shows what the host seeded.
         await waitUntil(async () => {
             const shared = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
             return new TextDecoder().decode(shared.content) === realDiskContent;
@@ -311,8 +291,9 @@ describe('Service Process', () => {
 
         // Before the fix the guest received `{startOffset: 0, endOffset: 0,
         // text: <whole file>}` and ended up showing the file twice.
-        expect(guestEditor).not.toEqual(realDiskContent + realDiskContent);
-        expect(guestEditor).toEqual(realDiskContent);
+        expect(guestEditor.text).not.toEqual(realDiskContent + realDiskContent);
+        expect(guestEditor.text).toEqual(realDiskContent);
+        expect(guestEditor.edits).toEqual([]);
     }, 60000);
 
     test('host opening a document a guest already edited does not discard the guest\'s edits', async () => {
@@ -350,23 +331,11 @@ describe('Service Process', () => {
         await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
         await initDeferred.promise;
 
-        // Mirror of the host client's in-memory document.
-        let hostEditor: string | undefined;
-        host.communicationHandler.onNotification(UpdateDocumentContent, (updatedPath, changes) => {
-            if (updatedPath !== path || hostEditor === undefined) {
-                return;
-            }
-            for (const change of changes) {
-                const start = change.startOffset;
-                const end = change.endOffset ?? change.startOffset;
-                hostEditor = hostEditor.substring(0, start) + change.text + hostEditor.substring(end);
-            }
-        });
-
         // The guest opens the file first, which makes the host share it.
         const initial = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
         expect(new TextDecoder().decode(initial.content)).toEqual(diskContent);
-        guest.communicationHandler.sendNotification(OpenDocument, 'text', path, diskContent);
+        const guestEditor = new FakeVersionedClient(guest.communicationHandler, path, diskContent);
+        guestEditor.sendOpen();
         // Wait for the seed to come back round to the *guest*. Polling the host
         // would only prove it seeded its own copy.
         await waitUntil(async () => {
@@ -375,9 +344,8 @@ describe('Service Process', () => {
         }, 'the host\'s seed to reach the guest');
 
         // The guest types, but nothing is written to the host's disk. The host's
-        // client has nothing open for this path yet (`hostEditor` is undefined),
-        // so only the shared document moves.
-        guest.communicationHandler.sendNotification(UpdateDocumentContent, path, [{ startOffset: 0, text: 'XXX' }]);
+        // client has nothing open for this path yet, so only the shared document moves.
+        guestEditor.type(0, 0, 'XXX');
         await waitUntil(async () => {
             const shared = await host.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
             return new TextDecoder().decode(shared.content) === editedContent;
@@ -385,9 +353,9 @@ describe('Service Process', () => {
 
         // Now the host's client opens the same file for the first time. Its
         // editor was loaded from disk, so it starts out with the stale content.
-        hostEditor = diskContent;
-        host.communicationHandler.sendNotification(OpenDocument, 'text', path, diskContent);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const hostEditor = new FakeVersionedClient(host.communicationHandler, path, diskContent);
+        hostEditor.sendOpen();
+        await waitUntil(async () => hostEditor.text === editedContent, 'the host\'s editor to adopt the shared content');
 
         // The guest's edit must survive on both sides.
         const hostShared = await host.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
@@ -397,14 +365,14 @@ describe('Service Process', () => {
 
         // ...and the host's own editor must have been brought up to date with
         // the shared content rather than overwriting it.
-        expect(hostEditor).toEqual(editedContent);
+        expect(hostEditor.text).toEqual(editedContent);
+        expect(guestEditor.text).toEqual(editedContent);
     }, 60000);
 
-    test('a versioned client and a legacy client converge, with an edit typed during a remote change where it was typed', async () => {
-        // The host's client syncs through document/applyEdit, the guest's through the legacy
-        // awareness/updateDocument. The host's user types while the guest's change is on its way to
-        // the host's editor. A client that applied the change anyway would misplace it, as it
-        // addresses the buffer without the user's text.
+    test('two clients converge, with an edit typed during a remote change where it was typed', async () => {
+        // The host's user types while the guest's change is on its way to the host's editor. A
+        // client that applied the change anyway would misplace it, as it addresses the buffer
+        // without the user's text.
         const path = 'testFolder/versioned.txt';
         const diskContent = 'hello world';
 
@@ -431,32 +399,61 @@ describe('Service Process', () => {
         const hostEditor = new FakeVersionedClient(host.communicationHandler, path, diskContent);
         hostEditor.sendOpen();
 
-        let guestEditor = diskContent;
-        guest.communicationHandler.onNotification(UpdateDocumentContent, (updatedPath, changes) => {
-            if (updatedPath === path) {
-                for (const change of [...changes].reverse()) {
-                    guestEditor = guestEditor.substring(0, change.startOffset) + change.text + guestEditor.substring(change.endOffset ?? change.startOffset);
-                }
-            }
-        });
-        guest.communicationHandler.sendNotification(OpenDocument, 'text', path, diskContent);
+        const guestEditor = new FakeVersionedClient(guest.communicationHandler, path, diskContent);
+        guestEditor.sendOpen();
         await waitUntil(async () => {
             const shared = await guest.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
             return new TextDecoder().decode(shared.content) === diskContent;
         }, 'the host\'s document to reach the guest');
 
         hostEditor.beforeApply = () => hostEditor.type(0, 0, 'say ');
-        guestEditor = 'hello big world';
-        guest.communicationHandler.sendNotification(UpdateDocumentContent, path, [{ startOffset: 5, text: ' big' }]);
+        guestEditor.type(5, 5, ' big');
 
         const expected = 'say hello big world';
-        await waitUntil(async () => hostEditor.text === expected && guestEditor === expected,
+        await waitUntil(async () => hostEditor.text === expected && guestEditor.text === expected,
             `both editors to show "${expected}"`);
         expect(hostEditor.edits.map(edit => edit.baseVersion)).toEqual([0, 1]);
         for (const client of [host, guest]) {
             const shared = await client.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
             expect(new TextDecoder().decode(shared.content)).toEqual(expected);
         }
+    }, 60000);
+
+    test('a host file with CRLF line endings is shared with LF line endings', async () => {
+        // The shared text holds `\n` line endings only. A host file that a guest opens before the
+        // host's client did must be normalized like every other client's seed.
+        const path = 'testFolder/crlf.txt';
+        const diskContent = 'one\r\ntwo\r\nthree';
+
+        host.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'host');
+        });
+        host.communicationHandler.onRequest(JoinSessionRequest, () => true);
+        host.communicationHandler.onRequest('fileSystem/readFile', (() => ({
+            type: 'binaryData',
+            data: toBinaryMessage({
+                content: Uint8Array.from(new TextEncoder().encode(diskContent)),
+            } as FileData),
+        } as BinaryData)));
+        const initDeferred = new Deferred();
+        guest.communicationHandler.onNotification(Authentication, (token) => {
+            makeSimpleLoginRequest(token, 'guest');
+        });
+        guest.communicationHandler.onNotification(OnInitNotification, () => initDeferred.resolve());
+
+        const { roomId } = await host.communicationHandler.sendRequest(CreateRoomRequest, { name: 'test', folders: ['testFolder'] });
+        await guest.communicationHandler.sendRequest(JoinRoomRequest, roomId);
+        await initDeferred.promise;
+
+        const guestEditor = new FakeVersionedClient(guest.communicationHandler, path, diskContent);
+        guestEditor.sendOpen();
+        await waitUntil(async () => {
+            const shared = await host.communicationHandler.sendRequest(GetDocumentContent, path) as unknown as FileData;
+            return new TextDecoder().decode(shared.content) === 'one\ntwo\nthree';
+        }, 'the host to share the normalized file content');
+        // The guest's buffer keeps its own line endings
+        await new Promise(resolve => setTimeout(resolve, 200));
+        expect(guestEditor.text).toEqual(diskContent);
     }, 60000);
 
     test('a second guest\'s initData.guests includes the first guest', async () => {

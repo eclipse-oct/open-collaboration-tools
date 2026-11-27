@@ -6,8 +6,8 @@
 
 import * as types from 'open-collaboration-protocol';
 import { BinaryData, BinaryResponse, CloseSessionRequest, CloseTextDocument, CreateRoomRequest, DidChangeTextDocument, DidChangeTextSelection,
-    fromBinaryMessage, InternalError, JoinRoomRequest, LoginRequest, OpenDocument, OpenTextDocument,
-    SessionData, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+    fromBinaryMessage, InternalError, JoinRoomRequest, LoginRequest, OpenTextDocument,
+    SessionData, toBinaryMessage } from './messages.js';
 import { CollaborationInstance, CollaborationInstanceOptions } from './collaboration-instance.js';
 import { CancellationToken, MessageConnection } from 'vscode-jsonrpc';
 
@@ -28,16 +28,12 @@ export class MessageHandler {
                 this.currentCollaborationInstance = undefined;
             }
         });
-        clientCommunication.onNotification(OpenDocument, (p1, p2, p3) => this.currentCollaborationInstance?.registerYjsObject(p1, p2, p3));
-        clientCommunication.onNotification(UpdateTextSelection, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectSelection(p1, p2));
-        clientCommunication.onNotification(UpdateDocumentContent, (p1, p2) => this.currentCollaborationInstance?.updateYjsObjectContent(p1, p2));
-        // Registered explicitly: the catch-all handlers below would forward them to the session
+        // Registered explicitly: the catch-all handlers below would forward them to the session.
+        // The parameters are validated by the collaboration instance.
         clientCommunication.onNotification(OpenTextDocument, params => this.currentCollaborationInstance?.openTextDocument(params));
-        clientCommunication.onNotification(CloseTextDocument, params => this.currentCollaborationInstance?.closeTextDocument(params.path));
-        clientCommunication.onNotification(DidChangeTextDocument, params =>
-            this.currentCollaborationInstance?.didChangeTextDocument(params.path, params.version, params.changes));
-        clientCommunication.onNotification(DidChangeTextSelection, params =>
-            this.currentCollaborationInstance?.didChangeTextSelection(params.path, params.version, params.selections));
+        clientCommunication.onNotification(CloseTextDocument, params => this.currentCollaborationInstance?.closeTextDocument(params));
+        clientCommunication.onNotification(DidChangeTextDocument, params => this.currentCollaborationInstance?.didChangeTextDocument(params));
+        clientCommunication.onNotification(DidChangeTextSelection, params => this.currentCollaborationInstance?.didChangeTextSelection(params));
         clientCommunication.onError(([error]) => clientCommunication.sendNotification(InternalError, {message: error.message, stack: error.stack}));
 
         clientCommunication.onRequest(async (method, params) => {

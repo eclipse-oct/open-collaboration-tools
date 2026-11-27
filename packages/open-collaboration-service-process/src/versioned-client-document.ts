@@ -25,17 +25,28 @@ export interface VersionedClientDocumentLogger {
 
 export const DEFAULT_EDIT_TIMEOUT = 5000;
 
+/** The delays, in milliseconds, before `document/getBuffer` is sent again after it failed */
+export const DEFAULT_READ_BUFFER_RETRY_DELAYS: readonly number[] = [250, 1000, 4000];
+
 export interface VersionedClientDocumentOptions {
     /**
      * How long, in milliseconds, to wait for the answer to an edit before the client's buffer is read
      * anew. Defaults to {@link DEFAULT_EDIT_TIMEOUT}, a value of 0 or less waits forever.
      */
     editTimeout?: number;
+    /**
+     * The delays, in milliseconds, before a failed `document/getBuffer` is sent again. Once every
+     * retry failed, the document is closed. Defaults to {@link DEFAULT_READ_BUFFER_RETRY_DELAYS}.
+     */
+    readBufferRetryDelays?: readonly number[];
     /** Called whenever the client's buffer has caught up with the shared text */
     onDidSync?: () => void;
     /** Called with selections of the client that address the buffer as the sync knows it */
     onDidChangeSelection(selections: ClientTextSelection[]): void;
-    /** Called when the client reports that it does not have the document open */
+    /**
+     * Called when the client reports that it does not have the document open, or its buffer cannot
+     * be read. The document disposes itself right after.
+     */
     onDidClose(): void;
     /** Defaults to the console. stdout is the channel to the client, which `console.error` and `console.warn` leave alone. */
     logger?: VersionedClientDocumentLogger;
@@ -59,7 +70,8 @@ interface PendingEdit {
  *
  * Should the mirror ever become untrustworthy - a version is skipped, a change does not fit, or an
  * edit is not answered - the client's buffer is read anew with `document/getBuffer`. That only
- * happens through a client bug or a hung client, and is logged as an error.
+ * happens through a client bug or a hung client, and is logged as an error. If the buffer cannot be
+ * read even after retrying, the document is closed: the client has to open it anew.
  */
 export class VersionedClientDocument implements types.Disposable {
 
@@ -205,7 +217,7 @@ export class VersionedClientDocument implements types.Disposable {
             }
         } else if (result === 'notOpen') {
             this.settle(pending, false);
-            this.options.onDidClose();
+            this.close();
         } else {
             this.settle(pending, new Error(`Unknown result of an edit of ${this.path}: ${JSON.stringify(answer)}`));
         }
@@ -217,11 +229,17 @@ export class VersionedClientDocument implements types.Disposable {
         }
         this.logger.warn(`The client has not answered an edit of ${this.path} within ${this.options.editTimeout ?? DEFAULT_EDIT_TIMEOUT} ms. Reading its buffer.`);
         const buffer = await this.readBuffer();
-        if (buffer === undefined || this.recovery || this.disposed) {
+        if (this.recovery || this.disposed) {
             return;
         }
-        if (buffer === null) {
-            this.options.onDidClose();
+        if (!buffer) {
+            this.close();
+            return;
+        }
+        if (buffer.version < this.version) {
+            // The client reported a change after it read the buffer, so the answer is older than the
+            // mirror. Replacing the mirror with it would roll back changes the client already reported.
+            this.recover(`The client answered document/getBuffer of ${this.path} with version ${buffer.version} after reporting version ${this.version}`);
             return;
         }
         // The client handles requests in order: it has answered the edit before this, or never will
@@ -249,12 +267,9 @@ export class VersionedClientDocument implements types.Disposable {
         if (this.disposed) {
             return;
         }
-        if (buffer === null) {
-            this.options.onDidClose();
-            return;
-        }
-        if (buffer === undefined) {
-            // Nothing to recover against. The document stays stalled.
+        if (!buffer) {
+            // Nothing to recover against. Closing settles the pending edit and ends the recovery.
+            this.close();
             return;
         }
         this.recovery = undefined;
@@ -279,23 +294,49 @@ export class VersionedClientDocument implements types.Disposable {
         this.releaseSelection();
     }
 
+    /**
+     * Reads the client's buffer, retrying a failed read. Returns `null` if the client does not have
+     * the document open, and `undefined` if every attempt failed or the document was disposed.
+     *
+     * A client that does not answer is waited for: it handles requests in order, so it answers once
+     * it is responsive again.
+     */
     private async readBuffer(): Promise<DocumentBuffer | null | undefined> {
-        const timeout = this.options.editTimeout ?? DEFAULT_EDIT_TIMEOUT;
-        const timer = timeout > 0 ? setTimeout(() => {
-            this.logger.error(`The client does not answer for ${this.path}. The document is stalled until it does.`);
-        }, timeout) : undefined;
-        try {
-            const buffer = await this.connection.getBuffer({ path: this.path, openId: this.openId });
-            if (buffer !== null && (typeof buffer?.text !== 'string' || !Number.isInteger(buffer.version))) {
-                throw new Error(`Invalid answer: ${JSON.stringify(buffer)}`);
+        const retryDelays = this.options.readBufferRetryDelays ?? DEFAULT_READ_BUFFER_RETRY_DELAYS;
+        for (let attempt = 0; !this.disposed; attempt++) {
+            const timeout = this.options.editTimeout ?? DEFAULT_EDIT_TIMEOUT;
+            const timer = timeout > 0 ? setTimeout(() => {
+                this.logger.error(`The client does not answer for ${this.path}. The document is stalled until it does.`);
+            }, timeout) : undefined;
+            try {
+                const buffer = await this.connection.getBuffer({ path: this.path, openId: this.openId });
+                if (buffer !== null && (typeof buffer?.text !== 'string' || !Number.isInteger(buffer.version))) {
+                    throw new Error(`Invalid answer: ${JSON.stringify(buffer)}`);
+                }
+                return buffer;
+            } catch (error) {
+                if (attempt >= retryDelays.length) {
+                    this.logger.error(`Failed to read the buffer of ${this.path} from the client. The document is closed, the client has to open it anew.`, error);
+                    return undefined;
+                }
+                this.logger.error(`Failed to read the buffer of ${this.path} from the client. Retrying in ${retryDelays[attempt]} ms.`, error);
+                await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
+            } finally {
+                clearTimeout(timer);
             }
-            return buffer;
-        } catch (error) {
-            this.logger.error(`Failed to read the buffer of ${this.path} from the client. The document is stalled.`, error);
-            return undefined;
-        } finally {
-            clearTimeout(timer);
         }
+        return undefined;
+    }
+
+    /**
+     * Stops the synchronization, as if the client had sent `document/close`.
+     */
+    private close(): void {
+        if (this.disposed) {
+            return;
+        }
+        this.options.onDidClose();
+        this.dispose();
     }
 
     private settle(pending: PendingEdit, outcome: boolean | Error): void {

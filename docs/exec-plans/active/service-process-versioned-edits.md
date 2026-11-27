@@ -241,8 +241,8 @@ text. Resolving `false` instead would duplicate the text if the echo was our edi
 8. **Rollout:** release the service process with both modes, then the IntelliJ plugin pinned to that
    release. IntelliJ bundles the service process binary at a pinned version
    (`octServiceProcessVersion` in its `build.gradle.kts`), so a new client never meets an old service
-   process; the legacy messages only matter for third-party clients. Decide on a deprecation window
-   for them; do not remove them in this plan.
+   process; the legacy messages only matter for third-party clients. Decided after review: remove
+   them in the same release rather than keep a deprecation window, see the progress log.
 
 ## Alternatives considered
 
@@ -303,3 +303,17 @@ text. Resolving `false` instead would duplicate the text if the echo was our edi
   version passed the version check, and the new opening took its echo for a user change once its own
   edit was rejected, duplicating text. The client answers `notOpen` / `null` for a stale `openId`.
   Notifications from the client need no id: they are ordered with `document/open` on the same stream.
+- 2026-11-27 — Removed the legacy messages (`awareness/openDocument`, `awareness/updateDocument`,
+  client → service `awareness/updateTextSelection`) and `ClientDocument`, superseding the "keep the
+  legacy path" parts of steps 3, 5 and 8 and the two legacy bullets of the 2026-11-20 entry. Native
+  clients bundle a pinned service process, so none meets a version with the other protocol, and
+  inferring the mode from the first `document/open` let a guest's open create a legacy document
+  for a versioned host. `service.process.test.ts` now runs two versioned clients. Further review fixes:
+  - A `getBuffer` that fails is retried (250 ms, 1 s, 4 s); after that the document is closed, which
+    settles its pending edit and ends the recovery, instead of stalling forever. A `getBuffer` that
+    is never answered is still waited for.
+  - After an edit timeout, a `getBuffer` answer older than the mirror starts a recovery instead of
+    rolling the mirror back.
+  - The host seeds a file a guest opened first with normalized line endings, like every other seed.
+  - `document/*` notifications with missing or positional params are logged and ignored;
+    `document/open` after the session closed is ignored; `--edit-timeout` rejects non-integers.
