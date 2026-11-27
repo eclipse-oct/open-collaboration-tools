@@ -7,7 +7,7 @@
 import * as crypto from 'node:crypto';
 import { ConnectionProvider, initializeProtocol, SocketIoTransportProvider } from 'open-collaboration-protocol';
 import { MessageHandler } from './message-handler.js';
-import { program } from 'commander';
+import { InvalidArgumentError, program } from 'commander';
 import {createMessageConnection, StreamMessageReader, StreamMessageWriter} from 'vscode-jsonrpc/node.js';
 import { Authentication } from './messages.js';
 
@@ -17,7 +17,15 @@ initializeProtocol({
 
 program
     .option('--server-address <server-address>', 'The address of the server to connect to')
-    .option('--auth-token <auth-token>', 'The authentication token to use if available');
+    .option('--auth-token <auth-token>', 'The authentication token to use if available')
+    .option('--edit-timeout <milliseconds>', 'How long to wait for the client to answer a document/applyEdit before reading its buffer anew. 0 waits forever.', parseMilliseconds);
+
+function parseMilliseconds(value: string): number {
+    if (!/^\d+$/.test(value.trim())) {
+        throw new InvalidArgumentError('Expected a non-negative integer number of milliseconds.');
+    }
+    return Number(value);
+}
 
 program.parse();
 
@@ -39,4 +47,4 @@ const connectionProvider = new ConnectionProvider({
     userToken: args.authToken
 });
 
-new MessageHandler(connectionProvider, communicationHandler);
+new MessageHandler(connectionProvider, communicationHandler, { editTimeout: args.editTimeout });

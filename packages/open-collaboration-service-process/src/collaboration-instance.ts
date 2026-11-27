@@ -5,11 +5,17 @@
 // ******************************************************************************
 import * as types from 'open-collaboration-protocol';
 import { DisposableCollection, Deferred } from 'open-collaboration-protocol';
-import { LineEnding, LOCAL_ORIGIN, OpenCollaborationYjsProvider, TextDocumentAdapter, YjsTextDocumentSync, YTextChange } from 'open-collaboration-yjs';
+import { LOCAL_ORIGIN, OpenCollaborationYjsProvider } from 'open-collaboration-yjs';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { BinaryData, BinaryResponse, ClientTextSelection, EditorOpenedNotification, fromBinaryMessage, GetDocumentContent, JoinSessionRequest, OnInitNotification, PeerInfoNotification, PeerJoinedNotification, PeerLeftNotification, SessionClosedNotification, TextDocumentInsert, toBinaryMessage, UpdateDocumentContent, UpdateTextSelection } from './messages.js';
+import { ApplyEditRequest, BinaryData, BinaryResponse, ClientTextSelection, CloseTextDocumentParams, DidChangeTextDocumentParams, DidChangeTextSelectionParams, EditorOpenedNotification, GetBufferRequest, OpenTextDocumentParams, fromBinaryMessage, GetDocumentContent, JoinSessionRequest, OnInitNotification, PeerInfoNotification, PeerJoinedNotification, PeerLeftNotification, SessionClosedNotification, toBinaryMessage, UpdateTextSelection } from './messages.js';
 import { MessageConnection } from 'vscode-jsonrpc';
+import { VersionedClientDocument } from './versioned-client-document.js';
+
+export interface CollaborationInstanceOptions {
+    /** See {@link VersionedClientDocumentOptions.editTimeout} */
+    editTimeout?: number;
+}
 
 export class CollaborationInstance implements types.Disposable {
 
@@ -24,7 +30,7 @@ export class CollaborationInstance implements types.Disposable {
 
     protected connectionDisposables: DisposableCollection = new DisposableCollection();
 
-    private yjsDocuments = new Map<string, ClientDocument>();
+    private yjsDocuments = new Map<string, VersionedClientDocument>();
 
     protected identity = new Deferred<types.Peer>();
 
@@ -33,7 +39,8 @@ export class CollaborationInstance implements types.Disposable {
 
     isDisposed = false;
 
-    constructor(public octConnection: types.ProtocolBroadcastConnection, protected clientConnection: MessageConnection, protected isHost: boolean, workspace?: types.Workspace) {
+    constructor(public octConnection: types.ProtocolBroadcastConnection, protected clientConnection: MessageConnection, protected isHost: boolean, workspace?: types.Workspace,
+        protected options: CollaborationInstanceOptions = {}) {
         process.on('beforeExit', () => {
             this.leaveRoom();
         });
@@ -97,16 +104,24 @@ export class CollaborationInstance implements types.Disposable {
         });
 
         octConnection.editor.onOpen(async (peerId, documentPath) => {
-            if(!this.YjsDoc.share.has(documentPath)) {
-                // editor.open is addressed at the host (see registerYjsObject's
-                // guest branch below), so this only ever fires on the host's own
-                // instance. Read the real file content from disk — via this
-                // peer's own native client — instead of seeding with '', which
-                // otherwise leaves every peer's replica blank until *something
-                // else* happens to overwrite it later (e.g. the host's own
-                // editor eventually opening and reseeding the path).
-                const text = this.isHost ? this.decoder.decode((await this.readOwnFile(documentPath)).content) : '';
-                this.registerYjsObject('text', documentPath, text);
+            if (this.isHost && !this.YjsDoc.share.has(documentPath)) {
+                // editor.open is addressed at the host (see shareDocument), so this only ever
+                // fires on the host's own instance. Seed the shared text with the real file
+                // content, read via this peer's own native client, instead of leaving every
+                // peer's replica blank until the host's client opens the document. The client
+                // syncs it once it sends `document/open` for it.
+                const text = this.decoder.decode((await this.readOwnFile(documentPath)).content);
+                if (this.isDisposed) {
+                    return;
+                }
+                const ytext = this.YjsDoc.getText(documentPath);
+                if (ytext.length === 0 && text.length > 0) {
+                    // The shared text holds `\n` line endings only, as seeded by every other client
+                    ytext.insert(0, normalizeLineEndings(text));
+                }
+            }
+            if (this.isDisposed) {
+                return;
             }
             this.clientConnection.sendNotification(EditorOpenedNotification, documentPath, peerId);
         });
@@ -204,55 +219,92 @@ export class CollaborationInstance implements types.Disposable {
         return (BinaryData.is(result) ? fromBinaryMessage(result.data) : result) as types.FileData;
     }
 
-    async registerYjsObject(type: string, documentPath: string, text: string) {
-        if(type === 'text') {
-            // As a guest, getDocumentContent reads the file straight from the host
-            // while the path is unshared, so the client's content does not come from
-            // the shared document. The sync is told what the client holds, so that the
-            // host's seeding update is reconciled with it, not inserted on top.
-            this.yjsDocuments.get(documentPath)?.dispose();
-            const document = this.createClientDocument(documentPath, text);
-            if (this.isHost) {
-                // A non-empty shared document is authoritative: it may hold unsaved guest
-                // edits, and re-seeding would discard those and invalidate every relative
-                // position. The sync pulls it into our client instead.
-                if (this.YjsDoc.getText(documentPath).length === 0) {
-                    document.sync.seed();
-                }
-            } else {
-                this.octConnection.editor.open((await this.hostInfo.promise).id, documentPath);
-            }
+    /**
+     * Starts the synchronization of a document, see `document/open`.
+     *
+     * As a guest, the client reads the file straight from the host while the path is unshared, so
+     * its content does not come from the shared document. The sync is told what the client holds,
+     * so that the host's seeding update is reconciled with it, not inserted on top.
+     */
+    async openTextDocument(params: OpenTextDocumentParams): Promise<void> {
+        if (this.isDisposed) {
+            return;
+        }
+        if (!types.isObject<OpenTextDocumentParams>(params) || typeof params.path !== 'string' || typeof params.text !== 'string'
+            || !Number.isInteger(params.version) || !Number.isInteger(params.openId)) {
+            console.error(`Invalid document/open, the document is not synced: ${JSON.stringify(types.isObject(params) ? { ...params, text: undefined } : params)}`);
+            return;
+        }
+        const path = params.path;
+        this.yjsDocuments.get(path)?.dispose();
+        const document: VersionedClientDocument = new VersionedClientDocument(path, params, this.YjsDoc.getText(path), {
+            applyEdit: edit => this.clientConnection.sendRequest(ApplyEditRequest, edit),
+            getBuffer: request => this.clientConnection.sendRequest(GetBufferRequest, request)
+        }, {
+            editTimeout: this.options.editTimeout,
+            // The offsets of selections could only be estimated while the client's document was behind
+            onDidSync: () => this.checkSelectionUpdated(),
+            onDidChangeSelection: selections => this.updateYjsObjectSelection(path, selections),
+            onDidClose: () => this.closeDocument(path, document)
+        });
+        this.yjsDocuments.set(path, document);
+        await this.shareDocument(path, document);
+    }
+
+    /**
+     * Stops the synchronization of a document, see `document/close`.
+     */
+    closeTextDocument(params: CloseTextDocumentParams): void {
+        if (!types.isObject<CloseTextDocumentParams>(params) || typeof params.path !== 'string') {
+            console.error(`Invalid document/close: ${JSON.stringify(params)}`);
+            return;
+        }
+        this.closeDocument(params.path);
+    }
+
+    didChangeTextDocument(params: DidChangeTextDocumentParams): void {
+        this.getOpenDocument('document/didChange', params)?.didChange(params.version, params.changes);
+    }
+
+    didChangeTextSelection(params: DidChangeTextSelectionParams): void {
+        this.getOpenDocument('document/didChangeSelection', params)?.didChangeSelection(params.version, params.selections);
+    }
+
+    /**
+     * Only closes the given document, if one is given.
+     */
+    private closeDocument(path: string, document = this.yjsDocuments.get(path)): void {
+        if (document && this.yjsDocuments.get(path) === document) {
+            this.yjsDocuments.delete(path);
+            document.dispose();
         }
     }
 
-    private createClientDocument(path: string, text: string): ClientDocument {
-        const document = new ClientDocument(text, this.YjsDoc.getText(path), changes => {
-            this.clientConnection.sendNotification(UpdateDocumentContent, path, changes.map(change => ({
-                startOffset: change.start,
-                endOffset: change.end,
-                text: change.text
-            } as TextDocumentInsert)));
-        }, () => {
-            // The offsets of selections could only be estimated while the client's document was behind
-            this.checkSelectionUpdated();
-        });
-        this.yjsDocuments.set(path, document);
+    private getOpenDocument(method: string, params: { path: string }): VersionedClientDocument | undefined {
+        if (!types.isObject<{ path: string }>(params) || typeof params.path !== 'string') {
+            console.error(`Invalid ${method}: ${JSON.stringify(params)}`);
+            return undefined;
+        }
+        const document = this.yjsDocuments.get(params.path);
+        if (!document) {
+            console.error(`Document ${params.path} has not been opened with document/open`);
+        }
         return document;
     }
 
-    updateYjsObjectContent(documentPath: string, changes: TextDocumentInsert[]) {
-        if (changes.length === 0) {
-            return;
-        }
-        if (documentPath) {
-            // A client that never opened the document can only have got its content from the shared document
-            const document = this.yjsDocuments.get(documentPath)
-                ?? this.createClientDocument(documentPath, this.YjsDoc.getText(documentPath).toString());
-            document.update(changes.map(change => ({
-                start: change.startOffset,
-                end: change.endOffset ?? change.startOffset,
-                text: change.text
-            })));
+    private async shareDocument(documentPath: string, document: VersionedClientDocument): Promise<void> {
+        if (this.isHost) {
+            // A non-empty shared document is authoritative: it may hold unsaved guest
+            // edits, and re-seeding would discard those and invalidate every relative
+            // position. The sync pulls it into our client instead.
+            if (this.YjsDoc.getText(documentPath).length === 0) {
+                document.sync.seed();
+            }
+        } else {
+            const hostId = (await this.hostInfo.promise).id;
+            if (!this.isDisposed) {
+                this.octConnection.editor.open(hostId, documentPath);
+            }
         }
     }
 
@@ -300,7 +352,7 @@ export class CollaborationInstance implements types.Disposable {
 
     }
 
-    updateYjsObjectSelection(documentPath: string, clientSelections: ClientTextSelection[]) {
+    private updateYjsObjectSelection(documentPath: string, clientSelections: ClientTextSelection[]) {
         if (documentPath) {
             const ytext = this.YjsDoc.getText(documentPath);
             const sync = this.yjsDocuments.get(documentPath)?.sync;
@@ -355,52 +407,6 @@ export class CollaborationInstance implements types.Disposable {
     }
 }
 
-/**
- * The document of the native client, as far as the service process knows it.
- *
- * The client applies the changes it is sent without confirming them, and it does not report them
- * back. Other than an editor that rejects an outdated edit, every change is therefore taken as
- * applied the moment it is sent. A change the client makes before it has received one of ours
- * addresses a document that we already consider changed, which only an acknowledgement in the
- * client protocol could resolve.
- */
-class ClientDocument implements types.Disposable {
-
-    /**
-     * Holds the only copy of the client's document: what the sync takes a change for
-     * is what the next change is computed from.
-     */
-    readonly sync: YjsTextDocumentSync;
-
-    constructor(text: string, ytext: Y.Text, send: (changes: YTextChange[]) => void, onDidSync: () => void) {
-        // The sync reads the text it starts with while it is being created
-        let initialText: string | undefined = text;
-        const getText = () => initialText ?? this.sync.text;
-        const adapter: TextDocumentAdapter = {
-            getText,
-            getEol: (): LineEnding => getText().includes('\r\n') ? '\r\n' : '\n',
-            applyChanges: async changes => {
-                send(changes);
-                this.update(changes);
-                return true;
-            }
-        };
-        this.sync = new YjsTextDocumentSync(ytext, adapter, {
-            // stdout is the channel to the client
-            onError: error => console.error('Failed to sync document', error),
-            onDidSync
-        });
-        initialText = undefined;
-    }
-
-    /**
-     * Follows a change of the client's document. All changes address the document as it was before.
-     */
-    update(changes: YTextChange[]): void {
-        this.sync.onDidChangeContent(changes);
-    }
-
-    dispose(): void {
-        this.sync.dispose();
-    }
+function normalizeLineEndings(text: string): string {
+    return text.includes('\r') ? text.replace(/\r\n?/g, '\n') : text;
 }
